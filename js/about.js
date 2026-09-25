@@ -1,0 +1,24 @@
+"use strict";
+/* About & legal */
+let aboutPanel=null;
+const ABOUT={
+ about:'<p><b>Patchwork</b> is a local-first page you write <i>and</i> draw on, with a timestamp ledger in the margin. Rich text, free-hand ink, tasks, questions, answers and projects \u2014 all in one file that runs entirely in your browser.</p><p>It is a single static HTML page: no build step, no backend, no sign-up.</p><p class="ab-mut">Version: beta</p>',
+ privacy:'<p><b>Everything stays on your device.</b> Your text, drawings, images, the page\u2019s history, timestamps, tags, highlight types and profiles, handwriting examples, projects and colour favourites are stored locally in your browser (IndexedDB). Nothing is uploaded \u2014 handwriting recognition runs entirely on this device.</p><p>There are no accounts, no servers, no analytics and no tracking. The only network requests are loading two open-source libraries (DOMPurify and Dexie) when the page first opens.</p><p>Because your data lives only in this browser profile, clearing site or browser data will erase it. Use <b>Backup</b> regularly and keep your exported <code>.json</code> files safe \u2014 treat them like any personal document.</p>',
+ terms:'<p>Patchwork is provided free, <b>as-is and as-available, without warranty of any kind.</b> It is beta software \u2014 features may change and data loss is possible; you are responsible for keeping your own backups.</p><p>You retain all rights to the content you create. To the maximum extent permitted by law, the authors are not liable for any loss or damage (including lost data) arising from use of this app. By using Patchwork you accept these terms.</p>',
+ keys:'<p>Tools (when not typing): <b>T</b> text, <b>P</b> pen, <b>H</b> highlighter, <b>E</b> eraser, <b>V</b> scroll.</p><p><b>Ctrl/\u2318 + Z</b> undo, <b>Ctrl/\u2318 + Shift + Z</b> redo \u2014 ink while a draw tool is active, otherwise text.</p><p><b>Ctrl/\u2318 + F</b> find &amp; filter \u00b7 <b>Ctrl/\u2318 + Shift + F</b> explore highlights \u00b7 <b>Ctrl/\u2318 + Shift + H</b> timeline (<b>\u2190 \u2192</b> step through changes) \u00b7 <b>Esc</b> closes panels.</p><p>Select text to highlight it; the <b>+</b> on the selection bar makes a new highlight type in the Highlight Factory. Drag the left margin edge to resize it; the <b>+</b> above the margin adds a timestamp.</p><p>Handwriting: pick the pen, then <b>\u270d Lab</b> teaches Patchwork your writing. Select handwriting with the arrow tool and press <b>\u2728 Aa</b> to read it as text \u2014 the ink is always kept.</p>'
+};
+function ensureAbout(){if(aboutPanel)return aboutPanel;aboutPanel=document.createElement('div');aboutPanel.className='panel';aboutPanel.style.width='420px';aboutPanel.style.display='none';
+  aboutPanel.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.5" r=".7"/></svg></div><div class="panel-t">About &amp; legal</div><button class="panel-x">\u00d7</button></div><div class="panel-b"><div class="seg" id="ab-tabs"></div><div id="ab-body" style="font-size:12.5px;line-height:1.65;color:#c4c4dc;"></div></div>';
+  document.body.appendChild(aboutPanel);
+  aboutPanel.querySelector('.panel-x').onclick=()=>aboutPanel.style.display='none';
+  const tabs=aboutPanel.querySelector('#ab-tabs');
+  [['about','About'],['privacy','Privacy'],['terms','Terms'],['keys','Keys']].forEach(([k,lb])=>{const b=document.createElement('button');b.textContent=lb;b.dataset.k=k;b.onclick=()=>showAbout(k);tabs.appendChild(b);});
+  makeDraggable(aboutPanel,aboutPanel.querySelector('.panel-h'));
+  const st=document.createElement('style');st.textContent='#ab-body p{margin:0 0 9px;}#ab-body .ab-mut{color:#7a7a92;font-size:11px;}#ab-body code{background:#0f0f18;border:1px solid #26263a;border-radius:4px;padding:0 4px;font-size:11px;}';document.head.appendChild(st);
+  return aboutPanel;}
+function showAbout(k){ensureAbout();aboutPanel.querySelectorAll('#ab-tabs button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));aboutPanel.querySelector('#ab-body').innerHTML=ABOUT[k]||'';}
+function openAbout(){ensureAbout();showAbout('about');aboutPanel.style.display='flex';aboutPanel.style.left=Math.max(8,(window.innerWidth-420)/2)+'px';aboutPanel.style.top='12vh';aboutPanel.style.right='auto';}
+document.getElementById('about-btn').addEventListener('click',openAbout);
+addEventListener('keydown',e=>{if(e.key==='Escape'&&aboutPanel&&aboutPanel.style.display!=='none')aboutPanel.style.display='none';});
+document.querySelectorAll('button[title]').forEach(b=>{if(!b.getAttribute('aria-label'))b.setAttribute('aria-label',b.title);});
+if('serviceWorker' in navigator){addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});}

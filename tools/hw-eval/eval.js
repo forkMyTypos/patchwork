@@ -1,11 +1,10 @@
-// Evaluates the handwriting recogniser that ships in ../../index.html, using synthetic "writers" made from Hershey
-// single-stroke fonts (real stroke order and pen lifts) plus per-writer style and per-sample natural variation.
+// Evaluates the handwriting recogniser that ships in ../../js/handwriting-core.js, using synthetic "writers" made from
+// Hershey single-stroke fonts (real stroke order and pen lifts) plus per-writer style and per-sample natural variation.
 // Usage: npm install && npm run eval
 const fs=require('fs'),path=require('path');
-const html=fs.readFileSync(path.join(__dirname,'../../index.html'),'utf8');
-const src=html.slice(html.indexOf('/* ===== Handwriting recognition core'),html.indexOf('/* ===== Handwriting: language modules'));
-const H=new Function(src+'\nreturn HWCore;')();
-const words=(html.match(/words:'([a-z' ]+)'\}\);/)||[])[1].split(' ');
+const read=f=>fs.readFileSync(path.join(__dirname,'../../js',f),'utf8');
+const H=new Function(read('handwriting-core.js')+'\nreturn HWCore;')();
+const words=(read('handwriting.js').match(/words:'([a-z' ]+)'\}\);/)||[])[1].split(' ');
 const fonts=require('hersheytext/hersheytext.json');
 let seed=12345;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};const gauss=()=>{let u=0;while(!u)u=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*rnd());};
 function glyph(font,ch){const g=fonts[font].chars[ch.charCodeAt(0)-33];if(!g||!g.d)return null;const out=[];let cur=null,mode=null;for(const t of g.d.replace(/([ML])/g,' $1 ').trim().split(/\s+/)){if(t==='M'||t==='L'){mode=t;continue;}const [x,y]=t.split(',').map(Number);if(mode==='M'){cur=[{x,y}];out.push(cur);mode='L';}else cur.push({x,y});}return out;}

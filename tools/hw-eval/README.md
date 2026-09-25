@@ -2,7 +2,7 @@
 
 Test-only tooling. Nothing in this folder ships in Patchwork, and it needs no network once installed.
 
-It loads the recogniser straight out of `../../index.html` (the `Handwriting recognition core` block), so the numbers
+It loads the recogniser straight from `../../js/handwriting-core.js`, so the numbers
 always describe the code that ships. It then measures it with synthetic writers built from Hershey single-stroke fonts:
 real stroke order and pen lifts, plus a consistent personal style (slant, width) and natural per-sample variation
 (wobble, jitter, sampling speed, the occasional reversed or cut-short stroke).

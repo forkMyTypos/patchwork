@@ -1,0 +1,7 @@
+{
+  "name": "patchwork-hw-eval",
+  "private": true,
+  "description": "Offline evaluation of Patchwork's handwriting recogniser with synthetic writers (test-only; nothing here ships in the app).",
+  "scripts": { "eval": "node eval.js" },
+  "devDependencies": { "hersheytext": "2.0.0" }
+}

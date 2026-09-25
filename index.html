@@ -363,6 +363,68 @@ button{font-family:inherit;}
 .tl-ends{display:flex;align-items:center;gap:10px;font-size:11px;color:#6a6a86;}
 .tl-rng{display:flex;gap:4px;margin:0 auto;flex-wrap:wrap;justify-content:center;}
 @media (max-width:560px){.tl-badge{display:none;}.tl-big{font-size:15px;}}
+/* handwriting lab */
+.hw-inkbtn{width:auto!important;padding:0 9px!important;gap:4px;font-size:12px;display:flex;align-items:center;}
+#hwlab{position:fixed;inset:0;z-index:8960;background:#0b0b10;display:flex;flex-direction:column;color:#e6e6f0;}
+.hw-bar{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #1f1f2e;background:#0e0e15;flex-wrap:wrap;}
+.hw-ic{font-size:16px;}.hw-sub{font-size:11px;color:#7a7a92;}
+.hw-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto;}
+.hw-lang{max-width:130px;flex:0 0 auto;}
+.hw-body{flex:1;min-height:0;overflow:auto;padding:16px;}
+.hw-h{font-size:12px;font-weight:700;color:#c4c4dc;margin-bottom:8px;}.hw-h.small{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#7a7a92;margin:14px 0 6px;}
+.hw-hint{font-size:11px;color:#6a6a86;line-height:1.45;}
+.hw-note{border:1px solid #5a4a2b;background:#1a1510;color:#e8d9b5;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:14px;}
+.hw-p{font-size:13px;color:#b4b4cc;line-height:1.55;max-width:680px;}
+.hw-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.hw-grid3{display:grid;grid-template-columns:minmax(260px,340px) minmax(240px,1fr) minmax(220px,300px);gap:18px;align-items:start;}
+.hw-col{background:#11111a;border:1px solid #1d1d2c;border-radius:12px;padding:12px;min-width:0;}
+.hw-pad{display:block;width:100%;background:#15141d;border:1px solid #2a2a3a;border-radius:10px;touch-action:none;cursor:crosshair;}
+.hw-pad.char{aspect-ratio:1/1;}.hw-pad.char.big{max-width:420px;margin:0 auto;}
+.hw-pad.word{height:220px;}
+.hw-norm{width:100%;aspect-ratio:1/1;display:block;background:#0f0f16;border-radius:10px;}
+.hw-legend{font-size:10.5px;color:#6a6a86;margin:6px 0;}
+.hw-stats table{width:100%;font-size:11.5px;border-collapse:collapse;}.hw-stats td{padding:3px 0;border-bottom:1px solid #1a1a26;}.hw-stats td:first-child{color:#7a7a92;}.hw-stats td:last-child{text-align:right;font-family:monospace;color:#d4d4e8;}
+.hw-save .pf-in{width:46px;text-align:center;font-size:18px;height:34px;padding:0;}
+.hw-best{display:flex;align-items:center;gap:12px;margin-bottom:10px;min-height:52px;}
+.hw-bigch{font-size:44px;font-weight:700;color:#f3ead7;line-height:1;min-width:34px;text-align:center;}
+.hw-tier{font-size:11px;border-radius:999px;padding:3px 9px;border:1px solid;}
+.hw-tier.high{color:#4ade80;border-color:#22543d;}.hw-tier.mid{color:#fbbf24;border-color:#5a4a2b;}.hw-tier.low{color:#f87171;border-color:#7f1d1d;}
+.hw-m{display:grid;grid-template-columns:24px 1fr 38px 26px;align-items:center;gap:8px;font-size:12px;margin:3px 0;}
+.hw-mch{font-size:16px;font-weight:700;text-align:center;}.hw-mbar{height:8px;background:#1b1b28;border-radius:5px;overflow:hidden;}.hw-mbar i{display:block;height:100%;background:linear-gradient(90deg,#818cf8,#fbbf24);}
+.hw-mpc{font-family:monospace;color:#c4c4dc;text-align:right;}.hw-mn{font-size:10px;color:#6a6a86;}
+.hw-near{width:90px;height:90px;display:block;background:#0f0f16;border-radius:8px;}
+.hw-cal-setup{max-width:760px;}
+.hw-sets{display:flex;flex-direction:column;gap:6px;margin:12px 0;}
+.hw-set{display:flex;align-items:center;gap:8px;background:#11111a;border:1px solid #1d1d2c;border-radius:10px;padding:9px 11px;font-size:13px;flex-wrap:wrap;}
+.hw-chars{color:#7a7a92;font-family:monospace;font-size:11.5px;flex:1;min-width:200px;}.hw-have{font-size:11px;color:#4ade80;}
+.hw-cal{max-width:900px;margin:0 auto;}
+.hw-cal-top{display:flex;align-items:center;gap:12px;margin-bottom:12px;}.hw-cal-title{font-weight:700;font-size:13px;}.hw-cal-count{font-family:monospace;font-size:12px;color:#7a7a92;}
+.hw-prog{flex:1;height:5px;background:#1b1b28;border-radius:5px;overflow:hidden;}.hw-prog i{display:block;height:100%;background:#fbbf24;transition:width .2s;}
+.hw-cal-main{display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:start;}
+.hw-target{text-align:center;}.hw-tch{font-size:96px;font-weight:700;color:#f3ead7;line-height:1.1;font-family:Georgia,serif;}
+.hw-tp{font-size:13px;color:#c4c4dc;line-height:1.5;}.hw-tprev{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:12px;}
+.hw-mini{width:40px;height:40px;background:#15141d;border-radius:6px;}
+.hw-word{max-width:1100px;}
+.hw-badge{display:inline-block;font-size:11px;color:#fbbf24;border:1px solid #5a4a2b;background:#1a1510;border-radius:999px;padding:2px 10px;margin-bottom:8px;}
+.hw-result{margin-top:14px;display:flex;flex-direction:column;gap:8px;max-width:760px;}
+.hw-out{display:flex;align-items:center;gap:10px;}.hw-ms{font-size:10.5px;color:#6a6a86;}
+.hw-text{height:44px;font-size:20px;}
+.hw-alts{display:flex;flex-direction:column;gap:5px;}.hw-altg{display:flex;flex-wrap:wrap;gap:5px;}
+.hw-pp{font-size:9.5px;color:#7a7a92;margin-left:5px;font-family:monospace;}.hw-nd{color:#f87171;font-size:10px;}
+.hw-model{max-width:1000px;}.hw-modeltop{justify-content:space-between;align-items:flex-start;margin-top:0;}
+.hw-check{margin:14px 0;}.hw-checkres{background:#11111a;border:1px solid #1d1d2c;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
+.hw-big{font-size:24px;font-weight:700;color:#f3ead7;}
+.hw-pairs{display:flex;flex-wrap:wrap;gap:6px;}.hw-pair{font-family:monospace;font-size:14px;padding:4px 10px;border-radius:8px;border:1px solid #5a4a2b;color:#fbbf24;}.hw-pair.bad{border-color:#7f1d1d;color:#f87171;}
+.hw-cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:6px;}
+.hw-cell{position:relative;height:66px;border:1px solid #1d1d2c;background:#11111a;border-radius:9px;cursor:pointer;}.hw-cell:hover{border-color:#3a3a52;}.hw-cell.empty{opacity:.5;}
+.hw-cell canvas{position:absolute;inset:14px 6px 4px 18px;width:calc(100% - 24px);height:calc(100% - 18px);}
+.hw-cch{position:absolute;left:6px;top:3px;font-weight:700;font-size:13px;color:#c4c4dc;}.hw-cn{position:absolute;right:6px;top:4px;font-size:10px;font-family:monospace;color:#7a7a92;}
+#hw-charpop{margin-top:12px;background:#13131f;border:1px solid #34345a;border-radius:12px;padding:10px 12px;}
+#hw-charpop .hw-row{margin-top:0;}#hw-charpop .panel-x{margin-left:auto;}
+.hw-samps{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}.hw-samp{position:relative;width:78px;height:92px;background:#0f0f16;border-radius:8px;}
+.hw-samp canvas{width:78px;height:74px;display:block;}.hw-samp span{font-size:9.5px;color:#6a6a86;padding-left:6px;}
+.hw-samp button{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;border:1px solid #3a3a4a;background:#1c1c28;color:#c4c4dc;font-size:11px;cursor:pointer;line-height:1;}
+@media (max-width:900px){.hw-grid3{grid-template-columns:1fr;}.hw-cal-main{grid-template-columns:1fr;}.hw-tch{font-size:64px;}.hw-sub{display:none;}}
 /* highlight painting (class based so it never leaks into saved run formatting) */
 .mk{border-radius:2px;}
 .mk-bg{background:var(--mkbg);}
@@ -402,6 +464,9 @@ button{font-family:inherit;}
     <button id="ink-grab" class="ink-tool-btn" title="Select & move strokes (Del to delete)"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18l5-5 3 7 3-1.3-3-6.7h7z"/></svg></button>
     <div class="bsep"></div>
     <div id="sizewrap"><input type="range" id="size" min="1" max="48" value="3"/><span id="sizeval">3 px</span></div>
+    <div class="bsep"></div>
+    <button id="ink-recognize" class="ink-tool-btn hw-inkbtn" title="Recognise the selected handwriting as text (the ink is kept)">✨ <span>Aa</span></button>
+    <button id="hw-lab-btn" class="ink-tool-btn hw-inkbtn" title="Handwriting Lab — teach Patchwork your handwriting">✍ <span>Lab</span></button>
   </div>
   <span id="handmsg">Scroll the page &mdash; one finger / wheel. Pick a tool to write or draw.</span>
 </div>
@@ -663,6 +728,8 @@ const db=new Dexie('patchwork-page');
 db.version(3).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id'});
 // v4 only ADDS tables (existing data untouched): content-addressed images + paragraphs, page history snapshots, highlight types + profiles
 db.version(4).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id'});
+// v5 adds personal handwriting examples (local only)
+db.version(5).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id',hw:'++id,lang,ch,src'});
 
 const GAP_MS=4*60*1000;
 const PALETTE=['#ece6da','#f87171','#fb923c','#fbbf24','#4ade80','#22d3ee','#60a5fa','#a78bfa','#f472b6','#1c1c24'];
@@ -1123,6 +1190,8 @@ if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INP
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();toggleSide(true);setTimeout(()=>document.getElementById('side-q').focus(),70);return;}
   if(e.key==='Escape'){const _sd=document.getElementById('side');if(_sd&&_sd.classList.contains('open')){toggleSide(false);return;}if(picker&&picker.style.display!=='none'){picker.style.display='none';return;}if(projPanel&&projPanel.style.display!=='none'){projPanel.style.display='none';return;}if(popup&&popup.style.display!=='none'){closePopup();return;}hideTagbar();return;}
   const tag=(e.target&&e.target.tagName)||'';
+  // full-screen views (Lab, Timeline, Explorer) own the keyboard: never undo or switch tools on the hidden page
+  if(['hwlab','timeline','explorer'].some(id=>{const el=document.getElementById(id);return el&&el.style.display!=='none';}))return;
   if(document.activeElement===noteEd)return;
   if((e.ctrlKey||e.metaKey)&&!e.altKey){const k=e.key.toLowerCase();if(k==='z'&&!e.shiftKey){e.preventDefault();hostUndo();return;}if((k==='z'&&e.shiftKey)||k==='y'){e.preventDefault();hostRedo();return;}}
   if(e.ctrlKey||e.metaKey||e.altKey)return;if(tag==='INPUT'||tag==='TEXTAREA')return;
@@ -1508,6 +1577,303 @@ async function tlOpenAsNew(){const T=TL.T,si=tlSnapAt(T);const paras=si>=0?TL.sn
 document.getElementById('timeline-btn').addEventListener('click',()=>{if(tlOpen())closeTimeline();else openTimeline();});
 addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='h'){e.preventDefault();if(tlOpen())closeTimeline();else openTimeline();}},true);
 
+/* ===== Handwriting recognition core (language-agnostic, offline, pure functions) =====
+   Input is Patchwork stroke geometry: an array of strokes, each an array of {x,y} in any units, in writing order.
+   Level 1-3 of the plan: normalise -> resample -> compare with the user's own samples (sequence DTW + order-free
+   point cloud) -> ranked candidates. Level 4: segment print writing into characters and rescore with a dictionary.
+   No network, no model files: the "model" is the user's own samples. */
+const HWCore=(()=>{
+  const N=40;                       // points per normalised glyph
+  const hyp=Math.hypot;
+  function strokeLen(s){let L=0;for(let i=1;i<s.length;i++)L+=hyp(s[i].x-s[i-1].x,s[i].y-s[i-1].y);return L;}
+  function smooth(s){if(s.length<3)return s;const o=[s[0]];for(let i=1;i<s.length-1;i++)o.push({x:(s[i-1].x+2*s[i].x+s[i+1].x)/4,y:(s[i-1].y+2*s[i].y+s[i+1].y)/4});o.push(s[s.length-1]);return o;}
+  // n points evenly spaced along the stroke (the $1-recogniser resampling step)
+  function resample(s,n){const L=strokeLen(s);if(s.length<2||L===0)return Array.from({length:n},()=>({x:s[0].x,y:s[0].y}));
+    const step=L/(n-1),out=[{x:s[0].x,y:s[0].y}];let acc=0,prev={x:s[0].x,y:s[0].y};
+    for(let i=1;i<s.length&&out.length<n;i++){const cur=s[i];let d=hyp(cur.x-prev.x,cur.y-prev.y);
+      while(acc+d>=step&&out.length<n&&d>0){const t=(step-acc)/d;const q={x:prev.x+t*(cur.x-prev.x),y:prev.y+t*(cur.y-prev.y)};out.push(q);prev=q;acc=0;d=hyp(cur.x-prev.x,cur.y-prev.y);}
+      acc+=d;prev=cur;}
+    while(out.length<n)out.push({x:s[s.length-1].x,y:s[s.length-1].y});return out;}
+  function bbox(strokes){let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;for(const s of strokes)for(const p of s){if(p.x<x0)x0=p.x;if(p.x>x1)x1=p.x;if(p.y<y0)y0=p.y;if(p.y>y1)y1=p.y;}return{x0,y0,x1,y1,w:x1-x0,h:y1-y0};}
+  function clean(strokes){return (strokes||[]).map(s=>(s||[]).filter(p=>p&&isFinite(p.x)&&isFinite(p.y)).map(p=>({x:+p.x,y:+p.y}))).filter(s=>s.length);}
+  /* Normalise a glyph. frame (optional) = {base,xh}: the writing line in the same units, so size/position relative to
+     the line can tell o from O or l from 1. Returns the feature record the matchers use. */
+  function prep(strokes,frame){strokes=clean(strokes);if(!strokes.length)return null;const b=bbox(strokes);const size=Math.max(b.w,b.h,1e-6);
+    const cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;const lens=strokes.map(strokeLen),total=lens.reduce((a,c)=>a+c,0)||1;
+    const pts=[];strokes.forEach((s,si)=>{const dot=lens[si]<size*0.06;const n=dot?2:Math.max(3,Math.round(N*lens[si]/total));const r=resample(smooth(s),n);
+      for(let j=0;j<r.length;j++){const a=r[Math.max(0,j-1)],c=r[Math.min(r.length-1,j+1)];let dx=c.x-a.x,dy=c.y-a.y;const l=hyp(dx,dy);if(l>0){dx/=l;dy/=l;}else{dx=0;dy=0;}
+        pts.push({x:(r[j].x-cx)/size,y:(r[j].y-cy)/size,dx,dy,s:j===0?1:0});}});
+    const f={pts,n:strokes.length,aspect:Math.log((b.w+size*0.05)/(b.h+size*0.05)),box:b};
+    if(frame&&frame.xh>0)f.frame={top:(frame.base-b.y0)/frame.xh,bot:(frame.base-b.y1)/frame.xh};
+    return f;}
+  // sequence distance: dynamic time warping over (position, direction, pen-up) with a Sakoe-Chiba band
+  function dtw(a,b){const A=a.pts,B=b.pts,n=A.length,m=B.length,band=Math.max(Math.abs(n-m),Math.ceil(Math.max(n,m)*0.3));const W=m+1;
+    const D=new Float64Array((n+1)*W).fill(Infinity);D[0]=0;
+    for(let i=1;i<=n;i++){const p=A[i-1],j0=Math.max(1,i-band),j1=Math.min(m,i+band);for(let j=j0;j<=j1;j++){const q=B[j-1];
+      const c=hyp(p.x-q.x,p.y-q.y)+0.22*(1-(p.dx*q.dx+p.dy*q.dy))/2+(p.s!==q.s?0.04:0);
+      const k=i*W+j;D[k]=c+Math.min(D[k-W],D[k-1],D[k-W-1]);}}
+    return D[n*W+m]/(n+m);}
+  // order-free distance (greedy point-cloud match, like the $P recogniser): forgives a different stroke order
+  function cloud1(A,B){const used=new Uint8Array(B.length);let sum=0;for(let i=0;i<A.length;i++){let best=Infinity,bi=-1;for(let j=0;j<B.length;j++){if(used[j])continue;const d=hyp(A[i].x-B[j].x,A[i].y-B[j].y);if(d<best){best=d;bi=j;}}if(bi>=0){used[bi]=1;sum+=best*(1-0.5*i/A.length);}else sum+=0.5;}return sum/A.length;}
+  function cloud(a,b){return (cloud1(a.pts,b.pts)+cloud1(b.pts,a.pts))/2;}
+  const W8={dtw:0.6,cloud:0.4,aspect:0.05,strokes:0.02,frame:0.07};
+  function distance(a,b,o){let d=W8.dtw*dtw(a,b)+W8.cloud*cloud(a,b)+W8.aspect*Math.abs(a.aspect-b.aspect)+W8.strokes*Math.min(3,Math.abs(a.n-b.n));
+    if(a.frame&&b.frame)d+=(o&&o.frameWeight!=null?o.frameWeight:W8.frame)*(Math.min(1.5,Math.abs(a.frame.top-b.frame.top))+Math.min(1.5,Math.abs(a.frame.bot-b.frame.bot)));
+    return d;}
+  const SIM=0.16,TEMP=0.018;
+  function similarity(d){return Math.max(0,Math.min(1,Math.exp(-d/SIM)));}
+  /* Classify one glyph against the personal model: model = [{ch, f}] (prepared samples).
+     Returns every known character ranked, with distance, similarity (0..1) and probability (sums to 1). */
+  function coarse(f){if(!f.c){const P=f.pts,c=[];for(let i=0;i<12;i++){const p=P[Math.floor(i*(P.length-1)/11)];c.push(p);}f.c=c;}return f.c;}
+  function cheap(a,b){const A=coarse(a),B=coarse(b);let s=0;for(const p of A){let m=Infinity;for(const q of B){const d=(p.x-q.x)*(p.x-q.x)+(p.y-q.y)*(p.y-q.y);if(d<m)m=d;}s+=Math.sqrt(m);}return s/A.length+0.05*Math.abs(a.aspect-b.aspect);}
+  function classify(f,model,o){if(!f||!model.length)return[];const per=new Map();const K=(o&&o.keep)||0;let pool=model.filter(s=>s.f);
+    if(pool.length>40){const ranked=pool.map(s=>({s,c:cheap(f,s.f)})).sort((x,y)=>x.c-y.c);const keep=new Set(ranked.slice(0,Math.max(36,K*3)).map(x=>x.s));pool=pool.filter(s=>keep.has(s));}
+    for(const s of pool){const d=distance(f,s.f,o);let r=per.get(s.ch);if(!r){r={ch:s.ch,ds:[]};per.set(s.ch,r);}r.ds.push({d,s});}
+    const out=[];for(const r of per.values()){r.ds.sort((x,y)=>x.d-y.d);const d=r.ds.length>1?0.7*r.ds[0].d+0.3*r.ds[1].d:r.ds[0].d;out.push({ch:r.ch,d,best:r.ds[0].s,samples:r.ds.length});}
+    out.sort((x,y)=>x.d-y.d);const d0=out[0].d;let z=0;for(const c of out){c.p=Math.exp(-(c.d-d0)/TEMP);z+=c.p;}for(const c of out){c.p/=z;c.sim=similarity(c.d);}
+    // overall confidence: how sure among known shapes x how much it looks like any known shape at all
+    const conf=out[0].p*Math.min(1,similarity(d0)/0.55);out.forEach(c=>c.confidence=c.p*Math.min(1,similarity(d0)/0.55));out.confidence=conf;return out;}
+  /* Level 4: split print handwriting into "atoms" (strokes that clearly overlap, or small marks like the dot of an i,
+     belong together), find the writing line, and split words at large gaps. Atoms may still be pieces of a letter;
+     recognizeLine decides how to join them (segmentation by recognition). Joined-up cursive is out of scope for now. */
+  function segment(strokes){strokes=clean(strokes);if(!strokes.length)return{atoms:[],words:[],lineH:0};const items=strokes.map((s,i)=>({i,s,b:bbox([s])}));
+    const hs=items.map(it=>Math.max(it.b.h,it.b.w*0.5)).sort((a,b)=>a-b);const big=hs.filter(h=>h>0.35*hs[hs.length-1]);const lineH=Math.max(1e-6,big.length?big[Math.floor(big.length/2)]:hs[hs.length-1]);
+    const parent=items.map((_,i)=>i);const find=i=>parent[i]===i?i:(parent[i]=find(parent[i]));const join=(a,b)=>{parent[find(a)]=find(b);};
+    for(let a=0;a<items.length;a++)for(let b=a+1;b<items.length;b++){const A=items[a].b,B=items[b].b;const ov=Math.min(A.x1,B.x1)-Math.max(A.x0,B.x0);const nar=Math.max(1e-6,Math.min(A.w,B.w));
+      const small=x=>x.w<0.4*lineH&&x.h<0.4*lineH;
+      if(ov>0.6*nar&&ov>0.25*lineH)join(a,b);                                   // clearly on top of each other
+      else if((small(A)||small(B))&&ov>-0.1*lineH&&Math.abs(b-a)<=2)join(a,b);  // i-dots, t-bars, accents
+    }
+    const gm=new Map();items.forEach((it,i)=>{const r=find(i);if(!gm.has(r))gm.set(r,[]);gm.get(r).push(it);});
+    const atoms=[...gm.values()].map(g=>{g.sort((x,y)=>x.i-y.i);const sts=g.map(x=>x.s);return{strokes:sts,idx:g.map(x=>x.i),b:bbox(sts)};}).sort((x,y)=>(x.b.x0+x.b.x1)-(y.b.x0+y.b.x1));
+    const bots=atoms.filter(a=>a.b.h>0.3*lineH).map(a=>a.b.y1).sort((a,b)=>a-b);const base=bots.length?bots[Math.floor(bots.length/2)]:atoms[0].b.y1;
+    // word breaks: a gap much wider than the usual gap between pieces
+    const gaps=[];for(let k=1;k<atoms.length;k++){let right=-Infinity;for(let q=0;q<k;q++)right=Math.max(right,atoms[q].b.x1);gaps.push(atoms[k].b.x0-right);}
+    const pos=gaps.filter(g=>g>0).sort((a,b)=>a-b);const medGap=pos.length?pos[Math.floor(pos.length/2)]:0;
+    const words=[];let cur=[];atoms.forEach((a,k)=>{if(k>0&&gaps[k-1]>Math.max(0.5*lineH,medGap*2.5)&&cur.length){words.push(cur);cur=[];}cur.push(a);});if(cur.length)words.push(cur);
+    return{atoms,words,lineH,base};}
+  // joined pieces keep the order they were WRITTEN in (stroke order is part of a person's handwriting)
+  function mergeAtoms(list){const pairs=[];list.forEach(a=>a.strokes.forEach((s,j)=>pairs.push({s,i:a.idx[j]})));pairs.sort((x,y)=>x.i-y.i);const strokes=pairs.map(x=>x.s);return{strokes,idx:pairs.map(x=>x.i),b:bbox(strokes)};}
+  /* Many capitals are the same shape as their small letter (o/O, s/S, x/X, w/W...). For dictionary words, decide
+     capitalisation from size: a first letter clearly taller than the rest is a capital; all tall = ALL CAPS. */
+  function caseLike(c){const s=c.s,parts=c.parts;if(s.length<2)return s===s.toLowerCase()?s:s.toUpperCase()===s&&/^[a-z]$/i.test(s)&&parts[0]&&parts[0].c.ch===s?s:s;
+    const h=parts.map(x=>x.g.m.b.h),rest=h.slice(1).sort((a,b)=>a-b),med=rest[Math.floor(rest.length/2)]||h[0];
+    const low=s.toLowerCase(),allUp=s===s.toUpperCase()&&/[A-Z]/.test(s);if(allUp&&Math.min(...h)>0.8*Math.max(...h))return s;
+    const firstBig=h[0]>1.2*med||/[A-Z]/.test(s[0])&&parts[0].c.p>0.9&&!'CKOPSUVWXZ'.includes(s[0]);
+    return (firstBig&&/[A-Z]/.test(s[0]))?s[0]+low.slice(1):low;}
+  /* Recognise a line of print writing. For each word: a beam search over (how many atoms make the next character,
+     which character) scored by shape distance, with a soft dictionary prior. Returns candidates per word + the text. */
+  function recognizeLine(strokes,model,opts){opts=opts||{};const seg=segment(strokes);if(!seg.atoms.length)return{tokens:[],text:'',confidence:0,seg};
+    const fold=opts.fold||(c=>c.toLowerCase());const dict=opts.dict||null;const T=TEMP*2.2,B=opts.dictBonus!=null?opts.dictBonus:4,PFX=opts.prefixPenalty!=null?opts.prefixPenalty:1.4,D0=opts.d0!=null?opts.d0:(dict?0.08:0),CT=opts.candTemp||1.5;
+    const xh=seg.lineH;const frame={base:seg.base,xh};const cache=new Map();   // most letters in running text are x-height lettersconst cache=new Map();
+    const glyphAt=(atoms,i,k)=>{const key=atoms[i].idx[0]+':'+k;let g=cache.get(key);if(g)return g;const m=mergeAtoms(atoms.slice(i,i+k));
+      if(k>1&&m.b.w>1.7*seg.lineH){g={bad:true};cache.set(key,g);return g;}
+      const f=prep(m.strokes,frame);g={m,f,cands:classify(f,model,{frameWeight:0.05,keep:10})};cache.set(key,g);return g;};
+    const tokens=seg.words.map(atoms=>{const n=atoms.length;let beam=[{i:0,s:'',sc:0,parts:[]}];const done=[];let guard=0;
+      while(beam.length&&guard++<200){const next=[];for(const st of beam){if(st.i>=n){done.push(st);continue;}
+        for(let k=1;k<=Math.min(4,n-st.i);k++){const g=glyphAt(atoms,st.i,k);if(g.bad)break;const cs=g.cands.slice(0,6);
+          for(const c of cs){const s=st.s+c.ch;let sc=st.sc+(D0-c.d)/T;/* a good match adds evidence, a poor one costs */if(dict&&!dict.prefix.has(fold(s)))sc-=PFX;next.push({i:st.i+k,s,sc,parts:st.parts.concat([{g,c,k}])});}}}
+        next.sort((a,b)=>b.sc-a.sc);const seen=new Set();beam=[];for(const x of next){const key=x.i+'|'+x.s;if(seen.has(key))continue;seen.add(key);beam.push(x);if(beam.length>=120)break;}}
+      done.forEach(d=>{d.inDict=!!(dict&&dict.set.has(fold(d.s)));d.total=d.sc+(d.inDict?B:0);});
+      done.sort((a,b)=>b.total-a.total);const uniq=[];const seen=new Set();for(const d of done){if(seen.has(d.s))continue;seen.add(d.s);uniq.push(d);if(uniq.length>=8)break;}
+      if(!uniq.length)return{list:[{text:'?',p:0,confidence:0,parts:[]}]};
+      const m=uniq[0].total;let z=0;uniq.forEach(c=>{c.p=Math.exp((c.total-m)/CT);z+=c.p;});
+      const look=uniq[0].parts.reduce((a,x)=>a+Math.min(1,similarity(x.c.d)/0.55),0)/Math.max(1,uniq[0].parts.length);
+      const list=uniq.map(c=>({text:c.inDict?caseLike(c):c.s,p:c.p/z,confidence:(c.p/z)*look,dict:c.inDict,parts:c.parts}));return{list};});
+    const text=tokens.map(t=>t.list[0].text).join(' ');const conf=Math.min(...tokens.map(t=>t.list[0].confidence));   /* a line is only as certain as its weakest word */
+    return{tokens,text,confidence:conf,seg};}
+  /* Adaptive calibration support: classify every sample against all the others (leave-one-out) and report which
+     characters get confused for this writer, so calibration can ask for exactly those. */
+  function selfTest(model,opts){const res={n:0,ok:0,confusions:new Map(),weak:new Map()};
+    for(let i=0;i<model.length;i++){const s=model[i];if(!s.f)continue;const rest=model.filter((_,j)=>j!==i);if(!rest.some(r=>r.ch===s.ch))continue;const c=classify(s.f,rest,opts);if(!c.length)continue;res.n++;
+      if(c[0].ch===s.ch){res.ok++;const second=c[1];if(second&&second.d-c[0].d<0.012){const k=[s.ch,second.ch].sort().join('\u0000');res.weak.set(k,(res.weak.get(k)||0)+1);}}
+      else{const k=[s.ch,c[0].ch].sort().join('\u0000');res.confusions.set(k,(res.confusions.get(k)||0)+1);}}
+    const pairs=[...res.confusions.entries()].map(([k,n])=>({pair:k.split('\u0000'),n,kind:'confused'})).concat([...res.weak.entries()].map(([k,n])=>({pair:k.split('\u0000'),n,kind:'close'}))).sort((a,b)=>(b.kind==='confused')-(a.kind==='confused')||b.n-a.n);
+    return{n:res.n,accuracy:res.n?res.ok/res.n:0,pairs};}
+  function buildDict(words,fold){fold=fold||(w=>w.toLowerCase());const set=new Set(),prefix=new Set();for(let w of words){w=fold(String(w||'').trim());if(!w||w.length>24||set.has(w))continue;set.add(w);for(let i=1;i<=w.length;i++)prefix.add(w.slice(0,i));}return{set,prefix,size:set.size};}
+  return{N,prep,distance,dtw,cloud,classify,segment,recognizeLine,selfTest,buildDict,similarity,bbox,W8};
+})();
+
+/* ===== Handwriting: language modules =====
+   Each language is a separate module (character sets, dictionary, case folding, hints). The core above knows nothing
+   about any language. Thai / Japanese / Korean modules can be registered later without touching the core. */
+const HW_MODULES=new Map();
+function registerHandwritingModule(m){HW_MODULES.set(m.id,m);}
+registerHandwritingModule({id:'en',name:'English',
+  sets:[{id:'digits',label:'Numbers',chars:'0123456789'},{id:'upper',label:'Capitals',chars:'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},{id:'lower',label:'Small letters',chars:'abcdefghijklmnopqrstuvwxyz'}],
+  fold:c=>c.toLowerCase(),wordRe:/[A-Za-z0-9']+/g,
+  // a small built-in word list; your own Patchwork pages and corrections are added as a personal dictionary
+  words:'a i about above across act action add after again against age ago agree ahead air all allow almost alone along already also always am among an and animal another answer any anyone anything api app appear apple are area arm around arrive art as ask at away baby back bad bag ball bank bar base be bear beat beautiful because become bed been before begin behind being believe below best better between big bill bird bit black blue board boat body book born both bottom box boy break bring brother brown bug build building busy but buy by call came can car card care carry case cat catch cause center certain chair chance change check child children city class clean clear close cold color come common company complete computer cool copy corner cost could count country course cover cross cup cut dark data date day dead deal dear decide deep design desk did die different dinner do doctor does dog done door down draw dream drink drive drop dry during each early earth easy eat edge egg eight either else end enough enter even evening ever every example eye face fact fall family far farm fast father feel feet few field fight fill final find fine finish fire first fish five fix floor fly follow food foot for force form four free friend from front full fun game garden gave get girl give glass go going gold gone good got great green ground group grow guess had hair half hand happen happy hard has hat have he head hear heart heavy held hello help her here high hill him his hit hold home hope horse hot hour house how however huge human hundred idea if important in inside into is it its job join just keep key kind king know land language large last late later laugh law lay lead learn least leave left leg less let letter level life light like line list listen little live login long look lose lot love low made main make man many map mark market matter may me mean meet member men middle might mile milk mind minute miss moment money month moon more morning most mother move much music must my name near need never new news next nice night nine no nor north not note nothing notice now number of off office often oh old on once one only open or order other our out over own page paper part party pass past pay people perhaps person pick picture piece place plan plant play please point poor possible power press pretty problem pull push put question quick quiet quite rain ran reach read ready real reason red remember rest rice right river road rock room round rule run said same sat save saw say school sea second see seem self sell send sentence serve set seven several shall shape she ship short should show side sign simple since sing sister sit six size sleep slow small smile snow so some something sometimes son song soon sound south space speak special spell spring stand star start state stay step still stop story street strong student study such summer sun sure table take talk tall task teach teacher team tell ten test than thank that the their them then there these they thing think third this those though thought three through time to today together told tomorrow too took top toward town tree true try turn two type under understand until up upon us use usual very voice wait walk wall want war warm was watch water way we wear weather week well went were west what when where which while white who whole why wide will wind window winter wish with without woman women wonder word work world would write wrong yard year yes yet you young your'});
+
+/* ===== Handwriting: the personal model (db.hw, never leaves the device) ===== */
+const HWS={lang:'en',samples:[],model:[],learn:true,personal:new Set(),dict:null};
+function hwModule(){return HW_MODULES.get(HWS.lang)||HW_MODULES.get('en');}
+async function hwLoad(){try{const inf=await db.info.get('info');HWS.learn=!(inf&&inf.hwLearn===false);if(inf&&inf.hwLang&&HW_MODULES.has(inf.hwLang))HWS.lang=inf.hwLang;(inf&&inf.hwWords||[]).forEach(w=>HWS.personal.add(w));
+  HWS.samples=await db.hw.where('lang').equals(HWS.lang).toArray();}catch(e){console.error(e);HWS.samples=[];}hwRebuild();}
+function hwRebuild(){HWS.model=HWS.samples.map(s=>({id:s.id,ch:s.ch,f:s._f||(s._f=HWCore.prep(s.strokes,s.frame)),s})).filter(x=>x.f);}
+async function hwAddSample(ch,strokes,frame,src){const rec={lang:HWS.lang,ch,strokes:strokes.map(s=>s.map(p=>({x:+(+p.x).toFixed(2),y:+(+p.y).toFixed(2),p:p.p!=null?+(+p.p).toFixed(2):undefined,t:p.t}))),frame:frame||null,src:src||'lab',created:Date.now()};
+  try{rec.id=await db.hw.add(rec);}catch(e){_quotaToast(e);return null;}HWS.samples.push(rec);hwRebuild();return rec;}
+async function hwDeleteSample(id){await db.hw.delete(id);HWS.samples=HWS.samples.filter(s=>s.id!==id);hwRebuild();}
+async function hwDict(){if(HWS.dict)return HWS.dict;const m=hwModule();const words=String(m.words).split(/\s+/);
+  // personal dictionary: every word you have typed in Patchwork, plus words you taught it
+  try{const pgs=await db.pages.toArray();const div=document.createElement('div');for(const pg of pgs){div.innerHTML=DOMPurify.sanitize(pg.html||'');(div.textContent.match(m.wordRe)||[]).forEach(w=>HWS.personal.add(w));}}catch(e){}
+  HWS.dict=HWCore.buildDict(words.concat([...HWS.personal]),m.fold);return HWS.dict;}
+function hwCounts(){const c={};HWS.samples.forEach(s=>c[s.ch]=(c[s.ch]||0)+1);return c;}
+
+/* ===== Handwriting Lab ===== */
+let HL=null;
+function hwPad(canvas,kind){const pad={canvas,kind,strokes:[],active:null,onStroke:null,locked:false,marks:[]};const ctx=canvas.getContext('2d');
+  pad.size=()=>{const r=canvas.getBoundingClientRect();const dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}ctx.setTransform(dpr,0,0,dpr,0,0);pad.W=r.width;pad.H=r.height;};
+  // writing guides: cap line, x-height line, baseline (the frame lets size tell o from O, l from 1)
+  pad.frame=()=>kind==='char'?{base:pad.H*0.72,xh:pad.H*0.3}:{base:pad.H*0.7,xh:pad.H*0.22};
+  pad.draw=()=>{pad.size();ctx.clearRect(0,0,pad.W,pad.H);const f=pad.frame();ctx.lineWidth=1;
+    const line=(y,c,dash)=>{ctx.strokeStyle=c;ctx.setLineDash(dash||[]);ctx.beginPath();ctx.moveTo(8,y);ctx.lineTo(pad.W-8,y);ctx.stroke();ctx.setLineDash([]);};
+    line(f.base-f.xh*(kind==='char'?1.8:1.9),'rgba(255,255,255,.06)',[3,5]);line(f.base-f.xh,'rgba(255,255,255,.09)',[4,4]);line(f.base,'rgba(251,191,36,.35)');
+    for(const m of pad.marks){ctx.strokeStyle=m.c||'rgba(129,140,248,.8)';ctx.fillStyle=m.c||'rgba(129,140,248,.9)';ctx.lineWidth=1.2;ctx.setLineDash([3,3]);ctx.strokeRect(m.x0-3,m.y0-3,m.x1-m.x0+6,m.y1-m.y0+6);ctx.setLineDash([]);ctx.font='600 12px Arial';ctx.fillText(m.label,m.x0-2,m.y0-7);}
+    ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#ece6da';
+    for(const s of pad.strokes.concat(pad.active?[pad.active]:[])){if(s.length===1){ctx.beginPath();ctx.arc(s[0].x,s[0].y,1.6,0,7);ctx.fillStyle='#ece6da';ctx.fill();continue;}for(let i=1;i<s.length;i++){ctx.lineWidth=1.2+2.2*((s[i].p!=null?s[i].p:.5));ctx.beginPath();ctx.moveTo(s[i-1].x,s[i-1].y);ctx.lineTo(s[i].x,s[i].y);ctx.stroke();}}};
+  let t0=0;const pt=e=>{const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,p:(e.pressure>0&&e.pressure<1)?e.pressure:.5,t:Math.round(performance.now()-t0)};};
+  canvas.addEventListener('pointerdown',e=>{if(pad.locked)return;e.preventDefault();canvas.setPointerCapture(e.pointerId);if(!pad.strokes.length&&!pad.active)t0=performance.now();pad.active=[pt(e)];pad.marks=[];pad.draw();if(pad.onDown)pad.onDown();});
+  canvas.addEventListener('pointermove',e=>{if(!pad.active)return;e.preventDefault();const q=pt(e),l=pad.active[pad.active.length-1];if(Math.hypot(q.x-l.x,q.y-l.y)<0.8)return;pad.active.push(q);pad.draw();});
+  const up=()=>{if(!pad.active)return;pad.strokes.push(pad.active);pad.active=null;pad.draw();if(pad.onStroke)pad.onStroke();};canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);
+  pad.clear=()=>{pad.strokes=[];pad.active=null;pad.marks=[];pad.locked=false;pad.draw();};
+  pad.undo=()=>{pad.strokes.pop();pad.marks=[];pad.draw();if(pad.onStroke)pad.onStroke();};
+  // show strokes from elsewhere (the page), fitted onto the pad's writing line
+  pad.load=(strokes)=>{pad.size();const b=HWCore.bbox(strokes);const f=pad.frame();const sc=Math.min((pad.W-40)/Math.max(1e-6,b.w),(f.xh*2.6)/Math.max(1e-6,b.h));const ox=20-b.x0*sc,oy=(f.base-f.xh*1.8)-b.y0*sc;
+    pad.strokes=strokes.map(s=>s.map(p=>({x:p.x*sc+ox,y:p.y*sc+oy,p:p.p!=null?p.p:.5})));pad.marks=[];pad.draw();};
+  return pad;}
+function hwThumb(cv,strokes,o){o=o||{};const dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1)),w=cv.clientWidth||cv.width,h=cv.clientHeight||cv.height;cv.width=w*dpr;cv.height=h*dpr;const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);if(!strokes||!strokes.length)return;
+  const b=HWCore.bbox(strokes);const sc=Math.min((w-8)/Math.max(1e-6,b.w),(h-8)/Math.max(1e-6,b.h));const ox=(w-b.w*sc)/2-b.x0*sc,oy=(h-b.h*sc)/2-b.y0*sc;c.lineCap='round';c.lineJoin='round';c.strokeStyle=o.color||'#d8d0bf';c.lineWidth=o.width||1.6;
+  for(const s of strokes){c.beginPath();s.forEach((p,i)=>{const x=p.x*sc+ox,y=p.y*sc+oy;if(i)c.lineTo(x,y);else c.moveTo(x,y);});if(s.length===1){c.arc(s[0].x*sc+ox,s[0].y*sc+oy,1,0,7);}c.stroke();}}
+// what the recogniser actually compares: resampled, centred, scaled points in writing order
+function hwDrawNorm(cv,f){const dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1)),w=cv.clientWidth,h=cv.clientHeight;cv.width=w*dpr;cv.height=h*dpr;const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
+  const S=Math.min(w,h)*0.8,X=x=>w/2+x*S,Y=y=>h/2+y*S;c.strokeStyle='rgba(255,255,255,.08)';c.strokeRect(X(-.5),Y(-.5),S,S);if(!f)return;const P=f.pts;
+  for(let i=0;i<P.length;i++){const p=P[i],hue=30+260*i/Math.max(1,P.length-1);c.strokeStyle='hsl('+hue+',80%,62%)';c.fillStyle=c.strokeStyle;
+    if(i&&!p.s){c.lineWidth=2;c.beginPath();c.moveTo(X(P[i-1].x),Y(P[i-1].y));c.lineTo(X(p.x),Y(p.y));c.stroke();}
+    c.beginPath();c.arc(X(p.x),Y(p.y),p.s?4.5:1.8,0,7);if(p.s){c.lineWidth=1.5;c.stroke();}else c.fill();
+    c.globalAlpha=.5;c.lineWidth=1;c.beginPath();c.moveTo(X(p.x),Y(p.y));c.lineTo(X(p.x)+p.dx*7,Y(p.y)+p.dy*7);c.stroke();c.globalAlpha=1;}}
+function ensureLab(){if(HL)return HL;const el=document.createElement('div');el.id='hwlab';el.style.display='none';
+  el.innerHTML='<div class="hw-bar"><div class="tl-title"><span class="hw-ic">✍</span><b>Handwriting Lab</b><span class="hw-sub">learns <i>your</i> handwriting · works offline · samples stay on this device</span></div><div class="hw-tabs"></div><select class="fx-sel hw-lang" title="Language module"></select><button class="panel-x" title="Close (Esc)">×</button></div><div class="hw-body"></div>';
+  document.body.appendChild(el);HL={el,body:el.querySelector('.hw-body'),tab:'char'};
+  const tabs=el.querySelector('.hw-tabs');[['cal','Calibrate'],['char','Character'],['word','Words'],['model','My handwriting']].forEach(([k,l])=>{const b=document.createElement('button');b.className='sp-f';b.dataset.k=k;b.textContent=l;b.onclick=()=>hwTab(k);tabs.appendChild(b);});
+  const ls=el.querySelector('.hw-lang');for(const m of HW_MODULES.values()){const o=document.createElement('option');o.value=m.id;o.textContent=m.name;ls.appendChild(o);}ls.onchange=async()=>{HWS.lang=ls.value;HWS.dict=null;db.info.update('info',{hwLang:HWS.lang}).catch(()=>{});await hwLoad();hwTab(HL.tab);};
+  el.querySelector('.panel-x').onclick=closeLab;
+  addEventListener('keydown',e=>{if(e.key==='Escape'&&HL&&HL.el.style.display!=='none'){e.preventDefault();e.stopPropagation();closeLab();}},true);
+  addEventListener('resize',()=>{if(HL&&HL.el.style.display!=='none'&&HL.pad)HL.pad.draw();});
+  return HL;}
+async function openLab(tab,payload){ensureLab();HL.el.style.display='flex';HL.el.querySelector('.hw-lang').value=HWS.lang;await hwLoad();hwTab(tab||(HWS.samples.length?'char':'cal'),payload);}
+function closeLab(){if(HL){HL.el.style.display='none';clearTimeout(HL.calT);}}
+function hwTab(k,payload){HL.tab=k;clearTimeout(HL.calT);HL.el.querySelectorAll('.hw-tabs .sp-f').forEach(b=>b.classList.toggle('on',b.dataset.k===k));HL.body.innerHTML='';HL.pad=null;({cal:hwCalSetup,char:hwCharTab,word:hwWordTab,model:hwModelTab})[k](payload);}
+function hwEmptyModelNote(){return HWS.samples.length?'':'<div class="hw-note">Patchwork doesn’t know your handwriting yet. <button class="fx-link" data-go="cal">Calibrate first</button> — or draw here and save characters one by one.</div>';}
+function hwWire(root){root.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>hwTab(b.dataset.go));}
+
+/* --- Character tab: draw, inspect, normalise, compare, save --- */
+function hwCharTab(){const b=HL.body;b.innerHTML=hwEmptyModelNote()+'<div class="hw-grid3"><div class="hw-col"><div class="hw-h">Draw one character</div><canvas class="hw-pad char"></canvas><div class="hw-row"><button class="pbtn hw-undo">Undo stroke</button><button class="pbtn hw-clear">Clear</button></div>'+
+  '<div class="hw-row hw-save"><span>This is</span><input class="pf-in hw-ch" maxlength="1" placeholder="a"><button class="fx-primary hw-savebtn">Save as example</button></div><div class="hw-hint">Saved examples become your personal model. Several per character is best.</div></div>'+
+  '<div class="hw-col"><div class="hw-h">What the recogniser sees</div><canvas class="hw-norm"></canvas><div class="hw-legend">resampled points in writing order (warm → cool) · rings = pen down · ticks = direction</div><div class="hw-stats"></div></div>'+
+  '<div class="hw-col"><div class="hw-h">Matches</div><div class="hw-best"></div><div class="hw-matches"></div><div class="hw-h small">Closest saved example</div><canvas class="hw-near"></canvas></div></div>';hwWire(b);
+  const pad=HL.pad=hwPad(b.querySelector('.hw-pad'),'char');pad.draw();const chIn=b.querySelector('.hw-ch');
+  const run=()=>{const f=pad.strokes.length?HWCore.prep(pad.strokes,pad.frame()):null;hwDrawNorm(b.querySelector('.hw-norm'),f);
+    // raw stroke inspector
+    const st=b.querySelector('.hw-stats');if(!pad.strokes.length){st.innerHTML='';b.querySelector('.hw-matches').innerHTML='';b.querySelector('.hw-best').innerHTML='';hwThumb(b.querySelector('.hw-near'),null);return;}
+    const len=s=>s.reduce((a,p,i)=>i?a+Math.hypot(p.x-s[i-1].x,p.y-s[i-1].y):0,0);const ps=pad.strokes.flat().map(p=>p.p);const dur=(pad.strokes[pad.strokes.length-1].slice(-1)[0].t||0);const bb=HWCore.bbox(pad.strokes);
+    st.innerHTML='<table>'+[['strokes (pen lifts)',pad.strokes.length],['points per stroke',pad.strokes.map(s=>s.length).join(' · ')],['stroke length (px)',pad.strokes.map(s=>Math.round(len(s))).join(' · ')],['time',dur+' ms'],['pressure',Math.min(...ps).toFixed(2)+' – '+Math.max(...ps).toFixed(2)],['box',Math.round(bb.w)+' × '+Math.round(bb.h)+' px'],['aspect (log w/h)',f.aspect.toFixed(2)],['vs. writing line',f.frame?'top '+f.frame.top.toFixed(2)+' · bottom '+f.frame.bot.toFixed(2)+' x-heights':'—'],['normalised points',f.pts.length]].map(r=>'<tr><td>'+r[0]+'</td><td>'+esc(String(r[1]))+'</td></tr>').join('')+'</table>';
+    const c=HWCore.classify(f,HWS.model);const mt=b.querySelector('.hw-matches'),best=b.querySelector('.hw-best');
+    if(!c.length){mt.innerHTML='<div class="hw-hint">No saved examples to compare with yet.</div>';best.innerHTML='';hwThumb(b.querySelector('.hw-near'),null);return;}
+    const tier=c.confidence>0.6?['high','Confident']:c.confidence>0.25?['mid','Not sure']:['low','Patchwork isn’t confident about this'];
+    best.innerHTML='<span class="hw-bigch">'+esc(c[0].ch)+'</span><span class="hw-tier '+tier[0]+'">'+tier[1]+' · '+Math.round(c.confidence*100)+'%</span>';
+    mt.innerHTML=c.slice(0,8).map(x=>'<div class="hw-m"><span class="hw-mch">'+esc(x.ch)+'</span><span class="hw-mbar"><i style="width:'+Math.round(x.sim*100)+'%"></i></span><span class="hw-mpc">'+Math.round(x.sim*100)+'%</span><span class="hw-mn">'+x.samples+'×</span></div>').join('');
+    hwThumb(b.querySelector('.hw-near'),c[0].best.s.strokes);if(!chIn.value)chIn.placeholder=c[0].ch;};
+  let rt=null;pad.onStroke=()=>{clearTimeout(rt);rt=setTimeout(run,120);};
+  b.querySelector('.hw-undo').onclick=()=>pad.undo();b.querySelector('.hw-clear').onclick=()=>{pad.clear();run();};
+  const save=async()=>{const ch=(chIn.value||'').trim();if(!pad.strokes.length){toast('Draw a character first','info');return;}if(!ch){toast('Type which character it is','info');chIn.focus();return;}
+    await hwAddSample(ch,pad.strokes,pad.frame(),'lab');toast('Saved as “'+ch+'” ('+(hwCounts()[ch]||1)+' example'+((hwCounts()[ch]||1)>1?'s':'')+')','ok');chIn.value='';pad.clear();run();};
+  b.querySelector('.hw-savebtn').onclick=save;chIn.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save();}};run();}
+
+/* --- Calibration: natural writing, several samples each, targeted practice --- */
+function hwCalSetup(payload){if(payload&&payload.queue)return hwCalRun(payload.queue,payload.title);const m=hwModule();const cnt=hwCounts();const b=HL.body;
+  b.innerHTML='<div class="hw-cal-setup"><div class="hw-h">Handwriting calibration — '+esc(m.name)+'</div><p class="hw-p">Patchwork will show one character at a time. <b>Write it naturally, exactly as you normally write it</b> — not like a font. Writing each one a few times teaches Patchwork how <i>your</i> letters vary.</p><div class="hw-sets"></div>'+
+  '<div class="hw-row"><span>Examples of each</span><select class="fx-sel hw-k">'+[1,2,3,4,5].map(n=>'<option'+(n===3?' selected':'')+'>'+n+'</option>').join('')+'</select></div><div class="hw-row"><button class="fx-primary hw-go">Start</button><span class="hw-hint">Only characters that still need examples are asked for. Writing pauses for a second? That counts as done.</span></div></div>';
+  const sets=b.querySelector('.hw-sets');m.sets.forEach((s,i)=>{const have=[...s.chars].reduce((a,ch)=>a+(cnt[ch]?1:0),0);const l=document.createElement('label');l.className='hw-set';l.innerHTML='<input type="checkbox" class="pf-cb" '+(i<3?'checked':'')+' value="'+s.id+'"> <b>'+esc(s.label)+'</b> <span class="hw-chars">'+esc([...s.chars].join(' '))+'</span><span class="hw-have">'+have+'/'+s.chars.length+' learned</span>';sets.appendChild(l);});
+  b.querySelector('.hw-go').onclick=()=>{const k=+b.querySelector('.hw-k').value;const chosen=[...sets.querySelectorAll('input:checked')].map(i=>m.sets.find(s=>s.id===i.value));const q=[];const c2=hwCounts();
+    chosen.forEach(s=>[...s.chars].forEach(ch=>{for(let i=(c2[ch]||0);i<k;i++)q.push(ch);}));if(!q.length){toast('Those are all learned — raise “examples of each” to add more','info');return;}hwCalRun(q,'Calibration');};}
+function hwCalRun(queue,title){const b=HL.body;let i=0;const done=[];
+  b.innerHTML='<div class="hw-cal"><div class="hw-cal-top"><span class="hw-cal-title">'+esc(title)+'</span><span class="hw-cal-count"></span><div class="hw-prog"><i></i></div></div><div class="hw-cal-main"><div class="hw-target"><div class="hw-tch"></div><div class="hw-tp"></div><div class="hw-tprev"></div></div><div class="hw-cal-padwrap"><canvas class="hw-pad char big"></canvas><div class="hw-row"><button class="pbtn hw-undo">Undo stroke</button><button class="pbtn hw-back">Redo previous</button><button class="pbtn hw-skip">Skip</button><button class="fx-primary hw-next">Next ›</button><button class="fx-link hw-stop">Finish</button></div></div></div></div>';
+  const pad=HL.pad=hwPad(b.querySelector('.hw-pad'),'char');pad.draw();
+  const show=()=>{if(i>=queue.length){hwCalDone(done.length);return;}const ch=queue[i];const nth=queue.slice(0,i+1).filter(x=>x===ch).length,tot=queue.filter(x=>x===ch).length;
+    b.querySelector('.hw-tch').textContent=ch;b.querySelector('.hw-tp').innerHTML='Write “<b>'+esc(ch)+'</b>” naturally, exactly as you normally write it.'+(tot>1?'<br><span class="hw-hint">example '+nth+' of '+tot+'</span>':'');
+    b.querySelector('.hw-cal-count').textContent=(i+1)+' / '+queue.length;b.querySelector('.hw-prog i').style.width=(100*i/queue.length)+'%';
+    const prev=b.querySelector('.hw-tprev');prev.innerHTML='';HWS.samples.filter(s=>s.ch===ch).slice(-5).forEach(s=>{const c=document.createElement('canvas');c.className='hw-mini';prev.appendChild(c);hwThumb(c,s.strokes);});pad.clear();};
+  const accept=async()=>{clearTimeout(HL.calT);if(!pad.strokes.length)return;const rec=await hwAddSample(queue[i],pad.strokes,pad.frame(),'calibration');if(rec)done.push(rec);i++;show();};
+  pad.onStroke=()=>{clearTimeout(HL.calT);HL.calT=setTimeout(accept,1100);};pad.onDown=()=>clearTimeout(HL.calT);
+  b.querySelector('.hw-next').onclick=accept;b.querySelector('.hw-undo').onclick=()=>{clearTimeout(HL.calT);pad.undo();};b.querySelector('.hw-skip').onclick=()=>{clearTimeout(HL.calT);i++;show();};
+  b.querySelector('.hw-back').onclick=async()=>{clearTimeout(HL.calT);const last=done.pop();if(!last)return;await hwDeleteSample(last.id);i=Math.max(0,queue.lastIndexOf(last.ch,i-1));show();};
+  b.querySelector('.hw-stop').onclick=()=>hwCalDone(done.length);show();}
+function hwCalDone(n){clearTimeout(HL.calT);toast('Learned '+n+' new example'+(n!==1?'s':''),'ok');hwTab('model',{check:true});}
+
+/* --- Words: segmentation + dictionary + candidates + corrections --- */
+async function hwWordTab(payload){const b=HL.body;b.innerHTML=hwEmptyModelNote()+'<div class="hw-word"><div class="hw-h">Print a word or a short sentence <span class="hw-hint">(separate letters work best for now — joined-up writing comes later)</span></div><div class="hw-src"></div><canvas class="hw-pad word"></canvas>'+
+  '<div class="hw-row"><button class="fx-primary hw-rec">✨ Recognise</button><button class="pbtn hw-undo">Undo stroke</button><button class="pbtn hw-clear">Clear</button><label class="pf-row hw-auto"><input type="checkbox" class="pf-cb" checked> recognise as I write</label></div>'+
+  '<div class="hw-result"></div></div>';hwWire(b);
+  const pad=HL.pad=hwPad(b.querySelector('.hw-pad'),'word');pad.draw();const auto=b.querySelector('.hw-auto input');let rt=null;
+  if(payload&&payload.strokes){pad.load(payload.strokes);b.querySelector('.hw-src').innerHTML='<span class="hw-badge">From your page · the handwriting there is untouched</span>';}
+  const res=b.querySelector('.hw-result');
+  const run=async()=>{if(!pad.strokes.length){res.innerHTML='';pad.marks=[];pad.draw();return;}if(!HWS.model.length){res.innerHTML='<div class="hw-note">Calibrate first so Patchwork has your letters to compare with.</div>';return;}
+    res.innerHTML='<div class="hw-hint">Recognising…</div>';await new Promise(r=>setTimeout(r,16));const dict=await hwDict();const t0=performance.now();
+    const r=HWCore.recognizeLine(pad.strokes,HWS.model,{dict,fold:hwModule().fold});const ms=Math.round(performance.now()-t0);HL.last={r,strokes:pad.strokes.map(s=>s.slice()),frameH:r.seg.lineH,base:r.seg.base};
+    // show how the writing was split into letters
+    pad.marks=[];r.tokens.forEach(t=>t.list[0].parts.forEach((pt,j)=>{const bb=pt.g.m.b;pad.marks.push({x0:bb.x0,y0:bb.y0,x1:bb.x1,y1:bb.y1,label:t.list[0].text[j]||pt.c.ch});}));pad.draw();
+    /* tiers chosen from measured data: above 0.30 almost only right answers, below 0.12 mostly wrong ones */
+    const tier=r.confidence>0.3?['high','Confident']:r.confidence>0.12?['mid','Did you mean…']:['low','Patchwork isn’t confident about this'];
+    res.innerHTML='<div class="hw-out"><span class="hw-tier '+tier[0]+'">'+tier[1]+' · '+Math.round(r.confidence*100)+'%</span><span class="hw-ms">'+ms+' ms · on this device</span></div>'+
+      '<input class="pf-in hw-text" spellcheck="false"><div class="hw-alts"></div><div class="hw-row"><button class="fx-primary hw-copy">Copy text</button><button class="pbtn hw-teach" disabled>Teach Patchwork this correction</button>'+(tier[0]==='low'?'<button class="pbtn hw-again">Try again</button>':'')+'</div><div class="hw-hint hw-teachnote"></div>';
+    const ti=res.querySelector('.hw-text');ti.value=r.text;const alts=res.querySelector('.hw-alts');
+    r.tokens.forEach((t,k)=>{if(t.list.length<2)return;const g=document.createElement('div');g.className='hw-altg';t.list.slice(0,5).forEach((c,ci)=>{const x=document.createElement('button');x.className='sp-f'+(ci===0?' on':'');x.innerHTML=esc(c.text)+(c.dict?'':' <span class="hw-nd" title="not in the dictionary">?</span>')+'<span class="hw-pp">'+Math.round(c.p*100)+'%</span>';x.onclick=()=>{const words=ti.value.split(' ');words[k]=c.text;ti.value=words.join(' ');g.querySelectorAll('.sp-f').forEach(y=>y.classList.toggle('on',y===x));ti.dispatchEvent(new Event('input'));};g.appendChild(x);});alts.appendChild(g);});
+    const teach=res.querySelector('.hw-teach'),note=res.querySelector('.hw-teachnote');
+    ti.oninput=()=>{const changed=ti.value.trim()!==r.text;teach.disabled=!changed||!HWS.learn;note.textContent=!HWS.learn&&changed?'Learning from corrections is switched off (My handwriting).':'';};
+    res.querySelector('.hw-copy').onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(ti.value).then(()=>toast('Copied','ok'),()=>{ti.select();document.execCommand('copy');toast('Copied','ok');});};
+    const again=res.querySelector('.hw-again');if(again)again.onclick=()=>{pad.clear();res.innerHTML='';};
+    teach.onclick=async()=>{const n=await hwTeach(r,ti.value.trim(),pad);note.textContent=n.msg;teach.disabled=true;if(n.saved)toast(n.msg,'ok');};};
+  HL.runWords=run;pad.onStroke=()=>{clearTimeout(rt);if(auto.checked)rt=setTimeout(run,700);};pad.onDown=()=>clearTimeout(rt);
+  b.querySelector('.hw-rec').onclick=run;b.querySelector('.hw-undo').onclick=()=>pad.undo();b.querySelector('.hw-clear').onclick=()=>{pad.clear();res.innerHTML='';b.querySelector('.hw-src').innerHTML='';};
+  if(payload&&payload.strokes)run();}
+// A correction becomes new personal examples: each letter the recogniser got wrong is saved as the letter you meant.
+async function hwTeach(r,fixed,pad){const want=fixed.replace(/\s+/g,'');const parts=r.tokens.flatMap(t=>t.list[0].parts);const got=r.tokens.map(t=>t.list[0].text).join('');
+  const m=hwModule();(fixed.match(m.wordRe)||[]).forEach(w=>HWS.personal.add(w));db.info.update('info',{hwWords:[...HWS.personal].filter(w=>!(String(m.words).includes(' '+w+' '))).slice(-2000)}).catch(()=>{});HWS.dict=null;
+  if(want.length!==parts.length)return{saved:0,msg:'Remembered the word'+(fixed.includes(' ')?'s':'')+', but the letter count differs from what Patchwork split the writing into ('+parts.length+'), so no letter shapes were learned.'};
+  let n=0;const frame={base:r.seg.base,xh:r.seg.lineH};for(let k=0;k<parts.length;k++){if(want[k]===got[k])continue;const strokes=parts[k].g.m.idx.map(i=>pad.strokes[i]).filter(Boolean);if(!strokes.length)continue;await hwAddSample(want[k],strokes,frame,'correction');n++;}
+  return{saved:n,msg:n?'Learned '+n+' corrected letter'+(n>1?'s':'')+' as new examples of your handwriting.':'Nothing new to learn — the letters already matched.'};}
+
+/* --- My handwriting: the personal model, self-test, adaptive practice, privacy --- */
+function hwModelTab(payload){const b=HL.body;const m=hwModule();const cnt=hwCounts();const total=HWS.samples.length;const corr=HWS.samples.filter(s=>s.src==='correction').length;
+  b.innerHTML='<div class="hw-model"><div class="hw-row hw-modeltop"><div><div class="hw-h">'+esc(m.name)+' — your personal model</div><div class="hw-hint">'+total+' examples of '+Object.keys(cnt).length+' characters'+(corr?' · '+corr+' learned from corrections':'')+'. They live only in this browser (and in “Back up everything”).</div></div>'+
+  '<label class="pf-row"><input type="checkbox" class="pf-cb hw-learn"'+(HWS.learn?' checked':'')+'> Learn from my corrections</label></div><div class="hw-check"></div><div class="hw-chargrid"></div><div class="hw-row"><button class="fx-link danger hw-wipe">Delete all my '+esc(m.name)+' handwriting examples</button></div></div>';
+  b.querySelector('.hw-learn').onchange=e=>{HWS.learn=e.target.checked;db.info.update('info',{hwLearn:HWS.learn}).catch(()=>{});};
+  const grid=b.querySelector('.hw-chargrid');m.sets.forEach(s=>{const h=document.createElement('div');h.className='hw-h small';h.textContent=s.label;grid.appendChild(h);const row=document.createElement('div');row.className='hw-cells';
+    [...s.chars].forEach(ch=>{const own=HWS.samples.filter(x=>x.ch===ch);const c=document.createElement('div');c.className='hw-cell'+(own.length?'':' empty');c.innerHTML='<span class="hw-cch">'+esc(ch)+'</span><canvas></canvas><span class="hw-cn">'+own.length+'</span>';row.appendChild(c);if(own.length)requestAnimationFrame(()=>hwThumb(c.querySelector('canvas'),own[own.length-1].strokes));
+      c.onclick=()=>hwShowChar(ch,c);});grid.appendChild(row);});
+  const extra=[...new Set(HWS.samples.map(s=>s.ch))].filter(ch=>!m.sets.some(s=>s.chars.includes(ch)));if(extra.length){const h=document.createElement('div');h.className='hw-h small';h.textContent='Other';grid.appendChild(h);const row=document.createElement('div');row.className='hw-cells';extra.forEach(ch=>{const c=document.createElement('div');c.className='hw-cell';c.innerHTML='<span class="hw-cch">'+esc(ch)+'</span><canvas></canvas><span class="hw-cn">'+(cnt[ch]||0)+'</span>';row.appendChild(c);c.onclick=()=>hwShowChar(ch,c);});grid.appendChild(row);}
+  const wipe=b.querySelector('.hw-wipe');wipe.onclick=async()=>{if(!wipe.classList.contains('armed')){wipe.classList.add('armed');wipe.textContent='Click again to delete '+total+' examples';setTimeout(()=>{wipe.classList.remove('armed');},3000);return;}await db.hw.where('lang').equals(HWS.lang).delete();HWS.samples=[];hwRebuild();hwModelTab();toast('Handwriting examples deleted','ok');};
+  hwRenderCheck(b.querySelector('.hw-check'),payload&&payload.check);}
+function hwRenderCheck(box,auto){const go=()=>{box.innerHTML='<div class="hw-hint">Testing every example against the others…</div>';setTimeout(()=>{const r=HWCore.selfTest(HWS.model);
+    if(!r.n){box.innerHTML='<div class="hw-note">Write at least two examples of some characters, then Patchwork can test how well it tells them apart.</div>';return;}
+    const pairs=r.pairs.slice(0,6);box.innerHTML='<div class="hw-checkres"><div><span class="hw-big">'+Math.round(r.accuracy*100)+'%</span> of your examples are recognised from your other examples.</div>'+(pairs.length?'<div class="hw-p">Patchwork needs more information to tell these apart in your writing:</div><div class="hw-pairs">'+pairs.map(p=>'<span class="hw-pair'+(p.kind==='confused'?' bad':'')+'">'+esc(p.pair.join(' / '))+'</span>').join('')+'</div><button class="fx-primary hw-practise">Practise these</button>':'<div class="hw-p">No characters are being confused. 🎉</div>')+'<button class="fx-link hw-recheck">Test again</button></div>';
+    const pr=box.querySelector('.hw-practise');if(pr)pr.onclick=()=>{const q=[];pairs.slice(0,4).forEach(p=>{for(let k=0;k<3;k++)p.pair.forEach(ch=>q.push(ch));});hwTab('cal',{queue:q,title:'Targeted practice: '+pairs.slice(0,4).map(p=>p.pair.join(' ')).join(' · ')});};
+    box.querySelector('.hw-recheck').onclick=go;},20);};
+  if(auto&&HWS.model.length)go();else box.innerHTML=HWS.model.length?'<button class="pbtn hw-run">Check my handwriting model</button> <span class="hw-hint">finds characters that look alike in your writing and asks for more of exactly those</span>':'';const rb=box.querySelector('.hw-run');if(rb)rb.onclick=go;}
+function hwShowChar(ch,cell){const own=HWS.samples.filter(s=>s.ch===ch);let pop=document.getElementById('hw-charpop');if(pop)pop.remove();pop=document.createElement('div');pop.id='hw-charpop';
+  pop.innerHTML='<div class="hw-row"><b class="hw-cch">'+esc(ch)+'</b><span class="hw-hint">'+own.length+' example'+(own.length!==1?'s':'')+'</span><button class="pbtn hw-more">+ write more</button><button class="panel-x">×</button></div><div class="hw-samps"></div>';
+  const sp=pop.querySelector('.hw-samps');own.forEach(s=>{const d=document.createElement('div');d.className='hw-samp';d.innerHTML='<canvas></canvas><span>'+esc(s.src||'')+'</span><button title="Delete this example">×</button>';sp.appendChild(d);requestAnimationFrame(()=>hwThumb(d.querySelector('canvas'),s.strokes));d.querySelector('button').onclick=async()=>{await hwDeleteSample(s.id);d.remove();};});
+  pop.querySelector('.panel-x').onclick=()=>{pop.remove();hwModelTab();};pop.querySelector('.hw-more').onclick=()=>{pop.remove();hwTab('cal',{queue:[ch,ch,ch],title:'More examples of “'+ch+'”'});};
+  cell.closest('.hw-model').appendChild(pop);pop.scrollIntoView({block:'nearest'});}
+
+/* --- from the page: recognise selected ink without changing it --- */
+function hwFromSelection(){if(mode!=='grab'||!grabSel.size){toast('Choose the arrow tool and select some handwriting first','info');return;}
+  const sel=[...grabSel].filter(s=>s.tool==='pen').sort((a,b)=>(a.t-b.t)||((a.id||0)-(b.id||0)));if(!sel.length){toast('Select pen strokes (highlighter/eraser strokes are ignored)','info');return;}
+  const strokes=sel.map(s=>s.pts.map(p=>({x:p.xn*1000,y:p.yn*1000,p:.5})));openLab('word',{strokes});}
+document.getElementById('hw-lab-btn').addEventListener('click',()=>openLab());
+document.getElementById('ink-recognize').addEventListener('click',hwFromSelection);
+
 async function inlineImagesForExport(html){const hs=imageRefsIn(html);if(!hs.length)return html;const rows=await db.images.bulkGet(hs);const map={};for(let i=0;i<hs.length;i++)if(rows[i]&&rows[i].blob)map[hs[i]]=await _blobToDataURL(rows[i].blob);return String(html).replace(/pw-img:([0-9a-z]+)/g,(m,h)=>map[h]||m);}
 
 </script>
@@ -1521,6 +1887,7 @@ function _download(data,name){const blob=new Blob([JSON.stringify(data)],{type:'
 function _remapMarkIds(html,map){return String(html||'').replace(/data-mark="(\d+)"/g,(m,id)=>map[id]!=null?'data-mark="'+map[id]+'"':'');}
 function _typesFor(ms){const ids=new Set(ms.map(m=>m.type));return [...HT.values()].filter(t=>ids.has(t.id));}
 // imported highlight types / profiles are only ever ADDED (an id that already exists here is left alone)
+async function _impHandwriting(data){if(!Array.isArray(data.handwriting))return;for(const r of data.handwriting)if(r&&r.ch&&Array.isArray(r.strokes))await db.hw.add({lang:r.lang||'en',ch:String(r.ch).slice(0,4),strokes:r.strokes,frame:r.frame||null,src:r.src||'import',created:r.created||Date.now()});if(typeof HWS!=='undefined')HWS.dict=null;}
 async function _impTypes(data){for(const t of (data.htypes||[]))if(t&&t.id&&!HT.has(t.id)){HT.set(t.id,t);await db.htypes.put(t);}for(const p of (data.profiles||[]))if(p&&p.id&&!PROFILES.some(x=>x.id===p.id)){PROFILES.push(p);await db.profiles.put(p);}if(typeof typesChanged==='function')typesChanged();}
 function _mexp(m){return{oid:m.id,type:m.type,fields:m.fields||{},name:m.name||'',tags:m.tags||[],created:m.created,done:!!m.done,doneAt:m.doneAt||null,links:m.links||[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||''};}
 function _sexp(s){return{t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn};}
@@ -1541,7 +1908,7 @@ async function backupAll(){
     pages:await Promise.all(pgs.map(async pg=>({poid:pg.pid,html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0}))),
     marks:marks.map(m=>{const oo=_mexp(m);oo.poid=m.pid;return oo;}),
     strokes:allS.map(s=>{const oo=_sexp(s);oo.poid=s.pid;return oo;}),
-    colors:{favorites:COLOR_FAVORITES,recents:COLOR_RECENTS},htypes:[...HT.values()],profiles:PROFILES};
+    colors:{favorites:COLOR_FAVORITES,recents:COLOR_RECENTS},htypes:[...HT.values()],profiles:PROFILES,handwriting:(await db.hw.toArray()).map(({id,...r})=>r)};
   _download(data,'patchwork-all-'+_today()+'.json');
   toast('Backed up everything ('+projects.length+' project'+(projects.length!==1?'s':'')+')','ok');db.info.update('info',{lastBackupAt:Date.now()}).catch(()=>{});
 }
@@ -1550,7 +1917,7 @@ async function importFile(file){
   let data;try{data=JSON.parse(await file.text());}catch(e){toast('Not a valid backup file','err');return;}
   if(!data||data.type!=='patchwork-backup'){toast('That\u2019s not a Patchwork backup','err');return;}
   try{
-    await _impTypes(data);
+    await _impTypes(data);await _impHandwriting(data);
     let goTo=null,summary='';
     if(data.scope==='all'){goTo=await _impAll(data);summary=(data.projects?data.projects.length:0)+' projects';}
     else{goTo=await _impProject(data);summary='project \u201c'+((data.project&&data.project.name)||'Imported')+'\u201d';}
@@ -1588,9 +1955,9 @@ document.getElementById('proj-btn').addEventListener('click',()=>setTimeout(upda
 let aboutPanel=null;
 const ABOUT={
  about:'<p><b>Patchwork</b> is a local-first page you write <i>and</i> draw on, with a timestamp ledger in the margin. Rich text, free-hand ink, tasks, questions, answers and projects \u2014 all in one file that runs entirely in your browser.</p><p>It is a single static HTML page: no build step, no backend, no sign-up.</p><p class="ab-mut">Version: beta</p>',
- privacy:'<p><b>Everything stays on your device.</b> Your text, drawings, images, the page\u2019s history, timestamps, tags, highlight types and profiles, projects and colour favourites are stored locally in your browser (IndexedDB). Nothing is uploaded.</p><p>There are no accounts, no servers, no analytics and no tracking. The only network requests are loading two open-source libraries (DOMPurify and Dexie) when the page first opens.</p><p>Because your data lives only in this browser profile, clearing site or browser data will erase it. Use <b>Backup</b> regularly and keep your exported <code>.json</code> files safe \u2014 treat them like any personal document.</p>',
+ privacy:'<p><b>Everything stays on your device.</b> Your text, drawings, images, the page\u2019s history, timestamps, tags, highlight types and profiles, handwriting examples, projects and colour favourites are stored locally in your browser (IndexedDB). Nothing is uploaded \u2014 handwriting recognition runs entirely on this device.</p><p>There are no accounts, no servers, no analytics and no tracking. The only network requests are loading two open-source libraries (DOMPurify and Dexie) when the page first opens.</p><p>Because your data lives only in this browser profile, clearing site or browser data will erase it. Use <b>Backup</b> regularly and keep your exported <code>.json</code> files safe \u2014 treat them like any personal document.</p>',
  terms:'<p>Patchwork is provided free, <b>as-is and as-available, without warranty of any kind.</b> It is beta software \u2014 features may change and data loss is possible; you are responsible for keeping your own backups.</p><p>You retain all rights to the content you create. To the maximum extent permitted by law, the authors are not liable for any loss or damage (including lost data) arising from use of this app. By using Patchwork you accept these terms.</p>',
- keys:'<p>Tools (when not typing): <b>T</b> text, <b>P</b> pen, <b>H</b> highlighter, <b>E</b> eraser, <b>V</b> scroll.</p><p><b>Ctrl/\u2318 + Z</b> undo, <b>Ctrl/\u2318 + Shift + Z</b> redo \u2014 ink while a draw tool is active, otherwise text.</p><p><b>Ctrl/\u2318 + F</b> find &amp; filter \u00b7 <b>Ctrl/\u2318 + Shift + F</b> explore highlights \u00b7 <b>Ctrl/\u2318 + Shift + H</b> timeline (<b>\u2190 \u2192</b> step through changes) \u00b7 <b>Esc</b> closes panels.</p><p>Select text to highlight it; the <b>+</b> on the selection bar makes a new highlight type in the Highlight Factory. Drag the left margin edge to resize it; the <b>+</b> above the margin adds a timestamp.</p>'
+ keys:'<p>Tools (when not typing): <b>T</b> text, <b>P</b> pen, <b>H</b> highlighter, <b>E</b> eraser, <b>V</b> scroll.</p><p><b>Ctrl/\u2318 + Z</b> undo, <b>Ctrl/\u2318 + Shift + Z</b> redo \u2014 ink while a draw tool is active, otherwise text.</p><p><b>Ctrl/\u2318 + F</b> find &amp; filter \u00b7 <b>Ctrl/\u2318 + Shift + F</b> explore highlights \u00b7 <b>Ctrl/\u2318 + Shift + H</b> timeline (<b>\u2190 \u2192</b> step through changes) \u00b7 <b>Esc</b> closes panels.</p><p>Select text to highlight it; the <b>+</b> on the selection bar makes a new highlight type in the Highlight Factory. Drag the left margin edge to resize it; the <b>+</b> above the margin adds a timestamp.</p><p>Handwriting: pick the pen, then <b>\u270d Lab</b> teaches Patchwork your writing. Select handwriting with the arrow tool and press <b>\u2728 Aa</b> to read it as text \u2014 the ink is always kept.</p>'
 };
 function ensureAbout(){if(aboutPanel)return aboutPanel;aboutPanel=document.createElement('div');aboutPanel.className='panel';aboutPanel.style.width='420px';aboutPanel.style.display='none';
   aboutPanel.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.5" r=".7"/></svg></div><div class="panel-t">About &amp; legal</div><button class="panel-x">\u00d7</button></div><div class="panel-b"><div class="seg" id="ab-tabs"></div><div id="ab-body" style="font-size:12.5px;line-height:1.65;color:#c4c4dc;"></div></div>';

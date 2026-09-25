@@ -334,6 +334,35 @@ button{font-family:inherit;}
 .ex-mtag{color:#a5b4fc;}
 .ex-links{display:flex;flex-wrap:wrap;gap:4px;}.ex-links .chip{font-size:10.5px;}
 @media (max-width:560px){#explorer{padding:0;}.ex-card{max-height:100vh;height:100%;border-radius:0;}.ex-grid{grid-template-columns:1fr;}}
+/* timeline */
+#timeline{position:fixed;inset:0;z-index:8950;background:#0b0b10;display:flex;flex-direction:column;}
+.tl-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #1f1f2e;background:#0e0e15;flex-wrap:wrap;}
+.tl-title{display:flex;align-items:center;gap:8px;font-size:13px;color:#e6e6f0;flex:1;min-width:0;}
+.tl-proj{color:#8a8aa4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tl-badge{font-size:10.5px;color:#fbbf24;border:1px solid #5a4a2b;background:#1a1510;border-radius:999px;padding:2px 9px;white-space:nowrap;}
+#timeline.is-now .tl-badge{visibility:hidden;}
+.tl-actions{display:flex;align-items:center;gap:12px;}
+.tl-close{height:30px;padding:0 13px;border-radius:8px;border:1px solid #5a4a2b;background:#241c0d;color:#fbbf24;font-size:12px;cursor:pointer;}
+.tl-stage{flex:1;min-height:0;position:relative;background:#111;}
+.tl-wrap{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;}
+.tl-pad{position:relative;min-height:100%;}
+.tl-ed{cursor:default;caret-color:transparent;user-select:text;}
+.tl-ink{position:absolute;inset:0;pointer-events:none;}
+.tl-empty{position:absolute;left:50%;top:38%;transform:translateX(-50%);color:#56566e;font-size:14px;text-align:center;pointer-events:none;max-width:80%;}
+.tl-dock{border-top:1px solid #1f1f2e;background:#0e0e15;padding:10px 16px 12px;display:flex;flex-direction:column;gap:8px;}
+.tl-when{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;min-height:24px;}
+.tl-big{font-size:18px;font-weight:700;color:#f3ead7;font-variant-numeric:tabular-nums;}
+.tl-what{font-size:12.5px;color:#9898b4;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.tl-sl{display:flex;align-items:center;gap:10px;}
+.tl-step{width:32px;height:32px;border-radius:50%;border:1px solid #26263a;background:#13131c;color:#c4c4dc;font-size:18px;line-height:1;cursor:pointer;flex-shrink:0;}
+.tl-step:hover{border-color:#5a4a2b;color:#fbbf24;}
+.tl-track{position:relative;flex:1;height:38px;border-radius:10px;background:#15151f;border:1px solid #23232f;cursor:pointer;touch-action:none;}
+.tl-dens{position:absolute;inset:0;width:100%;height:100%;border-radius:10px;}
+.tl-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(251,191,36,.02),rgba(251,191,36,.10));border-radius:10px 0 0 10px;pointer-events:none;}
+.tl-thumb{position:absolute;top:-5px;bottom:-5px;width:4px;margin-left:-2px;border-radius:3px;background:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.18),0 0 18px rgba(251,191,36,.45);pointer-events:none;}
+.tl-ends{display:flex;align-items:center;gap:10px;font-size:11px;color:#6a6a86;}
+.tl-rng{display:flex;gap:4px;margin:0 auto;flex-wrap:wrap;justify-content:center;}
+@media (max-width:560px){.tl-badge{display:none;}.tl-big{font-size:15px;}}
 /* highlight painting (class based so it never leaks into saved run formatting) */
 .mk{border-radius:2px;}
 .mk-bg{background:var(--mkbg);}
@@ -623,7 +652,8 @@ function makeEditor(edId,tbId,statusId,valignId){
   function paraRects(){const out=[];ed.querySelectorAll(":scope > .line").forEach((le,i)=>{const p=doc[i];if(!p)return;const hasText=p.runs.some(r=>r.type==="image"||(r.text&&r.text.trim()));out.push({i,t:p.t||null,el:le,has:hasText});});return out;}
   function mapImageSrc(fn){let ch=false;for(const p of doc)for(const r of p.runs)if(r.type==="image"){const n=fn(r.src);if(n&&n!==r.src){r.src=n;ch=true;}}return ch;}
   function stampParas(fn){let ch=false;doc.forEach((p,i)=>{if(p.t)return;const t=fn(i,p);if(t){p.t=t;ch=true;}});if(ch){busy=true;renderAll();requestAnimationFrame(()=>{if(document.activeElement===ed)placeCaret(cur.p,cur.offset);busy=false;});if(typeof markDirty==="function")markDirty();}return ch;}
-  return{getDoc,renderParas,paraRects,mapImageSrc,stampParas,getHTML,setHTML,clear,getPlainText,insertImage,undo,redo,applyMark,clearMarkRuns,selText,hasSelection,refresh,markEl};
+  function parasToHTML(paras){const c=document.createElement("div");paras.forEach((p,i)=>c.appendChild(lineEl(p,i,{save:true})));return c.innerHTML;}
+  return{parasToHTML,getDoc,renderParas,paraRects,mapImageSrc,stampParas,getHTML,setHTML,clear,getPlainText,insertImage,undo,redo,applyMark,clearMarkRuns,selText,hasSelection,refresh,markEl};
 }
 
 
@@ -782,13 +812,14 @@ function flashPin(id){_flashId=id;const start=performance.now();cancelAnimationF
 /* ink persistence + undo */
 function stripId(o){const{id,...rest}=o;return rest;}
 async function persistStroke(s){try{const id=await db.strokes.add(stripId(s));s.id=id;}catch(e){console.error(e);}}
-function commitStroke(s){for(const r of inkRedo)if(r.id!=null)db.strokes.delete(r.id);inkRedo=[];_uTokens.push('ink');_rTokens=[];strokes.push(s);persistStroke(s);noteActivity(s.minYn);updatePad();}
+function retireStroke(s,t){if(s.id!=null)db.strokes.update(s.id,{del:t||Date.now()}).catch(()=>{});}
+function commitStroke(s){inkRedo=[];_uTokens.push('ink');_rTokens=[];strokes.push(s);persistStroke(s);noteActivity(s.minYn);updatePad();}
 let _uTokens=[],_rTokens=[];
 function onEditStep(){_uTokens.push('text');_rTokens=[];if(typeof schedulePrune==='function')schedulePrune();}
 function hostUndo(){if(!_uTokens.length)return;const tk=_uTokens.pop();_rTokens.push(tk);if(tk==='ink')inkUndo();else if(editor)editor.undo();}
 function hostRedo(){if(!_rTokens.length)return;const tk=_rTokens.pop();_uTokens.push(tk);if(tk==='ink')inkRedoFn();else if(editor)editor.redo();}
-function inkUndo(){if(!strokes.length)return;const s=strokes.pop();inkRedo.push(s);if(s.id!=null)db.strokes.delete(s.id);redrawInk();updatePad();}
-function inkRedoFn(){if(!inkRedo.length)return;const s=inkRedo.pop();strokes.push(s);persistStroke(s);redrawInk();updatePad();}
+function inkUndo(){if(!strokes.length)return;const s=strokes.pop();inkRedo.push(s);retireStroke(s);redrawInk();updatePad();}
+function inkRedoFn(){if(!inkRedo.length)return;const s=inkRedo.pop();s.born=Date.now();strokes.push(s);persistStroke(s);redrawInk();updatePad();}
 
 /* stroke input */
 function widthFor(pr){const eff=(pr>0&&pr<1)?pr:0.5;const base=mode==='eraser'?inkSize*3:mode==='hl'?inkSize*2.2:inkSize;const mul=mode==='pen'?(0.55+0.9*eff):1;return base*mul/drawW;}
@@ -814,7 +845,7 @@ function noteActivity(yn){lastActivityT=Date.now();}
 function _quotaToast(e){if(e&&(e.name==='QuotaExceededError'||/quota/i.test((e.name||'')+(e.message||'')))){toast('Storage is full — back up, then remove some images so saving can continue','err');}else if(e){console.error(e);}}
 async function savePageNow(){if(!editor||pid==null)return;try{if(typeof internImages==='function')await internImages();await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});}catch(e){_quotaToast(e);}}
 function saveMeta(){clearTimeout(_metaTimer);_metaTimer=setTimeout(async()=>{try{if(editor&&pid!=null&&typeof internImages==='function')await internImages();if(editor&&pid!=null)await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});await db.meta.put({id:'meta',activePid:pid});}catch(e){_quotaToast(e);}},500);}
-function markDirty(){saveMeta();}
+function markDirty(){saveMeta();if(typeof historyNote==='function')historyNote();}
 function contentBottomPx(){let mx=0;const wr=wrap.getBoundingClientRect();const er=noteEd.getBoundingClientRect();mx=Math.max(mx,(er.bottom-wr.top)+scrollTop());for(const s of strokes)mx=Math.max(mx,s.maxYn*drawW);for(const m of pageMarks())if(m.anchor&&m.anchor.kind==='time')mx=Math.max(mx,m.anchor.yn*drawW);return mx;}
 function lineRanges(){const wr=wrap.getBoundingClientRect();const out=[];noteEd.querySelectorAll(':scope > *').forEach(el=>{const txt=(el.textContent||'').trim();const hasImg=el.querySelector&&el.querySelector('img');if(!txt&&!hasImg)return;const r=el.getBoundingClientRect();out.push([(r.top-wr.top)+scrollTop(),(r.bottom-wr.top)+scrollTop()]);});return out;}
 let _pruneT=null;function schedulePrune(){clearTimeout(_pruneT);_pruneT=setTimeout(pruneOrphanTimestamps,600);}
@@ -825,17 +856,18 @@ function strokeBBox(s){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const pt of s.pts){
 function drawGrabOverlay(){ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';for(const s of grabSel){const bb=strokeBBox(s);ctx.strokeStyle='#818cf8';ctx.lineWidth=1.2;ctx.setLineDash([4,3]);ctx.strokeRect(bb.x0-3,bb.y0-3,(bb.x1-bb.x0)+6,(bb.y1-bb.y0)+6);}if(grabMode==='box'&&grabBox){const x0=Math.min(grabBox.x0,grabBox.x1),y0=Math.min(grabBox.y0,grabBox.y1),w=Math.abs(grabBox.x1-grabBox.x0),h=Math.abs(grabBox.y1-grabBox.y0);ctx.fillStyle='rgba(129,140,248,.12)';ctx.fillRect(x0,y0,w,h);ctx.strokeStyle='#818cf8';ctx.setLineDash([4,3]);ctx.lineWidth=1.2;ctx.strokeRect(x0,y0,w,h);}ctx.setLineDash([]);ctx.restore();}
 function grabDown(e){if(e.button!==undefined&&e.button!==0)return;e.preventDefault();try{cv.setPointerCapture(e.pointerId);}catch(_){}const p=ptFromEvent(e),px=p.cx,py=p.cy;grabActive=true;grabMoved=false;grabStart={px,py};if(grabSel.size){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const s of grabSel){const bb=strokeBBox(s);if(bb.x0<x0)x0=bb.x0;if(bb.y0<y0)y0=bb.y0;if(bb.x1>x1)x1=bb.x1;if(bb.y1>y1)y1=bb.y1;}if(px>=x0-8&&px<=x1+8&&py>=y0-8&&py<=y1+8){grabMode='move';redrawInk();drawGrabOverlay();return;}}let hit=null;for(let i=strokes.length-1;i>=0;i--){if(strokeHit(strokes[i],px,py)){hit=strokes[i];break;}}if(hit){if(!grabSel.has(hit)){if(!e.shiftKey)grabSel.clear();grabSel.add(hit);}grabMode='move';}else{if(!e.shiftKey)grabSel.clear();grabMode='box';grabBox={x0:px,y0:py,x1:px,y1:py};}redrawInk();drawGrabOverlay();}
 function grabMove(e){if(!grabActive)return;e.preventDefault();const p=ptFromEvent(e),px=p.cx,py=p.cy;grabMoved=true;if(grabMode==='move'){const dxn=(px-grabStart.px)/drawW,dyn=(py-grabStart.py)/drawW;for(const s of grabSel){for(const pt of s.pts){pt.xn+=dxn;pt.yn+=dyn;}s.minYn+=dyn;s.maxYn+=dyn;}grabStart={px,py};}else if(grabMode==='box'){grabBox.x1=px;grabBox.y1=py;const x0=Math.min(grabBox.x0,px),x1=Math.max(grabBox.x0,px),y0=Math.min(grabBox.y0,py),y1=Math.max(grabBox.y0,py);grabSel.clear();for(const s of strokes){const bb=strokeBBox(s);if(bb.x1>=x0&&bb.x0<=x1&&bb.y1>=y0&&bb.y0<=y1)grabSel.add(s);}}redrawInk();drawGrabOverlay();}
-function grabUp(e){if(!grabActive)return;grabActive=false;try{cv.releasePointerCapture(e.pointerId);}catch(_){}if(grabMode==='move'&&grabMoved){for(const s of grabSel)if(s.id!=null)db.strokes.update(s.id,{pts:s.pts,minYn:s.minYn,maxYn:s.maxYn}).catch(()=>{});schedulePrune();}grabMode=null;grabBox=null;redrawInk();drawGrabOverlay();}
+function grabUp(e){if(!grabActive)return;grabActive=false;try{cv.releasePointerCapture(e.pointerId);}catch(_){}if(grabMode==='move'&&grabMoved){const now=Date.now();for(const s of grabSel){retireStroke(s,now);s.born=now;persistStroke(s);}schedulePrune();}grabMode=null;grabBox=null;redrawInk();drawGrabOverlay();}
 
 let _lastHTML=null;
 function checkText(){if(!editor)return;const html=editor.getHTML();if(html!==_lastHTML){const first=_lastHTML===null;_lastHTML=html;updatePad();if(!first){noteActivity(caretWorldYn());if(typeof schedulePrune==='function')schedulePrune();}saveMeta();}}
 function caretWorldYn(){try{const s=window.getSelection();if(s&&s.rangeCount){let r=s.getRangeAt(0).getClientRects()[0];if(!r){const n=s.anchorNode,el=n&&(n.nodeType===1?n:n.parentNode);if(el&&el.getBoundingClientRect)r=el.getBoundingClientRect();}if(r&&r.height){const wr=wrap.getBoundingClientRect();return ((r.top-wr.top)+scrollTop())/drawW;}}}catch(e){}return (scrollTop()+H*0.3)/drawW;}
 async function switchProject(npid){
   if(npid===pid&&editor)return;
+  if(typeof historyFlush==='function')await historyFlush();
   if(editor&&pid!=null)await savePageNow();
   pid=npid;
   const pg=(await db.pages.get(pid))||{};
-  strokes=await db.strokes.where('pid').equals(pid).toArray();inkRedo=[];
+  strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);inkRedo=[];
   gutterW=pg.gutterW||0;
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   if(editor){editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();}
@@ -854,15 +886,17 @@ async function deleteProject(p){
   const snapPage=(await db.pages.get(p.id))||null;
   const snapStrokes=await db.strokes.where('pid').equals(p.id).toArray();
   const snapMarks=marks.filter(m=>m.pid===p.id).map(m=>JSON.parse(JSON.stringify(m)));
+  const snapHist=await db.snaps.where('pid').equals(p.id).toArray();
   const gone=snapMarks.map(m=>m.id);const qedits=[];
   for(const q of marks)if(q.pid!==p.id&&q.links&&q.links.some(id=>gone.includes(id))){const removed=q.links.filter(id=>gone.includes(id));qedits.push({q,removed});q.links=q.links.filter(id=>!gone.includes(id));saveMark(q);}
-  await db.pages.delete(p.id);await db.strokes.where('pid').equals(p.id).delete();await db.marks.where('pid').equals(p.id).delete();await db.projects.delete(p.id);
+  await db.pages.delete(p.id);await db.strokes.where('pid').equals(p.id).delete();await db.marks.where('pid').equals(p.id).delete();await db.snaps.where('pid').equals(p.id).delete();await db.projects.delete(p.id);
   marks=marks.filter(m=>m.pid!==p.id);projects=projects.filter(x=>x.id!==p.id);
   if(pid===p.id)await switchProject(others[0].id);
   renderProjects();if(typeof updateBackupLabels==='function')updateBackupLabels();
   toast('Project deleted','ok',{label:'Undo',fn:async()=>{
     await db.projects.put(snapProj);if(snapPage)await db.pages.put(snapPage);
     for(const m of snapMarks)await db.marks.put(m);
+    if(snapHist.length)await db.snaps.bulkPut(snapHist);
     for(const sk of snapStrokes){const c=Object.assign({},sk);delete c.id;c.pid=snapProj.id;await db.strokes.add(c);}
     for(const {q,removed} of qedits)for(const id of removed)if(!q.links.includes(id)){q.links.push(id);saveMark(q);}
     projects=await db.projects.toArray();marks=await db.marks.toArray();
@@ -1076,7 +1110,7 @@ document.getElementById('size').addEventListener('input',e=>{inkSize=+e.target.v
 /* actions + keyboard */
 document.getElementById('undo').addEventListener('click',()=>hostUndo());
 document.getElementById('redo').addEventListener('click',()=>hostRedo());
-document.getElementById('clearink').addEventListener('click',()=>{if(!strokes.length){toast('No ink to clear','info');return;}strokes=[];inkRedo=[];db.strokes.where('pid').equals(pid).delete();redrawInk();updatePad();refreshSideLive();toast('Ink cleared','ok');});
+document.getElementById('clearink').addEventListener('click',()=>{if(!strokes.length){toast('No ink to clear','info');return;}const _now=Date.now();strokes=[];inkRedo=[];db.strokes.where('pid').equals(pid).modify(s=>{if(!s.del)s.del=_now;});redrawInk();updatePad();refreshSideLive();toast('Ink cleared','ok');});
 document.getElementById('now').addEventListener('click',()=>wrap.scrollTo({top:Math.max(0,contentBottomPx()-H*0.6),behavior:'smooth'}));
 document.getElementById('gut-find').addEventListener('click',()=>{toggleSide(true);setTimeout(()=>{const q=document.getElementById('side-q');if(q)q.focus();},70);});
 document.getElementById('ink-grab').addEventListener('click',()=>{if(mode==='grab'){grabSel.clear();setMode('pen');}else{setMode('grab');}redrawInk();});
@@ -1085,7 +1119,7 @@ document.getElementById('side-scrim').addEventListener('click',()=>toggleSide(fa
 document.getElementById('side-q').addEventListener('input',e=>renderSideResults(e.target.value));
 document.getElementById('proj-btn').addEventListener('click',openProjects);
 addEventListener('keydown',e=>{
-if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INPUT|TEXTAREA)$/.test(e.target.tagName)&&!e.target.isContentEditable){e.preventDefault();for(const s of [...grabSel]){const i=strokes.indexOf(s);if(i>=0)strokes.splice(i,1);if(s.id!=null)db.strokes.delete(s.id).catch(()=>{});}grabSel.clear();redrawInk();schedulePrune();return;}
+if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INPUT|TEXTAREA)$/.test(e.target.tagName)&&!e.target.isContentEditable){e.preventDefault();for(const s of [...grabSel]){const i=strokes.indexOf(s);if(i>=0)strokes.splice(i,1);retireStroke(s);}grabSel.clear();redrawInk();schedulePrune();return;}
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();toggleSide(true);setTimeout(()=>document.getElementById('side-q').focus(),70);return;}
   if(e.key==='Escape'){const _sd=document.getElementById('side');if(_sd&&_sd.classList.contains('open')){toggleSide(false);return;}if(picker&&picker.style.display!=='none'){picker.style.display='none';return;}if(projPanel&&projPanel.style.display!=='none'){projPanel.style.display='none';return;}if(popup&&popup.style.display!=='none'){closePopup();return;}hideTagbar();return;}
   const tag=(e.target&&e.target.tagName)||'';
@@ -1120,7 +1154,7 @@ addEventListener('resize',()=>{const yn=scrollTop()/drawW;layout();wrap.scrollTo
   buildSwatches();setInkColor('#ece6da');buildFilterBar();
   editor=makeEditor('note-ed','note-tb','note-status','note-valign');
   pid=active;const pg=(await db.pages.get(pid))||{};
-  strokes=await db.strokes.where('pid').equals(pid).toArray();
+  strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);
   gutterW=pg.gutterW||0;
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();
@@ -1129,7 +1163,7 @@ addEventListener('resize',()=>{const yn=scrollTop()/drawW;layout();wrap.scrollTo
   requestAnimationFrame(()=>{wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();});
   setInterval(checkText,1500);
   noteEd.addEventListener('blur',()=>{checkText();saveMeta();schedulePrune();});
-  addEventListener('beforeunload',()=>{checkText();if(editor&&pid!=null)db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});db.meta.put({id:'meta',activePid:pid});});
+  addEventListener('beforeunload',()=>{checkText();if(typeof historyFlush==='function')historyFlush();if(editor&&pid!=null)db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});db.meta.put({id:'meta',activePid:pid});});
 })();
 </script>
 <script>
@@ -1343,6 +1377,137 @@ document.getElementById('side-explore').addEventListener('click',()=>{toggleSide
 document.getElementById('explore-btn').addEventListener('click',()=>{if(explorer&&explorer.style.display!=='none')closeExplorer();else openExplorer();});
 addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='f'){e.preventDefault();openExplorer();return;}if(e.key==='Escape'&&explorer&&explorer.style.display!=='none')closeExplorer();},true);
 
+/* ===== History engine: the page quietly remembers its own evolution =====
+   Text: after each pause in editing (or at least once a minute while you keep going) the page is snapshotted as a
+   list of paragraph hashes; paragraphs live once in db.paras, images once in db.images, so an edit costs only the
+   paragraphs it touched. Ink: strokes are never deleted, only retired (del) or re-born (born) when moved/redone.
+   Nothing here ever changes the live page. */
+const HIST_IDLE=2500,HIST_MAX=60000;
+let _histT=null,_histFirst=0,_histBusy=null,_histEditT=0;
+const _histLast=new Map();   // pid -> {paras:[hash], text, imgs}
+const _parasKnown=new Set();
+// one canonical shape per paragraph, so identical content always hashes identically (live vs. reloaded runs differ in optional keys)
+function normPara(p){return{align:p.align||'left',t:p.t||null,runs:(p.runs||[]).map(r=>r.type==='image'?{type:'image',src:r.src,width:r.width||100,bg:r.bg||null}:{type:'text',text:r.text||'',bold:!!r.bold,italic:!!r.italic,underline:!!r.underline,color:r.color||null,size:r.size||null,font:r.font||null,mark:r.mark||null})};}
+function paraKey(p){return contentHash(JSON.stringify(p));}
+function docPlain(paras){return paras.map(p=>p.runs.filter(r=>r.type==='text').map(r=>r.text).join('')).join('\n');}
+function docImgs(paras){let n=0;paras.forEach(p=>p.runs.forEach(r=>{if(r.type==='image')n++;}));return n;}
+function clip(s,n){s=String(s).replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n-1)+'…':s;}
+// what changed, in words (also the seed for "what did I delete?" later)
+function describeChange(prevText,text,prevImgs,imgs,paraDelta){let a=0;const ml=Math.min(prevText.length,text.length);while(a<ml&&prevText[a]===text[a])a++;let b=0;while(b<ml-a&&prevText[prevText.length-1-b]===text[text.length-1-b])b++;
+  const del=prevText.slice(a,prevText.length-b),add=text.slice(a,text.length-b);const sum={add:clip(add,160),del:clip(del,160),nAdd:add.replace(/\s/g,'').length,nDel:del.replace(/\s/g,'').length,img:imgs-prevImgs};
+  const parts=[];if(sum.nAdd&&sum.nDel)parts.push('Changed “'+clip(del,40)+'” to “'+clip(add,40)+'”');else if(sum.nAdd)parts.push('Wrote “'+clip(add,60)+'”');else if(sum.nDel)parts.push('Deleted “'+clip(del,60)+'”');
+  if(sum.img>0)parts.push('Added '+(sum.img>1?sum.img+' images':'an image'));if(sum.img<0)parts.push('Removed '+(-sum.img>1?(-sum.img)+' images':'an image'));
+  if(!parts.length)parts.push(paraDelta>0?'New paragraph':paraDelta<0?'Joined paragraphs':'Formatting / highlights');sum.label=parts.join(' · ');return sum;}
+function historyNote(){if(pid==null)return;const now=Date.now();_histEditT=now;if(!_histFirst)_histFirst=now;clearTimeout(_histT);const wait=Math.max(0,Math.min(HIST_IDLE,HIST_MAX-(now-_histFirst)));_histT=setTimeout(()=>{takeSnapshot();},wait);}
+async function historyFlush(){if(_histT){clearTimeout(_histT);_histT=null;await takeSnapshot();}else if(_histBusy)await _histBusy;}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')historyFlush();});
+async function lastSnapshotOf(p){if(_histLast.has(p))return _histLast.get(p);let rec=null;try{const last=await db.snaps.where('pid').equals(p).last();if(last){const rows=await db.paras.bulkGet(last.paras);const paras=rows.map(r=>r?r.p:{align:'left',runs:[]});last.paras.forEach(h=>_parasKnown.add(h));rec={paras:last.paras,text:docPlain(paras),imgs:docImgs(paras),t:last.t};}}catch(e){console.error(e);}_histLast.set(p,rec);return rec;}
+async function takeSnapshot(opts){_histT=null;_histFirst=0;if(!editor||pid==null)return;if(_histBusy){await _histBusy;}
+  const p0=pid;_histBusy=(async()=>{try{await internImages();const doc=editor.getDoc().map(normPara);const keys=doc.map(paraKey);const prev=await lastSnapshotOf(p0);
+    if(prev&&prev.paras.length===keys.length&&prev.paras.every((k,i)=>k===keys[i]))return;
+    if(!prev&&!docPlain(doc).trim()&&!docImgs(doc))return;
+    const fresh=[];doc.forEach((p,i)=>{if(!_parasKnown.has(keys[i])){fresh.push({h:keys[i],p});_parasKnown.add(keys[i]);}});if(fresh.length)await db.paras.bulkPut(fresh);
+    const text=docPlain(doc),imgs=docImgs(doc);const sum=(prev||!(opts&&opts.label))?describeChange(prev?prev.text:'',text,prev?prev.imgs:0,imgs,keys.length-(prev?prev.paras.length:0)):{label:opts.label,add:clip(text,160),del:'',nAdd:text.replace(/\s/g,'').length,nDel:0,img:imgs};
+    const t=Math.max((prev&&prev.t||0)+1,Math.min(Date.now(),_histEditT||Date.now()));await db.snaps.add({pid:p0,t,paras:keys,sum});_histLast.set(p0,{paras:keys,text,imgs,t});if(typeof tlLive==='function')tlLive();
+  }catch(e){_quotaToast(e);}})();try{await _histBusy;}finally{_histBusy=null;}}
+// On opening a page: record its current state if history doesn't have it yet (first run, or edits made before v4).
+function historyStart(){lastSnapshotOf(pid).then(prev=>takeSnapshot({label:prev?'Changed outside history':'History begins'}));}
+
+/* ===== Timeline: travel back through the life of the page =====
+   The preview is drawn by the editor's own line renderer and the same ink maths, so it looks like the page did. Read-only. */
+let TL=null;
+function ensureTimeline(){if(TL)return TL;const el=document.createElement('div');el.id='timeline';el.style.display='none';
+  el.innerHTML='<div class="tl-bar"><div class="tl-title"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#fbbf24" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/></svg><b>Timeline</b><span class="tl-proj"></span><span class="tl-badge">looking at the past · read-only</span></div>'+
+    '<div class="tl-actions"><button class="fx-link tl-open" title="Copy the page as it was at this moment into a new project (nothing is overwritten)">Open as new project</button><button class="tl-close" title="Back to the present (Esc)">Back to now</button></div></div>'+
+    '<div class="tl-stage"><div class="tl-wrap"><div class="tl-pad"><div class="editor tl-ed"></div></div></div><canvas class="tl-ink"></canvas><div class="tl-empty"></div></div>'+
+    '<div class="tl-dock"><div class="tl-when"><span class="tl-big"></span><span class="tl-what"></span></div>'+
+    '<div class="tl-sl"><button class="tl-step" data-d="-1" title="Previous change (←)">‹</button><div class="tl-track"><canvas class="tl-dens"></canvas><div class="tl-fill"></div><div class="tl-thumb"></div></div><button class="tl-step" data-d="1" title="Next change (→)">›</button></div>'+
+    '<div class="tl-ends"><span class="tl-a"></span><div class="tl-rng"></div><span class="tl-b"></span></div></div>';
+  document.body.appendChild(el);
+  TL={el,wrap:el.querySelector('.tl-wrap'),pad:el.querySelector('.tl-pad'),ed:el.querySelector('.tl-ed'),cv:el.querySelector('.tl-ink'),track:el.querySelector('.tl-track'),dens:el.querySelector('.tl-dens'),thumb:el.querySelector('.tl-thumb'),fill:el.querySelector('.tl-fill'),
+    snaps:[],paras:new Map(),strokes:[],events:[],T:0,t0:0,t1:0,range:'all',shownKey:'',raf:0};
+  TL.ctx=TL.cv.getContext('2d');
+  el.querySelector('.tl-close').onclick=closeTimeline;
+  el.querySelector('.tl-open').onclick=tlOpenAsNew;
+  el.querySelectorAll('.tl-step').forEach(b=>b.onclick=()=>tlStep(+b.dataset.d));
+  const rng=el.querySelector('.tl-rng');[['hour','Hour'],['today','Today'],['week','Week'],['month','Month'],['all','All']].forEach(([k,l])=>{const b=document.createElement('button');b.className='sp-f';b.dataset.k=k;b.textContent=l;b.onclick=()=>{TL.range=k;tlRange();tlDraw();};rng.appendChild(b);});
+  let drag=false;const setFromX=x=>{const r=TL.track.getBoundingClientRect();const f=Math.max(0,Math.min(1,(x-r.left)/r.width));TL.T=TL.t0+f*(TL.t1-TL.t0);tlSchedule();};
+  TL.track.addEventListener('pointerdown',e=>{drag=true;TL.track.setPointerCapture(e.pointerId);setFromX(e.clientX);});
+  TL.track.addEventListener('pointermove',e=>{if(drag)setFromX(e.clientX);else{const r=TL.track.getBoundingClientRect();TL.track.title=fmtFull(TL.t0+(e.clientX-r.left)/r.width*(TL.t1-TL.t0));}});
+  const end=()=>{drag=false;};TL.track.addEventListener('pointerup',end);TL.track.addEventListener('pointercancel',end);
+  TL.wrap.addEventListener('scroll',()=>tlInk(),{passive:true});
+  addEventListener('resize',()=>{if(tlOpen()){tlLayout();tlShow(true);}});
+  addEventListener('keydown',e=>{if(!tlOpen())return;if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeTimeline();}else if(e.key==='ArrowLeft'){e.preventDefault();tlStep(-1);}else if(e.key==='ArrowRight'){e.preventDefault();tlStep(1);}else if(e.key==='Home'){TL.T=TL.t0;tlSchedule();}else if(e.key==='End'){TL.T=TL.t1;tlSchedule();}},true);
+  return TL;}
+function tlOpen(){return TL&&TL.el.style.display!=='none';}
+function fmtFull(t){return new Date(t).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit'});}
+async function openTimeline(){ensureTimeline();await historyFlush();await savePageNow();hideTagbar();closePopup();
+  const p0=pid;TL.pid=p0;TL.el.querySelector('.tl-proj').textContent=projName(p0);
+  TL.snaps=await db.snaps.where('pid').equals(p0).sortBy('t');
+  const need=new Set();TL.snaps.forEach(s=>s.paras.forEach(h=>{if(!TL.paras.has(h))need.add(h);}));
+  if(need.size){const ks=[...need];const rows=await db.paras.bulkGet(ks);rows.forEach((r,i)=>{if(r)TL.paras.set(ks[i],r.p);});}
+  const imgs=new Set();for(const p of TL.paras.values())p.runs.forEach(r=>{const h=r.type==='image'&&imgHashOf(r.src);if(h)imgs.add(h);});await loadImages([...imgs]);
+  TL.strokes=await db.strokes.where('pid').equals(p0).toArray();
+  // every moment something changed
+  const ev=[];TL.snaps.forEach(s=>ev.push({t:s.t,k:'text',label:(s.sum&&s.sum.label)||'Edited'}));TL.strokes.forEach(s=>{ev.push({t:s.born||s.t,k:'ink',label:s.born?'Moved / restored a drawing':(s.tool==='eraser'?'Erased ink':s.tool==='hl'?'Highlighter stroke':'Drew a stroke')});if(s.del)ev.push({t:s.del,k:'ink',label:'Removed a drawing'});});
+  TL.events=ev.sort((a,b)=>a.t-b.t);
+  TL.first=TL.events.length?TL.events[0].t:Date.now();
+  TL.el.style.display='flex';tlLayout();TL.range=(Date.now()-TL.first<3600e3)?'all':(Date.now()-TL.first<86400e3?'today':'all');tlRange();TL.T=TL.t1;tlShow(true);}
+function closeTimeline(){if(TL)TL.el.style.display='none';cancelAnimationFrame(TL&&TL.raf);}
+function tlLive(){if(tlOpen()&&TL.pid===pid){/* the live page changed underneath; keep showing history as-is */}}
+function tlRange(){const now=Date.now(),start=new Date();start.setHours(0,0,0,0);const r={hour:now-3600e3,today:start.getTime(),week:now-7*864e5,month:now-30*864e5,all:TL.first}[TL.range];
+  TL.t1=now;TL.t0=Math.min(Math.max(r,TL.first-60e3),now-60e3);if(TL.T<TL.t0)TL.T=TL.t0;if(TL.T>TL.t1)TL.T=TL.t1;
+  TL.el.querySelectorAll('.tl-rng .sp-f').forEach(b=>b.classList.toggle('on',b.dataset.k===TL.range));
+  const lab=t=>{const d=new Date(t);return (dayLabel(t)==='Today'?'':dayLabel(t)+' ')+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});};TL.el.querySelector('.tl-a').textContent=lab(TL.t0);TL.el.querySelector('.tl-b').textContent='now';tlDensity();}
+function tlLayout(){const st=TL.el.querySelector('.tl-stage');TL.W=st.clientWidth;TL.H=st.clientHeight;TL.gutter=gutter;TL.drawW=Math.max(40,TL.W-TL.gutter-12);TL.dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
+  TL.cv.width=Math.round(TL.W*TL.dpr);TL.cv.height=Math.round(TL.H*TL.dpr);TL.cv.style.width=TL.W+'px';TL.cv.style.height=TL.H+'px';TL.ed.style.paddingLeft=(TL.gutter+10)+'px';
+  const r=TL.track.getBoundingClientRect();TL.dens.width=Math.round(r.width*TL.dpr);TL.dens.height=Math.round(r.height*TL.dpr);tlDensity();}
+// event markers, compressed into a density strip so thousands of events stay calm
+function tlDensity(){const c=TL.dens,x=c.getContext('2d'),w=c.width,h=c.height;if(!w)return;x.clearRect(0,0,w,h);const span=TL.t1-TL.t0;if(span<=0)return;
+  // day boundaries
+  x.fillStyle='rgba(255,255,255,.07)';const d=new Date(TL.t0);d.setHours(24,0,0,0);for(let t=d.getTime();t<TL.t1;t+=864e5){const px=(t-TL.t0)/span*w;x.fillRect(px,0,Math.max(1,TL.dpr),h);}
+  const bins=Math.max(1,Math.floor(w/(3*TL.dpr)));const tb=new Array(bins).fill(0),ib=new Array(bins).fill(0);for(const e of TL.events){if(e.t<TL.t0||e.t>TL.t1)continue;const i=Math.min(bins-1,Math.floor((e.t-TL.t0)/span*bins));if(e.k==='ink')ib[i]++;else tb[i]++;}
+  const bw=w/bins;for(let i=0;i<bins;i++){const n=tb[i]+ib[i];if(!n)continue;const hh=Math.min(h*.8,(3+Math.log2(1+n)*4)*TL.dpr);x.fillStyle=tb[i]?'rgba(251,191,36,.75)':'rgba(167,139,250,.75)';x.fillRect(i*bw+bw*.2,(h-hh)/2,Math.max(TL.dpr,bw*.6),hh);}}
+function tlSchedule(){cancelAnimationFrame(TL.raf);TL.raf=requestAnimationFrame(()=>tlShow(false));}
+function tlSnapAt(T){let lo=0,hi=TL.snaps.length-1,ans=-1;while(lo<=hi){const m=(lo+hi)>>1;if(TL.snaps[m].t<=T){ans=m;lo=m+1;}else hi=m-1;}return ans;}
+function tlStrokesAt(T){return TL.strokes.filter(s=>(s.born||s.t)<=T&&(!s.del||s.del>T));}
+function tlShow(force){const T=TL.T,si=tlSnapAt(T),vis=tlStrokesAt(T);const key=si+':'+vis.map(s=>s.id).join(',');
+  // readout + thumb
+  const f=(T-TL.t0)/Math.max(1,TL.t1-TL.t0);TL.thumb.style.left=(f*100)+'%';TL.fill.style.width=(f*100)+'%';
+  const atNow=TL.t1-T<1500;TL.el.querySelector('.tl-big').textContent=atNow?'Now':fmtFull(T);
+  let last=null;for(const e of TL.events){if(e.t<=T)last=e;else break;}
+  TL.el.querySelector('.tl-what').textContent=last?(fmtTime(last.t)+' · '+last.label):'Before this page had anything on it';
+  TL.el.classList.toggle('is-now',atNow);
+  if(!force&&key===TL.shownKey){return;}TL.shownKey=key;
+  const paras=si>=0?TL.snaps[si].paras.map(h=>TL.paras.get(h)||{align:'left',runs:[{type:'text',text:''}]}):[];
+  editor.renderParas(paras,TL.ed);TL.vis=vis;
+  const emp=TL.el.querySelector('.tl-empty');emp.style.display=(!paras.some(p=>p.runs.some(r=>r.type==='image'||(r.text&&r.text.trim())))&&!vis.length)?'':'none';emp.textContent=TL.snaps.length<=1&&TL.strokes.length===0?'History starts now — keep working and come back here to travel through it.':'The page was empty at this moment.';
+  let mx=0;for(const s of vis)mx=Math.max(mx,s.maxYn*TL.drawW);TL.pad.style.minHeight=Math.ceil(Math.max(TL.ed.scrollHeight+20,mx+TL.H*.5,TL.H))+'px';
+  tlInk();}
+function tlInk(){if(!TL||!TL.vis)return;const c=TL.ctx,st=TL.wrap.scrollTop,dW=TL.drawW,g=TL.gutter;c.setTransform(TL.dpr,0,0,TL.dpr,0,0);c.clearRect(0,0,TL.W,TL.H);
+  const X=xn=>g+xn*dW,Y=yn=>yn*dW-st;
+  for(const s of TL.vis){const top=s.minYn*dW-st,bot=s.maxYn*dW-st;if(bot<-14||top>TL.H+14)continue;c.lineCap='round';c.lineJoin='round';
+    if(s.tool==='eraser'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';c.fillStyle='#000';c.globalAlpha=1;}else{c.globalCompositeOperation='source-over';c.strokeStyle=s.color;c.fillStyle=s.color;c.globalAlpha=s.tool==='hl'?.30:1;}
+    const p=s.pts;if(p.length===1){c.beginPath();c.arc(X(p[0].xn),Y(p[0].yn),Math.max(.5,p[0].wn*dW/2),0,7);c.fill();}else for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];c.lineWidth=Math.max(.5,(a.wn+b.wn)/2*dW);c.beginPath();c.moveTo(X(a.xn),Y(a.yn));c.lineTo(X(b.xn),Y(b.yn));c.stroke();}}
+  c.globalCompositeOperation='source-over';c.globalAlpha=1;
+  // the margin as it was: session stamps from the historical paragraphs and strokes
+  c.fillStyle='rgba(16,13,22,.86)';c.fillRect(0,0,g,TL.H);c.strokeStyle='#2a2233';c.lineWidth=1;c.beginPath();c.moveTo(g+.5,0);c.lineTo(g+.5,TL.H);c.stroke();
+  const wr=TL.wrap.getBoundingClientRect(),raw=[];TL.ed.querySelectorAll(':scope > .line').forEach(le=>{const t=+le.dataset.t;if(!t||!le.textContent.replace(/​/g,'').trim()&&!le.querySelector('img'))return;const b=le.getBoundingClientRect();raw.push({t,y:(b.top-wr.top)+Math.min(12,b.height/2)});});
+  for(const s of TL.vis)raw.push({t:s.born||s.t,y:s.minYn*dW-st+6,ink:true});raw.sort((a,b)=>a.y-b.y);let lastT=null,lastDay='',lastY=-99;
+  for(const r of raw){const day=new Date(r.t).toDateString();if(lastT!=null&&Math.abs(r.t-lastT)<GAP_MS&&day===lastDay)continue;const nd=day!==lastDay;lastT=r.t;lastDay=day;if(r.y<-20||r.y>TL.H+20||r.y-lastY<(nd?26:15))continue;lastY=r.y;
+    c.textBaseline='middle';c.textAlign='right';if(nd){c.font='600 9px Arial';c.fillStyle='#7a6a45';c.fillText(dayLabel(r.t).toUpperCase(),g-16,r.y-11);}c.font='10.5px Arial';c.fillStyle=r.ink?'#8a7f9a':'#9a8a6a';c.fillText((r.ink?'✎ ':'')+fmtTime(r.t),g-16,r.y+(nd?2:0));}
+  c.textAlign='left';}
+function tlStep(d){const ts=[...new Set(TL.events.map(e=>e.t))];if(!ts.length)return;let T;if(d<0){T=null;for(const t of ts)if(t<TL.T-500)T=t;if(T==null)T=TL.t0;}else{T=ts.find(t=>t>TL.T+500);if(T==null)T=TL.t1;}
+  if(T<TL.t0){TL.range='all';tlRange();}TL.T=Math.max(TL.t0,Math.min(TL.t1,T));tlShow(false);}
+async function tlOpenAsNew(){const T=TL.T,si=tlSnapAt(T);const paras=si>=0?TL.snaps[si].paras.map(h=>JSON.parse(JSON.stringify(TL.paras.get(h)||{align:'left',runs:[]}))):[];
+  paras.forEach(p=>p.runs.forEach(r=>{if(r.mark)r.mark=null;}));   // highlights belong to the original page
+  const name=(projName(TL.pid)+' · '+new Date(T).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})).slice(0,60);
+  const np=await db.projects.add({name,created:Date.now()});await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0});
+  for(const s of tlStrokesAt(T))await db.strokes.add({pid:np,t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn});
+  projects=await db.projects.toArray();closeTimeline();await switchProject(np);renderProjects();toast('Opened “'+name+'” — the original is untouched','ok');}
+document.getElementById('timeline-btn').addEventListener('click',()=>{if(tlOpen())closeTimeline();else openTimeline();});
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='h'){e.preventDefault();if(tlOpen())closeTimeline();else openTimeline();}},true);
+
 async function inlineImagesForExport(html){const hs=imageRefsIn(html);if(!hs.length)return html;const rows=await db.images.bulkGet(hs);const map={};for(let i=0;i<hs.length;i++)if(rows[i]&&rows[i].blob)map[hs[i]]=await _blobToDataURL(rows[i].blob);return String(html).replace(/pw-img:([0-9a-z]+)/g,(m,h)=>map[h]||m);}
 
 </script>
@@ -1364,13 +1529,13 @@ async function backupProject(){
   const pg=(await db.pages.get(pid))||{};
   const data={app:'patchwork',type:'patchwork-backup',version:1,scope:'project',exportedAt:new Date().toISOString(),
     project:{name:projName(pid)},page:{html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0},
-    marks:marks.filter(m=>m.pid===pid).map(_mexp),htypes:_typesFor(marks.filter(m=>m.pid===pid)),strokes:(await db.strokes.where('pid').equals(pid).toArray()).map(_sexp)};
+    marks:marks.filter(m=>m.pid===pid).map(_mexp),htypes:_typesFor(marks.filter(m=>m.pid===pid)),strokes:(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del).map(_sexp)};
   _download(data,'patchwork-'+_slug(projName(pid))+'-'+_today()+'.json');
   toast('Backed up this project: \u201c'+projName(pid)+'\u201d','ok');db.info.update('info',{lastBackupAt:Date.now()}).catch(()=>{});
 }
 async function backupAll(){
   await savePageNow();
-  const pgs=await db.pages.toArray();const allS=await db.strokes.toArray();
+  const pgs=await db.pages.toArray();const allS=(await db.strokes.toArray()).filter(s=>!s.del);
   const data={app:'patchwork',type:'patchwork-backup',version:1,scope:'all',exportedAt:new Date().toISOString(),
     projects:projects.map(p=>({oid:p.id,name:p.name,created:p.created})),
     pages:await Promise.all(pgs.map(async pg=>({poid:pg.pid,html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0}))),
@@ -1423,9 +1588,9 @@ document.getElementById('proj-btn').addEventListener('click',()=>setTimeout(upda
 let aboutPanel=null;
 const ABOUT={
  about:'<p><b>Patchwork</b> is a local-first page you write <i>and</i> draw on, with a timestamp ledger in the margin. Rich text, free-hand ink, tasks, questions, answers and projects \u2014 all in one file that runs entirely in your browser.</p><p>It is a single static HTML page: no build step, no backend, no sign-up.</p><p class="ab-mut">Version: beta</p>',
- privacy:'<p><b>Everything stays on your device.</b> Your text, drawings, timestamps, tags, projects and colour favourites are stored locally in your browser (IndexedDB). Nothing is uploaded.</p><p>There are no accounts, no servers, no analytics and no tracking. The only network requests are loading two open-source libraries (DOMPurify and Dexie) when the page first opens.</p><p>Because your data lives only in this browser profile, clearing site or browser data will erase it. Use <b>Backup</b> regularly and keep your exported <code>.json</code> files safe \u2014 treat them like any personal document.</p>',
+ privacy:'<p><b>Everything stays on your device.</b> Your text, drawings, images, the page\u2019s history, timestamps, tags, highlight types and profiles, projects and colour favourites are stored locally in your browser (IndexedDB). Nothing is uploaded.</p><p>There are no accounts, no servers, no analytics and no tracking. The only network requests are loading two open-source libraries (DOMPurify and Dexie) when the page first opens.</p><p>Because your data lives only in this browser profile, clearing site or browser data will erase it. Use <b>Backup</b> regularly and keep your exported <code>.json</code> files safe \u2014 treat them like any personal document.</p>',
  terms:'<p>Patchwork is provided free, <b>as-is and as-available, without warranty of any kind.</b> It is beta software \u2014 features may change and data loss is possible; you are responsible for keeping your own backups.</p><p>You retain all rights to the content you create. To the maximum extent permitted by law, the authors are not liable for any loss or damage (including lost data) arising from use of this app. By using Patchwork you accept these terms.</p>',
- keys:'<p>Tools (when not typing): <b>T</b> text, <b>P</b> pen, <b>H</b> highlighter, <b>E</b> eraser, <b>V</b> scroll.</p><p><b>Ctrl/\u2318 + Z</b> undo, <b>Ctrl/\u2318 + Shift + Z</b> redo \u2014 ink while a draw tool is active, otherwise text.</p><p><b>Ctrl/\u2318 + F</b> search \u00b7 <b>Esc</b> closes panels. Drag the left margin edge to resize it; the <b>+</b> adds a timestamp.</p>'
+ keys:'<p>Tools (when not typing): <b>T</b> text, <b>P</b> pen, <b>H</b> highlighter, <b>E</b> eraser, <b>V</b> scroll.</p><p><b>Ctrl/\u2318 + Z</b> undo, <b>Ctrl/\u2318 + Shift + Z</b> redo \u2014 ink while a draw tool is active, otherwise text.</p><p><b>Ctrl/\u2318 + F</b> find &amp; filter \u00b7 <b>Ctrl/\u2318 + Shift + F</b> explore highlights \u00b7 <b>Ctrl/\u2318 + Shift + H</b> timeline (<b>\u2190 \u2192</b> step through changes) \u00b7 <b>Esc</b> closes panels.</p><p>Select text to highlight it; the <b>+</b> on the selection bar makes a new highlight type in the Highlight Factory. Drag the left margin edge to resize it; the <b>+</b> above the margin adds a timestamp.</p>'
 };
 function ensureAbout(){if(aboutPanel)return aboutPanel;aboutPanel=document.createElement('div');aboutPanel.className='panel';aboutPanel.style.width='420px';aboutPanel.style.display='none';
   aboutPanel.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.5" r=".7"/></svg></div><div class="panel-t">About &amp; legal</div><button class="panel-x">\u00d7</button></div><div class="panel-b"><div class="seg" id="ab-tabs"></div><div id="ab-body" style="font-size:12.5px;line-height:1.65;color:#c4c4dc;"></div></div>';

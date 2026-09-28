@@ -3,12 +3,13 @@
 let menuEl=null;
 function ensureMenu(){if(menuEl)return menuEl;menuEl=document.createElement('div');menuEl.id='main-menu';
   menuEl.innerHTML='<div class="mm-scrim"></div><aside class="mm-panel"><div class="panel-h"><div class="panel-t">Patchwork</div><button class="panel-x" title="Close (Esc)">×</button></div>'+
-    '<div class="mm-items"><label class="mm-item"><span>Light mode</span><input type="checkbox" class="pf-cb mm-light"></label></div>'+
+    '<div class="mm-items"><label class="mm-item"><span>Light mode</span><input type="checkbox" class="pf-cb mm-light"></label>'+(IS_MINI?'':'<button class="mm-item mm-class">Classroom<span class="hw-hint">optional</span></button>')+'</div>'+
     '<div class="mm-bottom"><button class="mm-item mm-about">About &amp; legal</button></div></aside>';
   document.body.appendChild(menuEl);
   const close=()=>menuEl.classList.remove('open');menuEl.querySelector('.mm-scrim').onclick=close;menuEl.querySelector('.panel-x').onclick=close;
   const lt=menuEl.querySelector('.mm-light');lt.checked=document.documentElement.classList.contains('light');lt.onchange=()=>setTheme(lt.checked?'light':'dark');
   menuEl.querySelector('.mm-about').onclick=()=>{close();openAbout();};
+  const mc=menuEl.querySelector('.mm-class');if(mc)mc.onclick=()=>{close();openClassroom();};
   addEventListener('keydown',e=>{if(e.key==='Escape'&&menuEl.classList.contains('open'))close();});return menuEl;}
 function openMenu(){ensureMenu().classList.add('open');}
 // light mode = the dark theme inverted (pictures inverted back); remembered per browser

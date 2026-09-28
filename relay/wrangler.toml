@@ -1,0 +1,16 @@
+# Deploy: npx wrangler deploy   (from this folder)
+name = "patchwork-classroom"
+main = "worker.mjs"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Comma-separated origins allowed to use this relay, e.g. "https://forkmytypos.github.io"
+ALLOWED_ORIGINS = "https://forkmytypos.github.io"
+
+[[durable_objects.bindings]]
+name = "CLASSROOM"
+class_name = "Classroom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Classroom"]

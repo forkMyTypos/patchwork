@@ -80,8 +80,13 @@ function typeEditor(t,where){const ed=document.createElement('div');ed.className
   FX_KEYS.forEach(([k,lb])=>{const b=document.createElement('button');b.className='sp-f'+(t.fx[k]?' on':'');b.textContent=lb;b.onclick=()=>{t.fx[k]=!t.fx[k];saveType(t);b.classList.toggle('on',!!t.fx[k]);paintSample(prev,t);const rs=ed.parentNode&&ed.parentNode.querySelector('.fx-sample');if(rs)paintSample(rs,t);};chips.appendChild(b);});
   fe.appendChild(chips);const prev=document.createElement('div');prev.className='fx-prev';prev.textContent='The quick brown fox';paintSample(prev,t);const pw=document.createElement('div');pw.className='fx-prevwrap';pw.appendChild(document.createTextNode('Preview: '));pw.appendChild(prev);fe.appendChild(pw);
   // behaviour
-  const fb=field('Behaviour');const tog=(label,key,help)=>{const l=document.createElement('label');l.className='pf-row';l.title=help||'';const c=document.createElement('input');c.type='checkbox';c.className='pf-cb';c.checked=key==='margin'?t.margin!==false:!!t[key];c.onchange=()=>{t[key]=c.checked;saveType(t);};l.appendChild(c);l.appendChild(document.createTextNode(' '+label));fb.appendChild(l);};
+  const fb=field('Behaviour');const tog=(label,key,help)=>{const l=document.createElement('label');l.className='pf-row';l.title=help||'';const c=document.createElement('input');c.type='checkbox';c.className='pf-cb';c.checked=key==='margin'?t.margin!==false:!!t[key];c.onchange=()=>{t[key]=c.checked;saveType(t);if(key==='hover')renderFactory();};l.appendChild(c);l.appendChild(document.createTextNode(' '+label));fb.appendChild(l);};
   tog('Show in the margin','margin','Turn off for word-level highlighting (verbs, nouns…) so the margin stays calm');tog('Can be ticked off (like a task)','checkable');tog('Pop up its hover text when I point at it','hover','Each highlight of this type gets a “Hover text” box; pointing at the highlighted words shows it');
+  // hover text shared by every highlight of this type (e.g. VERB -> its definition), typed or taken from another project
+  if(t.hover){const fh=field('Hover text for every \u201c'+esc(t.name)+'\u201d highlight');const ta=document.createElement('textarea');ta.className='pf-in pf-ta';ta.rows=3;ta.placeholder='e.g. A verb is a word for an action or a state: run, eat, be\u2026';ta.value=t.hoverText||'';ta.oninput=()=>{t.hoverText=ta.value;t.hoverSrc=null;saveType(t);};fh.appendChild(ta);
+    if(t.hoverSrc){const sr=document.createElement('div');sr.className='pf-time';sr.textContent='from \u201c'+projName(t.hoverSrc)+'\u201d';fh.appendChild(sr);}
+    const pk=document.createElement('button');pk.className='pbtn';pk.textContent='\u2398 take it from another project';pk.onclick=()=>openTextPicker((txt,from)=>{t.hoverText=txt;t.hoverSrc=from;saveType(t);renderFactory();});fh.appendChild(pk);
+    const hn=document.createElement('div');hn.className='fx-hint';hn.textContent='A highlight can still have its own hover text (click it); otherwise it shows this.';fh.appendChild(hn);}
   // links
   const fl=field('Can link to');const lk=document.createElement('div');lk.className='fx-fx';t.links=t.links||[];
   [...HT.values()].forEach(o=>{const b=document.createElement('button');b.className='sp-f'+(t.links.includes(o.id)?' on':'');b.innerHTML='<span class="tb-dot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+o.color+';margin-right:5px"></span>'+esc(o.name);b.onclick=()=>{if(t.links.includes(o.id))t.links=t.links.filter(x=>x!==o.id);else t.links=[...t.links,o.id];saveType(t);b.classList.toggle('on',t.links.includes(o.id));};lk.appendChild(b);});
@@ -108,11 +113,13 @@ addEventListener('keydown',e=>{if(e.key==='Escape'&&factory&&factory.style.displ
 
 /* ===== hover text: point at a highlight to see its note ===== */
 let _tip=null,_tipT=null;
-function showHoverTip(el,m){if(!_tip){_tip=document.createElement('div');_tip.id='hover-tip';document.body.appendChild(_tip);}
-  _tip.innerHTML='<div class="ht-txt"></div>'+(m.hoverSrc?'<div class="ht-src">from “'+esc(projName(m.hoverSrc))+'”</div>':'');_tip.querySelector('.ht-txt').textContent=m.hover;_tip.style.setProperty('--c',mtype(m.type).c);
-  _tip.style.display='block';const r=el.getBoundingClientRect(),w=_tip.offsetWidth,h=_tip.offsetHeight;let top=r.bottom+6;if(top+h>innerHeight-6)top=Math.max(6,r.top-h-6);_tip.style.left=Math.max(6,Math.min(r.left,innerWidth-w-6))+'px';_tip.style.top=top+'px';}
+// a highlight's own hover text wins; otherwise its type's shared text (e.g. the definition of VERB)
+function hoverOf(m){const T=ht(m.type);if(!T.hover)return null;if((m.hover||'').trim())return{text:m.hover,src:m.hoverSrc};if((T.hoverText||'').trim())return{text:T.hoverText,src:T.hoverSrc};return null;}
+function showHoverTip(el,h,m){if(!_tip){_tip=document.createElement('div');_tip.id='hover-tip';document.body.appendChild(_tip);}
+  _tip.innerHTML='<div class="ht-txt"></div>'+(h.src?'<div class="ht-src">from \u201c'+esc(projName(h.src))+'\u201d</div>':'');_tip.querySelector('.ht-txt').textContent=h.text;_tip.style.setProperty('--c',mtype(m.type).c);
+  _tip.style.display='block';const r=el.getBoundingClientRect(),w=_tip.offsetWidth,hh=_tip.offsetHeight;let top=r.bottom+6;if(top+hh>innerHeight-6)top=Math.max(6,r.top-hh-6);_tip.style.left=Math.max(6,Math.min(r.left,innerWidth-w-6))+'px';_tip.style.top=top+'px';}
 function hideHoverTip(){clearTimeout(_tipT);if(_tip)_tip.style.display='none';}
-noteEd.addEventListener('mouseover',e=>{const el=e.target.closest&&e.target.closest('[data-mark]');if(!el){hideHoverTip();return;}const m=markById(el.dataset.mark);if(!m||!ht(m.type).hover||!(m.hover||'').trim())return;clearTimeout(_tipT);_tipT=setTimeout(()=>showHoverTip(el,m),220);});
+noteEd.addEventListener('mouseover',e=>{const el=e.target.closest&&e.target.closest('[data-mark]');if(!el){hideHoverTip();return;}const m=markById(el.dataset.mark);const h=m&&hoverOf(m);if(!h)return;clearTimeout(_tipT);_tipT=setTimeout(()=>showHoverTip(el,h,m),220);});
 noteEd.addEventListener('mouseleave',hideHoverTip);wrap.addEventListener('scroll',hideHoverTip,{passive:true});
 
 /* pick a passage from any project's page (read-only view) */

@@ -445,3 +445,9 @@ html.light img,html.light .fx-swb,html.light .cp-sw,html.light .cp-fav,html.ligh
 .cls-scroll{flex:1;min-height:0;overflow:auto;background:#111;position:relative;}
 .cls-page{position:relative;transform-origin:0 0;}.cls-ed{cursor:default;caret-color:transparent;min-height:0;padding-bottom:40px;}.cls-ink{position:absolute;left:0;top:0;pointer-events:none;}
 .cls-wait{padding:40px 20px;text-align:center;color:#56566e;font-size:13px;}
+.cls-roster{display:flex;flex-direction:column;gap:2px;max-height:30vh;overflow:auto;border:1px solid #20202e;border-radius:9px;padding:4px;}
+.cls-person{display:flex;align-items:center;gap:8px;padding:4px 6px;font-size:12.5px;}.cls-pname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cls-kick{width:auto!important;padding:0 6px;}.cls-kick.armed{color:#f87171;background:#2a1414;}
+.panel.cls-inbox-panel{width:420px;height:50vh;min-width:300px;min-height:220px;resize:both;z-index:9050;}.cls-inbox-panel .panel-b{flex:1;min-height:0;max-height:none;}
+.inbox-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:4px;}.inbox-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid #20202e;border-radius:9px;}
+.inbox-main{flex:1;min-width:0;display:flex;flex-direction:column;font-size:12.5px;}.inbox-file{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c4c4dc;}

@@ -10,6 +10,8 @@ db.version(4).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',m
 db.version(5).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id',hw:'++id,lang,ch,src'});
 // v6 adds folders (projects get an optional `folder`; none = Home)
 db.version(6).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id',hw:'++id,lang,ch,src',folders:'++id,parent'});
+// v7 adds the classroom inbox (hand-ins received by a teacher; local only)
+db.version(7).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id',hw:'++id,lang,ch,src',folders:'++id,parent',inbox:'++id,at'});
 
 const GAP_MS=4*60*1000;
 const PALETTE=['#ece6da','#f87171','#fb923c','#fbbf24','#4ade80','#22d3ee','#60a5fa','#a78bfa','#f472b6','#1c1c24'];

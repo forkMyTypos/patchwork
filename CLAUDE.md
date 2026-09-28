@@ -3,7 +3,8 @@
 - Push finished work straight to `main` (the owner's standing instruction). GitHub Pages serves `main`.
 - Plain files, no build step, no framework. Keep it local-first: no network requests, accounts or telemetry.
   The ONE exception is the opt-in classroom (`js/classroom.js` + `relay/`): it connects only when a user creates/joins
-  a classroom, teacher -> students only, students can never send content, and received data is validated before rendering.
+  a classroom; broadcast is teacher -> students only; the only student -> teacher path is an explicit file hand-in
+  (allow-listed types, size/rate caps, teacher only, never stored by the relay); received data is validated before use.
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.

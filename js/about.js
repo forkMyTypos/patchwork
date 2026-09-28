@@ -18,7 +18,6 @@ function ensureAbout(){if(aboutPanel)return aboutPanel;aboutPanel=document.creat
   return aboutPanel;}
 function showAbout(k){ensureAbout();aboutPanel.querySelectorAll('#ab-tabs button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));aboutPanel.querySelector('#ab-body').innerHTML=ABOUT[k]||'';}
 function openAbout(){ensureAbout();showAbout('about');aboutPanel.style.display='flex';aboutPanel.style.left=Math.max(8,(window.innerWidth-420)/2)+'px';aboutPanel.style.top='12vh';aboutPanel.style.right='auto';}
-document.getElementById('about-btn').addEventListener('click',openAbout);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&aboutPanel&&aboutPanel.style.display!=='none')aboutPanel.style.display='none';});
 document.querySelectorAll('button[title]').forEach(b=>{if(!b.getAttribute('aria-label'))b.setAttribute('aria-label',b.title);});
 if('serviceWorker' in navigator){addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});}

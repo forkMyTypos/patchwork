@@ -121,7 +121,12 @@ function drawGutter(){
     else if(L.kind==='mark'){const m=L.m;ctx.font='10.5px Arial';ctx.fillStyle=m.done?'#6a6a82':'#c9b88a';ctx.fillText((m.done?'✓ ':'')+fmtTime(m.created),right,L.y+(m.name&&gutter>=110?-5:0));if(m.name&&gutter>=110){ctx.font='10px Arial';ctx.fillStyle=L.col;ctx.fillText(clipText(m.name,gutter-26),right,L.y+8);}}
     else{ctx.font='10px Arial';ctx.fillStyle=L.col;ctx.fillText(clipText(L.m.name,gutter-26),right,L.y);}
     ctx.textAlign='left';}
+  drawPages();
 }
+// pages: one page = one screen height of this window; faint breaks + a Page n / N readout
+function drawPages(){if(!H)return;const st=scrollTop(),total=Math.max(1,Math.ceil((contentBottomPx()+1)/H)),cur=Math.min(total,Math.floor((st+H*0.5)/H)+1);
+  ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';for(let k=1;k<total+1;k++){const y=k*H-st;if(y<-2||y>H+2)continue;ctx.strokeStyle='rgba(255,255,255,.09)';ctx.setLineDash([6,6]);ctx.beginPath();ctx.moveTo(gutter,y+.5);ctx.lineTo(W,y+.5);ctx.stroke();ctx.setLineDash([]);ctx.font='600 9px Arial';ctx.fillStyle='#5a5a72';ctx.textAlign='right';ctx.fillText('PAGE '+(k+1),W-18,y+12);}ctx.restore();
+  const pi=document.getElementById('page-ind');if(pi)pi.textContent='Page '+cur+' / '+total;}
 function buildFilterBar(){const fb=document.getElementById('filterbar');if(!fb)return;fb.innerHTML='';
   const mk=(t,label)=>{const c=document.createElement('div');c.className='fchip';c.dataset.t=t;c.setAttribute('role','button');
     c.innerHTML=(t==='all'?'':'<span class="fdot" style="background:'+mtype(t).c+'"></span>')+'<span class="flabel">'+label+'</span><span class="fcnt" data-c="'+t+'">0</span>'+(t==='all'?'':'<span class="fcaret">\u203a</span>');
@@ -395,12 +400,12 @@ async function jumpToMark(m){
 
 /* projects panel */
 let projPanel=null;
-function ensureProjects(){if(projPanel)return projPanel;projPanel=document.createElement('div');projPanel.className='panel';projPanel.style.display='none';
-  projPanel.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="panel-t">Projects</div><button class="panel-x">\u00d7</button></div><div class="panel-b"><div id="proj-crumb"></div><div id="proj-list" style="display:flex;flex-direction:column;gap:2px;max-height:50vh;overflow:auto"></div><div class="proj-new"><input class="pf-in" id="proj-new-in" placeholder="New project name\u2026" maxlength="60"><button id="proj-new-go" title="New project here">+</button><button id="proj-new-folder" title="New folder here">\ud83d\udcc1+</button></div><div style="margin-top:10px;padding-top:10px;border-top:1px solid #20202e;display:flex;flex-direction:column;gap:7px;"><div class="pf-l">Backup &amp; restore</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="pbtn" id="bk-proj">⤓ this project</button><button class="pbtn" id="bk-all">⤓ everything</button><button class="pbtn" id="bk-imp">⤑ import…</button></div><div class="pf-time">Importing always adds — it never overwrites what you have.</div><input type="file" id="bk-file" accept=".json,application/json" style="display:none"></div></div>';
+function ensureProjects(){if(projPanel)return projPanel;projPanel=document.createElement('div');projPanel.className='panel proj-panel';projPanel.style.display='none';
+  projPanel.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="panel-t">Projects</div><button class="panel-x">\u00d7</button></div><div class="panel-b"><div id="proj-crumb"></div><div id="proj-list"></div><div class="proj-new"><input class="pf-in" id="proj-new-in" placeholder="New project name\u2026" maxlength="60"><button id="proj-new-go" title="New project here">+</button></div><div style="margin-top:10px;padding-top:10px;border-top:1px solid #20202e;display:flex;flex-direction:column;gap:7px;"><div class="pf-l">Backup &amp; restore</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="pbtn" id="bk-proj">⤓ this project</button><button class="pbtn" id="bk-all">⤓ everything</button><button class="pbtn" id="bk-imp">⤑ import…</button></div><div class="pf-time">Importing always adds — it never overwrites what you have.</div><input type="file" id="bk-file" accept=".json,application/json" style="display:none"></div></div>';
   document.body.appendChild(projPanel);
   projPanel.querySelector('.panel-x').onclick=()=>projPanel.style.display='none';
   const ni=projPanel.querySelector('#proj-new-in');const go=()=>{const v=ni.value.trim();if(!v)return;ni.value='';newProject(v);};
-  projPanel.querySelector('#proj-new-go').onclick=go;projPanel.querySelector('#proj-new-folder').onclick=()=>{const v=ni.value.trim()||'New folder';ni.value='';newFolder(v);};ni.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();go();}};
+  projPanel.querySelector('#proj-new-go').onclick=go;ni.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();go();}};
   projPanel.querySelector('#bk-proj').onclick=()=>backupProject();projPanel.querySelector('#bk-all').onclick=()=>backupAll();const _bf=projPanel.querySelector('#bk-file');projPanel.querySelector('#bk-imp').onclick=()=>_bf.click();_bf.onchange=()=>{if(_bf.files[0]){importFile(_bf.files[0]);_bf.value='';}};makeDraggable(projPanel,projPanel.querySelector('.panel-h'));return projPanel;}
 /* ===== folders: a light hierarchy around projects (organisation only; they don't own pages or the editor) ===== */
 let folders=[],curFolder=null;   // curFolder: folder shown in the Projects panel (null = Home)
@@ -422,28 +427,32 @@ function moveSelect(kind,id,cur,onDone){const sel=document.createElement('select
   opt('','Move to…',true);sel.value='';opt('home','Home',cur==null);
   const walk=(parent,depth)=>folders.filter(f=>(f.parent||null)===parent).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f=>{const bad=kind==='folder'&&(f.id===id||folderInside(f.id,id));opt(f.id,'  '.repeat(depth)+'📁 '+f.name,bad||f.id===cur);if(!bad)walk(f.id,depth+1);});walk(null,1);
   sel.onchange=()=>{moveItem(kind,id,sel.value==='home'?null:+sel.value);};sel.onblur=()=>onDone&&onDone();return sel;}
+// drag a project or folder onto a folder row, a breadcrumb item or the back row
+let _drag=null;
+function dragSource(row,kind,id){row.draggable=true;row.addEventListener('dragstart',e=>{_drag={kind,id};e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',kind+':'+id);}catch(_){}row.classList.add('dragging');});row.addEventListener('dragend',()=>{_drag=null;row.classList.remove('dragging');});}
+function dropTarget(el,folderId){el.addEventListener('dragover',e=>{if(!_drag||(_drag.kind==='folder'&&(_drag.id===folderId||(folderId!=null&&folderInside(folderId,_drag.id)))))return;e.preventDefault();el.classList.add('drop');});el.addEventListener('dragleave',()=>el.classList.remove('drop'));el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drop');const d=_drag;_drag=null;if(d)moveItem(d.kind,d.id,folderId);});}
 function renderProjects(){
   if(!projPanel)return;const list=projPanel.querySelector('#proj-list');list.innerHTML='';
   const crumb=projPanel.querySelector('#proj-crumb');crumb.innerHTML='';const cs=[{id:null,name:'Home'},...folderPath(curFolder)];
-  cs.forEach((c,i)=>{if(i){const s=document.createElement('span');s.className='pc-sep';s.textContent='/';crumb.appendChild(s);}const b=document.createElement('button');b.className='pc-item'+(i===cs.length-1?' cur':'');b.textContent=c.name;b.onclick=()=>{curFolder=c.id;renderProjects();};crumb.appendChild(b);});
+  cs.forEach((c,i)=>{if(i){const s=document.createElement('span');s.className='pc-sep';s.textContent='/';crumb.appendChild(s);}const b=document.createElement('button');b.className='pc-item'+(i===cs.length-1?' cur':'');b.textContent=c.name;b.onclick=()=>{curFolder=c.id;renderProjects();};dropTarget(b,c.id);crumb.appendChild(b);});const nf=document.createElement('button');nf.className='pc-new';nf.title='New folder here';nf.textContent='\ud83d\udcc1+';nf.onclick=()=>{const ni=projPanel.querySelector('#proj-new-in');const v=ni.value.trim()||'New folder';ni.value='';newFolder(v);};crumb.appendChild(nf);
   const tool=(txt,title)=>{const b=document.createElement('button');b.className='pr-tool';b.textContent=txt;b.title=title;return b;};
   const arm=(del,fn)=>{del.onclick=e=>{e.stopPropagation();if(del.classList.contains('armed')){fn();}else{del.classList.add('armed');del.textContent='✓?';setTimeout(()=>{del.classList.remove('armed');del.textContent='🗑';},2500);}};};
   const rename=(row,nm,cur,save)=>e=>{e.stopPropagation();const inp=document.createElement('input');inp.className='pf-in';inp.value=cur;inp.style.flex='1';row.replaceChild(inp,nm);inp.focus();inp.onclick=ev=>ev.stopPropagation();inp.onblur=()=>save(inp.value.trim());inp.onkeydown=ev=>{if(ev.key==='Enter')inp.blur();};};
   const mover=(row,kind,id,cur)=>e=>{e.stopPropagation();const s=moveSelect(kind,id,cur,()=>renderProjects());row.appendChild(s);s.focus();s.onclick=ev=>ev.stopPropagation();};
-  if(curFolder!=null){const up=document.createElement('div');up.className='proj-row pr-up';up.textContent='← '+(folderPath(curFolder).length>1?folderPath(curFolder).slice(-2)[0].name:'Home');up.onclick=()=>{curFolder=folderById(curFolder).parent||null;renderProjects();};list.appendChild(up);}
+  if(curFolder!=null){const up=document.createElement('div');up.className='proj-row pr-up';up.textContent='← '+(folderPath(curFolder).length>1?folderPath(curFolder).slice(-2)[0].name:'Home');up.onclick=()=>{curFolder=folderById(curFolder).parent||null;renderProjects();};dropTarget(up,folderById(curFolder).parent||null);list.appendChild(up);}
   folders.filter(f=>(f.parent||null)===curFolder).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f=>{const row=document.createElement('div');row.className='proj-row pr-folder';
-    const nm=document.createElement('div');nm.className='pr-name';nm.textContent='📁 '+f.name;const cn=document.createElement('span');cn.className='pr-cnt';cn.textContent=folderCount(f.id);
+    const nm=document.createElement('div');nm.className='pr-name';nm.textContent='📁 '+f.name;const cn=document.createElement('span');cn.className='pr-cnt';cn.textContent=folderCount(f.id);cn.title='items inside (folders and projects)';
     const ren=tool('✎','Rename'),mv=tool('⇢','Move folder'),del=tool('🗑','Delete folder (its pages move up, nothing is deleted)');
     ren.onclick=rename(row,nm,f.name,v=>{if(v)db.folders.update(f.id,{name:v.slice(0,60)}).then(loadFolders).then(()=>{syncPing('projects');renderProjects();});else renderProjects();});mv.onclick=mover(row,'folder',f.id,f.parent||null);arm(del,()=>deleteFolder(f));
-    row.onclick=()=>{curFolder=f.id;renderProjects();};[nm,cn,ren,mv,del].forEach(x=>row.appendChild(x));list.appendChild(row);});
+    row.onclick=()=>{curFolder=f.id;renderProjects();};dragSource(row,'folder',f.id);dropTarget(row,f.id);[nm,cn,ren,mv,del].forEach(x=>row.appendChild(x));list.appendChild(row);});
   projects.filter(p=>(p.folder||null)===curFolder).forEach(p=>{const cnt=marks.filter(m=>m.pid===p.id&&searchable(m)).length;
     const row=document.createElement('div');row.className='proj-row'+(p.id===pid?' cur':'');
     const nm=document.createElement('div');nm.className='pr-name';nm.textContent=p.name;
-    const cn=document.createElement('span');cn.className='pr-cnt';cn.textContent=cnt;
+    const cn=document.createElement('span');cn.className='pr-cnt';cn.textContent=cnt;cn.title='highlights on this page';
     const ren=tool('✎','Rename'),mv=tool('⇢','Move to a folder'),del=tool('🗑','Delete');
     row.onclick=e=>{if(e.target.closest('.pr-tool,select,input'))return;switchProject(p.id).then(renderProjects);projPanel.style.display='none';};
     ren.onclick=rename(row,nm,p.name,v=>renameProject(p,v));mv.onclick=mover(row,'project',p.id,p.folder||null);arm(del,()=>deleteProject(p));
-    [nm,cn,ren,mv,del].forEach(x=>row.appendChild(x));list.appendChild(row);});
+    dragSource(row,'project',p.id);[nm,cn,ren,mv,del].forEach(x=>row.appendChild(x));list.appendChild(row);});
   if(!list.children.length||(curFolder!=null&&list.children.length===1)){const e=document.createElement('div');e.className='sr-empty';e.style.padding='14px';e.textContent='Empty folder — add a project or folder below, or move one here.';list.appendChild(e);}
 }
 function openProjects(){ensureProjects();renderProjects();projPanel.style.display='flex';projPanel.style.left=Math.min(70,window.innerWidth-340)+'px';projPanel.style.top='70px';projPanel.style.right='auto';}

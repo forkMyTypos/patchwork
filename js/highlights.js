@@ -13,8 +13,8 @@ async function loadHighlightTypes(){
   buildTagbar();
 }
 function newId(prefix){return prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
-function saveType(t){HT.set(t.id,t);db.htypes.put(t).catch(_quotaToast);typesChanged();}
-function saveProfiles(){PROFILES.forEach((p,i)=>p.order=i);db.profiles.bulkPut(PROFILES).catch(_quotaToast);}
+function saveType(t){HT.set(t.id,t);db.htypes.put(t).then(()=>syncPing('types')).catch(_quotaToast);typesChanged();}
+function saveProfiles(){PROFILES.forEach((p,i)=>p.order=i);db.profiles.bulkPut(PROFILES).then(()=>syncPing('types')).catch(_quotaToast);}
 function typeUsage(id){let n=0;for(const m of marks)if(m.type===id)n++;return n;}
 let _typesT=null;
 function typesChanged(){buildTagbar();clearTimeout(_typesT);_typesT=setTimeout(()=>{if(editor)editor.refresh();const sd=document.getElementById('side');if(sd&&sd.classList.contains('open'))buildFilterBar();redrawInk();if(popup&&popup.style.display!=='none'&&popupMark)buildPopupBody(popupMark);if(typeof refreshExplorer==='function')refreshExplorer();},60);}

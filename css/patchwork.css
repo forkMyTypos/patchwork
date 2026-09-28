@@ -404,3 +404,10 @@ button{font-family:inherit;}
 #hover-tip .ht-txt{white-space:pre-wrap;word-break:break-word;}#hover-tip .ht-src{font-size:10.5px;color:var(--pmut);margin-top:5px;}
 .panel.tpick{width:520px;height:60vh;min-width:300px;min-height:240px;resize:both;}.tpick .panel-b{flex:1;min-height:0;max-height:none;}
 .tp-page{flex:1;min-height:120px;overflow:auto;background:#111;border:1px solid #26263a;border-radius:8px;padding:10px 12px!important;cursor:text;user-select:text;}
+/* pop-up editors */
+html.mini #mini-btn,html.mini #brand .name{display:none;}
+.panel.mini-win{width:min(620px,46vw);height:74vh;min-width:320px;min-height:260px;max-width:98vw;max-height:96vh;resize:both;z-index:8100;}
+.mini-win iframe{flex:1;width:100%;border:0;background:#111;min-height:0;}
+.mini-win .panel-h{padding:7px 10px;}
+.panel.mini-menu{width:270px;z-index:9100;}.mini-list{display:flex;flex-direction:column;gap:3px;max-height:40vh;overflow:auto;}
+.mini-pick{text-align:left;height:32px;padding:0 10px;border-radius:8px;border:1px solid #20202e;background:#11111a;color:#e6e6f0;font-size:12.5px;cursor:pointer;}.mini-pick:hover{border-color:#3a3a52;}.mini-pick:disabled{opacity:.4;cursor:default;}

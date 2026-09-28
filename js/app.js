@@ -1,5 +1,7 @@
 "use strict";
 /* =================== integration: projects + page + ink + time-stamped marks =================== */
+// a pop-up editor is this same app in a frame (?mini=1&pid=N), locked out of opening further pop-ups
+const IS_MINI=new URLSearchParams(location.search).has('mini');document.documentElement.classList.toggle('mini',IS_MINI);
 const db=new Dexie('patchwork-page');
 db.version(3).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id'});
 // v4 only ADDS tables (existing data untouched): content-addressed images + paragraphs, page history snapshots, highlight types + profiles
@@ -174,18 +176,18 @@ cv.addEventListener('wheel',e=>{if(isDraw(mode)){e.preventDefault();wrap.scrollT
 wrap.addEventListener('scroll',()=>{redrawInk();hideTagbar();saveMeta();},{passive:true});
 
 /* marks CRUD */
-async function addMark(obj,open){const m=Object.assign({pid,type:'note',name:'',tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'time',yn:0}},obj);try{const id=await db.marks.add(stripId(m));m.id=id;}catch(e){console.error(e);return null;}marks.push(m);redrawInk();flashPin(m.id);if(open)openMarkPopup(m);return m;}
+async function addMark(obj,open){const m=Object.assign({pid,type:'note',name:'',tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'time',yn:0}},obj);try{const id=await db.marks.add(stripId(m));m.id=id;}catch(e){console.error(e);return null;}marks.push(m);syncPing('marks');redrawInk();flashPin(m.id);if(open)openMarkPopup(m);return m;}
 let _saveTimers={};
-function saveMark(m){clearTimeout(_saveTimers[m.id]);_saveTimers[m.id]=setTimeout(()=>{db.marks.update(m.id,{type:m.type,name:m.name,tags:m.tags,done:m.done,doneAt:m.doneAt,links:m.links,anchor:m.anchor,snippet:m.snippet||'',created:m.created,fields:m.fields||{},hover:m.hover||'',hoverSrc:m.hoverSrc||null}).catch(e=>console.error(e));},300);}
-async function hardDeleteMark(m){await db.marks.delete(m.id);if(m.anchor&&m.anchor.kind==='text'&&editor)editor.clearMarkRuns(m.id);for(const q of marks)if(q.links&&q.links.includes(m.id)){q.links=q.links.filter(x=>x!==m.id);saveMark(q);}marks=marks.filter(x=>x!==m);redrawInk();}
+function saveMark(m){clearTimeout(_saveTimers[m.id]);_saveTimers[m.id]=setTimeout(()=>{db.marks.update(m.id,{type:m.type,name:m.name,tags:m.tags,done:m.done,doneAt:m.doneAt,links:m.links,anchor:m.anchor,snippet:m.snippet||'',created:m.created,fields:m.fields||{},hover:m.hover||'',hoverSrc:m.hoverSrc||null}).then(()=>syncPing('marks')).catch(e=>console.error(e));},300);}
+async function hardDeleteMark(m){await db.marks.delete(m.id);syncPing('marks');if(m.anchor&&m.anchor.kind==='text'&&editor)editor.clearMarkRuns(m.id);for(const q of marks)if(q.links&&q.links.includes(m.id)){q.links=q.links.filter(x=>x!==m.id);saveMark(q);}marks=marks.filter(x=>x!==m);redrawInk();}
 let _mkCleanT=null,_mkCleanId=null;
-function softDeleteMark(m){const isText=m.anchor&&m.anchor.kind==='text';const qedits=[];for(const q of marks)if(q!==m&&q.links&&q.links.includes(m.id)){qedits.push(q);q.links=q.links.filter(x=>x!==m.id);saveMark(q);}const snap=JSON.parse(JSON.stringify(m));db.marks.delete(m.id).catch(()=>{});marks=marks.filter(x=>x!==m);if(isText&&editor)editor.refresh();redrawInk();if(isText){clearTimeout(_mkCleanT);_mkCleanId=m.id;_mkCleanT=setTimeout(()=>{if(editor&&_mkCleanId!=null)editor.clearMarkRuns(_mkCleanId);_mkCleanId=null;},6400);}toast('Deleted','ok',{label:'Undo',fn:()=>{if(isText){clearTimeout(_mkCleanT);_mkCleanId=null;}db.marks.put(snap).catch(()=>{});marks.push(snap);for(const q of qedits)if(!q.links.includes(snap.id)){q.links.push(snap.id);saveMark(q);}if(isText&&editor)editor.refresh();redrawInk();}});}
+function softDeleteMark(m){const isText=m.anchor&&m.anchor.kind==='text';const qedits=[];for(const q of marks)if(q!==m&&q.links&&q.links.includes(m.id)){qedits.push(q);q.links=q.links.filter(x=>x!==m.id);saveMark(q);}const snap=JSON.parse(JSON.stringify(m));db.marks.delete(m.id).then(()=>syncPing('marks')).catch(()=>{});marks=marks.filter(x=>x!==m);if(isText&&editor)editor.refresh();redrawInk();if(isText){clearTimeout(_mkCleanT);_mkCleanId=m.id;_mkCleanT=setTimeout(()=>{if(editor&&_mkCleanId!=null)editor.clearMarkRuns(_mkCleanId);_mkCleanId=null;},6400);}toast('Deleted','ok',{label:'Undo',fn:()=>{if(isText){clearTimeout(_mkCleanT);_mkCleanId=null;}db.marks.put(snap).catch(()=>{});marks.push(snap);for(const q of qedits)if(!q.links.includes(snap.id)){q.links.push(snap.id);saveMark(q);}if(isText&&editor)editor.refresh();redrawInk();}});}
 async function deleteMark(m){return hardDeleteMark(m);}
 
 /* projects core */
 function _quotaToast(e){if(e&&(e.name==='QuotaExceededError'||/quota/i.test((e.name||'')+(e.message||'')))){toast('Storage is full — back up, then remove some images so saving can continue','err');}else if(e){console.error(e);}}
 async function savePageNow(){if(!editor||pid==null)return;try{if(typeof internImages==='function')await internImages();await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});}catch(e){_quotaToast(e);}}
-function saveMeta(){clearTimeout(_metaTimer);_metaTimer=setTimeout(async()=>{try{if(editor&&pid!=null&&typeof internImages==='function')await internImages();if(editor&&pid!=null)await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});await db.meta.put({id:'meta',activePid:pid});}catch(e){_quotaToast(e);}},500);}
+function saveMeta(){clearTimeout(_metaTimer);_metaTimer=setTimeout(async()=>{try{if(editor&&pid!=null&&typeof internImages==='function')await internImages();if(editor&&pid!=null)await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});if(!IS_MINI)await db.meta.put({id:'meta',activePid:pid});}catch(e){_quotaToast(e);}},500);}
 function markDirty(){saveMeta();if(typeof historyNote==='function')historyNote();}
 function contentBottomPx(){let mx=0;const wr=wrap.getBoundingClientRect();const er=noteEd.getBoundingClientRect();mx=Math.max(mx,(er.bottom-wr.top)+scrollTop());for(const s of strokes)mx=Math.max(mx,s.maxYn*drawW);for(const m of pageMarks())if(m.anchor&&m.anchor.kind==='time')mx=Math.max(mx,m.anchor.yn*drawW);return mx;}
 function lineRanges(){const wr=wrap.getBoundingClientRect();const out=[];noteEd.querySelectorAll(':scope > *').forEach(el=>{const txt=(el.textContent||'').trim();const hasImg=el.querySelector&&el.querySelector('img');if(!txt&&!hasImg)return;const r=el.getBoundingClientRect();out.push([(r.top-wr.top)+scrollTop(),(r.bottom-wr.top)+scrollTop()]);});return out;}
@@ -203,6 +205,7 @@ let _lastHTML=null;
 function checkText(){if(!editor)return;const html=editor.getHTML();if(html!==_lastHTML){const first=_lastHTML===null;_lastHTML=html;updatePad();if(!first){if(typeof schedulePrune==='function')schedulePrune();}saveMeta();}}
 async function switchProject(npid){
   if(npid===pid&&editor)return;
+  if(editor&&projectOpenElsewhere(npid)){toast('That project is open in another editor window \u2014 close it there first','err');return;}
   if(typeof historyFlush==='function')await historyFlush();
   if(editor&&pid!=null)await savePageNow();
   pid=npid;
@@ -213,7 +216,7 @@ async function switchProject(npid){
   if(editor){editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();}
   layout();if(typeof extAfterPageLoad==='function')extAfterPageLoad();
   const pr=projects.find(x=>x.id===pid);document.getElementById('proj-name').textContent=pr?pr.name:'';
-  db.meta.put({id:'meta',activePid:pid});
+  if(!IS_MINI)db.meta.put({id:'meta',activePid:pid});syncPing('switch');
   requestAnimationFrame(()=>{wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();});setTimeout(pruneOrphanTimestamps,500);
   setMode('text');
 }
@@ -480,7 +483,7 @@ addEventListener('DOMContentLoaded',async function(){
   try{await db.open();}catch(e){toast('Storage failed \u2014 Patchwork needs IndexedDB','err');return;}
   if(!await db.info.get('info'))await db.info.add({id:'info'});
   try{if(navigator.storage&&navigator.storage.persist){const granted=await navigator.storage.persist();const persisted=navigator.storage.persisted?await navigator.storage.persisted():granted;const inf=await db.info.get('info');if(!persisted&&!(inf&&inf.persistWarned)){toast('Your notes live only in this browser — use Projects ▸ Backup now and then','info');try{await db.info.update('info',{persistWarned:true});}catch(_){}}}}catch(_){}
-  try{const _bc=new BroadcastChannel('patchwork-app');let _others=false;_bc.onmessage=ev=>{if(ev.data==='ping'){_bc.postMessage('pong');}else if(ev.data==='pong'&&!_others){_others=true;toast('Patchwork is open in another tab — editing the same project in two tabs can overwrite changes','err');}};_bc.postMessage('ping');}catch(_){}
+  if(!IS_MINI)try{const _bc=new BroadcastChannel('patchwork-app');let _others=false;_bc.onmessage=ev=>{if(ev.data==='ping'){_bc.postMessage('pong');}else if(ev.data==='pong'&&!_others){_others=true;toast('Patchwork is open in another tab — editing the same project in two tabs can overwrite changes','err');}};_bc.postMessage('ping');}catch(_){}
   await DB_loadColors();
   if(typeof extBoot==='function')await extBoot();
   projects=await db.projects.toArray();
@@ -495,6 +498,7 @@ addEventListener('DOMContentLoaded',async function(){
   try{const inf2=await db.info.get('info');const lastBk=(inf2&&inf2.lastBackupAt)||0;if(marks.filter(searchable).length>3&&Date.now()-lastBk>7*864e5)setTimeout(()=>toast('It has been a while since your last backup — Projects ▸ Backup','info'),1800);}catch(_){}
   const meta=await db.meta.get('meta');
   let active=(meta&&meta.activePid&&projects.find(p=>p.id===meta.activePid))?meta.activePid:projects[0].id;
+  if(IS_MINI){const q=+new URLSearchParams(location.search).get('pid');if(projects.find(p=>p.id===q))active=q;}
   buildSwatches();setInkColor('#ece6da');buildFilterBar();
   editor=makeEditor('note-ed','note-tb','note-status','note-valign');
   pid=active;const pg=(await db.pages.get(pid))||{};
@@ -507,7 +511,7 @@ addEventListener('DOMContentLoaded',async function(){
   requestAnimationFrame(()=>{wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();});
   setInterval(checkText,1500);
   noteEd.addEventListener('blur',()=>{checkText();saveMeta();schedulePrune();});
-  addEventListener('beforeunload',()=>{checkText();if(typeof historyFlush==='function')historyFlush();if(editor&&pid!=null)db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});db.meta.put({id:'meta',activePid:pid});});
+  addEventListener('beforeunload',()=>{checkText();if(typeof historyFlush==='function')historyFlush();if(editor&&pid!=null)db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});if(!IS_MINI)db.meta.put({id:'meta',activePid:pid});});
 });
 /* ===== extension lifecycle (called from the main script) ===== */
 async function extBoot(){const gt=document.getElementById('gut-tools'),b2=document.getElementById('bar2');if(gt&&b2)b2.appendChild(gt);await loadHighlightTypes();}
@@ -522,3 +526,30 @@ function adoptLegacyStamps(){if(!editor||!editor.paraRects)return;const olds=pag
   // paragraphs below a stamp (same session) inherit it too, so the margin shows the session, not a hole
   let carry=null;for(const r of editor.paraRects()){if(map[r.i])carry=map[r.i];else if(!r.t&&r.has&&carry)map[r.i]=carry;}
   if(Object.keys(map).length&&editor.stampParas((i)=>map[i]||null))redrawInk();}
+
+/* ===== pop-up editors: work on 2-3 projects side by side =====
+   Each window runs this same app in a frame, locked to its own project. Windows tell each other when highlights,
+   types or projects change (BroadcastChannel), and a project can only be open in one window at a time. */
+function currentPid(){return pid;}
+function editorWindows(){const top=IS_MINI?window.parent:window;const w=[top];top.document.querySelectorAll('.mini-win iframe').forEach(f=>{if(f.contentWindow)w.push(f.contentWindow);});return w;}
+function projectOpenElsewhere(n){try{return editorWindows().some(w=>w!==window&&typeof w.currentPid==='function'&&w.currentPid()===n);}catch(e){return false;}}
+const _sync=(()=>{try{return new BroadcastChannel('patchwork-sync');}catch(e){return null;}})();let _syncT=null,_syncTypes=false;
+function syncPing(kind){if(_sync)_sync.postMessage(kind);}
+if(_sync)_sync.onmessage=ev=>{if(ev.data==='types')_syncTypes=true;clearTimeout(_syncT);_syncT=setTimeout(async()=>{try{if(_syncTypes&&typeof loadHighlightTypes==='function'){_syncTypes=false;await loadHighlightTypes();}marks=await db.marks.toArray();projects=await db.projects.toArray();
+  if(typeof typesChanged==='function')typesChanged();else{if(editor)editor.refresh();redrawInk();}renderProjects();miniTitles();}catch(e){console.error(e);}},250);};
+function miniTitles(){document.querySelectorAll('.mini-win').forEach(w=>{try{const p=w.querySelector('iframe').contentWindow.currentPid();w.dataset.pid=p;w.querySelector('.panel-t').textContent=projName(p);}catch(e){}});}
+let _miniN=0,_miniZ=8100,_miniMenu=null;
+function openMiniMenu(anchor){if(IS_MINI)return;if(!_miniMenu){_miniMenu=document.createElement('div');_miniMenu.className='panel mini-menu';document.body.appendChild(_miniMenu);document.addEventListener('mousedown',e=>{if(_miniMenu.style.display!=='none'&&!_miniMenu.contains(e.target)&&!e.target.closest('#mini-btn'))_miniMenu.style.display='none';});}
+  const busy=new Set(editorWindows().map(w=>{try{return w.currentPid();}catch(e){return null;}}));
+  _miniMenu.innerHTML='<div class="panel-h"><div class="panel-t">Open beside this page</div></div><div class="panel-b"><div class="mini-list"></div><div class="proj-new"><input class="pf-in" placeholder="New project\u2026" maxlength="60"><button title="Create">+</button></div></div>';
+  const list=_miniMenu.querySelector('.mini-list');projects.forEach(p=>{const b=document.createElement('button');b.className='mini-pick';b.textContent=p.name;if(busy.has(p.id)){b.disabled=true;b.title='Already open';}b.onclick=()=>{_miniMenu.style.display='none';openMiniEditor(p.id);};list.appendChild(b);});
+  const ni=_miniMenu.querySelector('input'),go=async()=>{const v=ni.value.trim();if(!v)return;const id=await db.projects.add({name:v.slice(0,60),created:Date.now()});projects=await db.projects.toArray();syncPing('projects');_miniMenu.style.display='none';openMiniEditor(id);};
+  _miniMenu.querySelector('.proj-new button').onclick=go;ni.onkeydown=e=>{if(e.key==='Enter')go();};
+  const r=anchor.getBoundingClientRect();_miniMenu.style.display='flex';_miniMenu.style.left=Math.min(r.left,innerWidth-280)+'px';_miniMenu.style.top=(r.bottom+6)+'px';_miniMenu.style.right='auto';}
+function openMiniEditor(p){if(IS_MINI||projectOpenElsewhere(p)||p===pid)return;const w=document.createElement('div');w.className='panel mini-win';w.dataset.pid=p;const k=_miniN++%4;
+  w.innerHTML='<div class="panel-h"><div class="panel-ic">\u29c9</div><div class="panel-t"></div><button class="panel-x" title="Close (saves first)">\u00d7</button></div><iframe></iframe>';
+  w.querySelector('.panel-t').textContent=projName(p);w.querySelector('iframe').src=location.pathname+'?mini=1&pid='+p;
+  w.style.left=(Math.max(8,innerWidth*0.52)-k*28)+'px';w.style.top=(70+k*28)+'px';w.style.zIndex=++_miniZ;document.body.appendChild(w);makeDraggable(w,w.querySelector('.panel-h'));
+  w.addEventListener('pointerdown',()=>{w.style.zIndex=++_miniZ;},true);
+  w.querySelector('.panel-x').onclick=async()=>{const cw=w.querySelector('iframe').contentWindow;try{if(cw.historyFlush)await cw.historyFlush();if(cw.savePageNow)await cw.savePageNow();}catch(e){}w.remove();};}
+document.getElementById('mini-btn').addEventListener('click',e=>openMiniMenu(e.currentTarget));

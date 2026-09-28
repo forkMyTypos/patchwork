@@ -50,6 +50,8 @@ const gut=document.getElementById('gut');
 
 function isDraw(m){return m==='pen'||m==='hl'||m==='eraser';}
 function scrollTop(){return wrap.scrollTop;}
+// the editor handles keys itself, so the browser never scrolls to follow the caret: do it here (held Enter/Backspace)
+function keepCaretVisible(){const s=window.getSelection();if(!s||!s.rangeCount)return;let r=s.getRangeAt(0).getClientRects()[0];if(!r||!r.height){const n=s.anchorNode,el=n&&(n.nodeType===1?n:n.parentElement);if(el)r=el.getBoundingClientRect();}if(!r)return;const w=wrap.getBoundingClientRect(),m=48;if(r.bottom>w.bottom-m)wrap.scrollTop+=r.bottom-(w.bottom-m);else if(r.top<w.top+m)wrap.scrollTop=Math.max(0,wrap.scrollTop-((w.top+m)-r.top));}
 function esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
 function markById(id){id=typeof id==='string'?+id:id;return marks.find(m=>m.id===id);}
 function projName(id){const p=projects.find(x=>x.id===id);return p?p.name:'?';}
@@ -174,7 +176,7 @@ wrap.addEventListener('scroll',()=>{redrawInk();hideTagbar();saveMeta();},{passi
 /* marks CRUD */
 async function addMark(obj,open){const m=Object.assign({pid,type:'note',name:'',tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'time',yn:0}},obj);try{const id=await db.marks.add(stripId(m));m.id=id;}catch(e){console.error(e);return null;}marks.push(m);redrawInk();flashPin(m.id);if(open)openMarkPopup(m);return m;}
 let _saveTimers={};
-function saveMark(m){clearTimeout(_saveTimers[m.id]);_saveTimers[m.id]=setTimeout(()=>{db.marks.update(m.id,{type:m.type,name:m.name,tags:m.tags,done:m.done,doneAt:m.doneAt,links:m.links,anchor:m.anchor,snippet:m.snippet||'',created:m.created,fields:m.fields||{}}).catch(e=>console.error(e));},300);}
+function saveMark(m){clearTimeout(_saveTimers[m.id]);_saveTimers[m.id]=setTimeout(()=>{db.marks.update(m.id,{type:m.type,name:m.name,tags:m.tags,done:m.done,doneAt:m.doneAt,links:m.links,anchor:m.anchor,snippet:m.snippet||'',created:m.created,fields:m.fields||{},hover:m.hover||'',hoverSrc:m.hoverSrc||null}).catch(e=>console.error(e));},300);}
 async function hardDeleteMark(m){await db.marks.delete(m.id);if(m.anchor&&m.anchor.kind==='text'&&editor)editor.clearMarkRuns(m.id);for(const q of marks)if(q.links&&q.links.includes(m.id)){q.links=q.links.filter(x=>x!==m.id);saveMark(q);}marks=marks.filter(x=>x!==m);redrawInk();}
 let _mkCleanT=null,_mkCleanId=null;
 function softDeleteMark(m){const isText=m.anchor&&m.anchor.kind==='text';const qedits=[];for(const q of marks)if(q!==m&&q.links&&q.links.includes(m.id)){qedits.push(q);q.links=q.links.filter(x=>x!==m.id);saveMark(q);}const snap=JSON.parse(JSON.stringify(m));db.marks.delete(m.id).catch(()=>{});marks=marks.filter(x=>x!==m);if(isText&&editor)editor.refresh();redrawInk();if(isText){clearTimeout(_mkCleanT);_mkCleanId=m.id;_mkCleanT=setTimeout(()=>{if(editor&&_mkCleanId!=null)editor.clearMarkRuns(_mkCleanId);_mkCleanId=null;},6400);}toast('Deleted','ok',{label:'Undo',fn:()=>{if(isText){clearTimeout(_mkCleanT);_mkCleanId=null;}db.marks.put(snap).catch(()=>{});marks.push(snap);for(const q of qedits)if(!q.links.includes(snap.id)){q.links.push(snap.id);saveMark(q);}if(isText&&editor)editor.refresh();redrawInk();}});}
@@ -280,6 +282,9 @@ function buildPopupBody(m){
   function renderTags(){gw.innerHTML='';(m.tags||[]).forEach(tg=>{const c=document.createElement('span');c.className='chip';c.innerHTML=esc(tg)+' <b>×</b>';c.querySelector('b').onclick=()=>{m.tags=m.tags.filter(x=>x!==tg);saveMark(m);renderTags();flagSaved();};gw.appendChild(c);});gw.appendChild(gi);}
   gi.onkeydown=e=>{if(e.key!=='Enter')return;e.preventDefault();const v=gi.value.trim().toLowerCase().slice(0,32);if(!v)return;m.tags=m.tags||[];if(!m.tags.includes(v))m.tags.push(v);gi.value='';saveMark(m);renderTags();gi.focus();flagSaved();};
   gf.appendChild(gw);b.appendChild(gf);renderTags();
+  if(T.hover){const hf=document.createElement('div');hf.className='pf';hf.innerHTML='<div class="pf-l">Hover text — pops up when you point at the words</div>';const ht2=document.createElement('textarea');ht2.className='pf-in pf-ta';ht2.rows=3;ht2.placeholder='Write something…';ht2.value=m.hover||'';ht2.oninput=()=>{m.hover=ht2.value;m.hoverSrc=null;saveMark(m);flagSaved();};hf.appendChild(ht2);
+    if(m.hoverSrc){const src=document.createElement('div');src.className='pf-time';src.textContent='from “'+projName(m.hoverSrc)+'”';hf.appendChild(src);}
+    const pk=document.createElement('button');pk.className='pbtn';pk.textContent='⎘ pick text from another project';pk.onclick=()=>openTextPicker((txt,from)=>{m.hover=txt;m.hoverSrc=from;saveMark(m);buildPopupBody(m);flagSaved();});hf.appendChild(pk);b.appendChild(hf);}
   const wf=document.createElement('div');wf.className='pf';wf.innerHTML='<div class="pf-l">Time added</div><div class="pf-time">'+fmtAbs(m.created)+'</div>';b.appendChild(wf);
   if(T.checkable){
     const cf=document.createElement('div');cf.className='pf';
@@ -462,11 +467,11 @@ if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INP
   if(e.key==='Escape'){const _sd=document.getElementById('side');if(_sd&&_sd.classList.contains('open')){toggleSide(false);return;}if(picker&&picker.style.display!=='none'){picker.style.display='none';return;}if(projPanel&&projPanel.style.display!=='none'){projPanel.style.display='none';return;}if(popup&&popup.style.display!=='none'){closePopup();return;}hideTagbar();return;}
   const tag=(e.target&&e.target.tagName)||'';
   // full-screen views (Lab, Timeline, Explorer) own the keyboard: never undo or switch tools on the hidden page
-  if(['hwlab','timeline','explorer'].some(id=>{const el=document.getElementById(id);return el&&el.style.display!=='none';}))return;
+  if(['hwlab','explorer'].some(id=>{const el=document.getElementById(id);return el&&el.style.display!=='none';}))return;
   if(document.activeElement===noteEd)return;
   if((e.ctrlKey||e.metaKey)&&!e.altKey){const k=e.key.toLowerCase();if(k==='z'&&!e.shiftKey){e.preventDefault();hostUndo();return;}if((k==='z'&&e.shiftKey)||k==='y'){e.preventDefault();hostRedo();return;}}
   if(e.ctrlKey||e.metaKey||e.altKey)return;if(tag==='INPUT'||tag==='TEXTAREA')return;
-  const mm={t:'text',p:'pen',h:'hl',e:'eraser',v:'hand'}[e.key.toLowerCase()];if(mm)setMode(mm);
+  const mm={t:'text',p:'pen'}[e.key.toLowerCase()];if(mm)setMode(mm);
 });
 addEventListener('resize',()=>{const yn=scrollTop()/drawW;layout();wrap.scrollTop=yn*drawW;redrawInk();});
 

@@ -24,7 +24,7 @@ function setActiveProfile(id){activeProfileId=id;db.info.update('info',{activePr
 let factory=null,fxOpenId=null,fxApplyNext=false;
 const FX_KEYS=[['bg','Background'],['ul','Underline'],['tc','Text colour'],['b','Bold'],['i','Italic'],['s','Strike']];
 function ensureFactory(){if(factory)return factory;factory=document.createElement('div');factory.className='panel factory';factory.style.display='none';
-  factory.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#fbbf24" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M5 20V10l4 3V10l4 3V6h3l1 14"/></svg></div><div class="panel-t">Highlight Factory</div><button class="panel-x">×</button></div><div class="panel-b" id="fx-body"></div>';
+  factory.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3.5l6 6-8.5 8.5H6v-6z" stroke="#fbbf24" stroke-width="2"/><path d="M6 12l6 6" stroke="#fbbf24" stroke-width="2"/><rect x="2" y="20" width="6" height="2.4" rx="1" fill="#f59e0b"/><rect x="9" y="20" width="6" height="2.4" rx="1" fill="#4ade80"/><rect x="16" y="20" width="6" height="2.4" rx="1" fill="#818cf8"/></svg></div><div class="panel-t">Highlight Factory</div><button class="panel-x">×</button></div><div class="panel-b" id="fx-body"></div>';
   document.body.appendChild(factory);factory.querySelector('.panel-x').onclick=closeFactory;makeDraggable(factory,factory.querySelector('.panel-h'));return factory;}
 function openFactory(o){o=o||{};ensureFactory();fxApplyNext=!!o.applyToSelection;if(o.create){const t=createType();fxOpenId=t.id;}else if(o.focus)fxOpenId=o.focus;
   if(factory.style.display==='none'){factory.style.display='flex';factory.style.left=Math.max(8,Math.min(window.innerWidth-470,window.innerWidth-490))+'px';factory.style.top='64px';factory.style.right='auto';}
@@ -81,13 +81,13 @@ function typeEditor(t,where){const ed=document.createElement('div');ed.className
   fe.appendChild(chips);const prev=document.createElement('div');prev.className='fx-prev';prev.textContent='The quick brown fox';paintSample(prev,t);const pw=document.createElement('div');pw.className='fx-prevwrap';pw.appendChild(document.createTextNode('Preview: '));pw.appendChild(prev);fe.appendChild(pw);
   // behaviour
   const fb=field('Behaviour');const tog=(label,key,help)=>{const l=document.createElement('label');l.className='pf-row';l.title=help||'';const c=document.createElement('input');c.type='checkbox';c.className='pf-cb';c.checked=key==='margin'?t.margin!==false:!!t[key];c.onchange=()=>{t[key]=c.checked;saveType(t);};l.appendChild(c);l.appendChild(document.createTextNode(' '+label));fb.appendChild(l);};
-  tog('Show in the margin','margin','Turn off for word-level highlighting (verbs, nouns…) so the margin stays calm');tog('Can be ticked off (like a task)','checkable');
+  tog('Show in the margin','margin','Turn off for word-level highlighting (verbs, nouns…) so the margin stays calm');tog('Can be ticked off (like a task)','checkable');tog('Pop up its hover text when I point at it','hover','Each highlight of this type gets a “Hover text” box; pointing at the highlighted words shows it');
   // links
   const fl=field('Can link to');const lk=document.createElement('div');lk.className='fx-fx';t.links=t.links||[];
   [...HT.values()].forEach(o=>{const b=document.createElement('button');b.className='sp-f'+(t.links.includes(o.id)?' on':'');b.innerHTML='<span class="tb-dot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+o.color+';margin-right:5px"></span>'+esc(o.name);b.onclick=()=>{if(t.links.includes(o.id))t.links=t.links.filter(x=>x!==o.id);else t.links=[...t.links,o.id];saveType(t);b.classList.toggle('on',t.links.includes(o.id));};lk.appendChild(b);});
   fl.appendChild(lk);
   // card fields
-  const ff=field('Card fields — shown when you click one of these highlights');t.fields=t.fields||[];const fl2=document.createElement('div');fl2.className='fx-fields';
+  const ff=field('Extra boxes on its note card (e.g. Meaning, Example) — you fill them in when you click a highlight');t.fields=t.fields||[];const fl2=document.createElement('div');fl2.className='fx-fields';
   const drawFields=()=>{fl2.innerHTML='';t.fields.forEach((f,i)=>{const r=document.createElement('div');r.className='fx-frow';const inp=document.createElement('input');inp.className='pf-in';inp.value=f.label;inp.maxLength=40;inp.oninput=()=>{f.label=inp.value.trim()||'Field';saveType(t);};const x=document.createElement('button');x.className='fx-ib';x.textContent='×';x.title='Remove field (values already typed are kept)';x.onclick=()=>{t.fields.splice(i,1);saveType(t);drawFields();};r.appendChild(inp);r.appendChild(x);fl2.appendChild(r);});};
   drawFields();ff.appendChild(fl2);const af=document.createElement('button');af.className='pbtn';af.textContent='+ field';af.onclick=()=>{t.fields.push({id:newId('f_'),label:'Field '+(t.fields.length+1)});saveType(t);drawFields();const ins=fl2.querySelectorAll('input');if(ins.length){ins[ins.length-1].focus();ins[ins.length-1].select();}};ff.appendChild(af);
   // footer
@@ -105,3 +105,22 @@ function enableReorder(list){list.querySelectorAll('.fx-grip:not(.off)').forEach
   g.addEventListener('pointermove',move);g.addEventListener('pointerup',up);g.addEventListener('pointercancel',up);};});}
 document.getElementById('factory-btn').addEventListener('click',()=>{if(factory&&factory.style.display!=='none')closeFactory();else openFactory();});
 addEventListener('keydown',e=>{if(e.key==='Escape'&&factory&&factory.style.display!=='none'&&!e.defaultPrevented)closeFactory();});
+
+/* ===== hover text: point at a highlight to see its note ===== */
+let _tip=null,_tipT=null;
+function showHoverTip(el,m){if(!_tip){_tip=document.createElement('div');_tip.id='hover-tip';document.body.appendChild(_tip);}
+  _tip.innerHTML='<div class="ht-txt"></div>'+(m.hoverSrc?'<div class="ht-src">from “'+esc(projName(m.hoverSrc))+'”</div>':'');_tip.querySelector('.ht-txt').textContent=m.hover;_tip.style.setProperty('--c',mtype(m.type).c);
+  _tip.style.display='block';const r=el.getBoundingClientRect(),w=_tip.offsetWidth,h=_tip.offsetHeight;let top=r.bottom+6;if(top+h>innerHeight-6)top=Math.max(6,r.top-h-6);_tip.style.left=Math.max(6,Math.min(r.left,innerWidth-w-6))+'px';_tip.style.top=top+'px';}
+function hideHoverTip(){clearTimeout(_tipT);if(_tip)_tip.style.display='none';}
+noteEd.addEventListener('mouseover',e=>{const el=e.target.closest&&e.target.closest('[data-mark]');if(!el){hideHoverTip();return;}const m=markById(el.dataset.mark);if(!m||!ht(m.type).hover||!(m.hover||'').trim())return;clearTimeout(_tipT);_tipT=setTimeout(()=>showHoverTip(el,m),220);});
+noteEd.addEventListener('mouseleave',hideHoverTip);wrap.addEventListener('scroll',hideHoverTip,{passive:true});
+
+/* pick a passage from any project's page (read-only view) */
+let _tpick=null;
+function openTextPicker(cb){if(!_tpick){_tpick=document.createElement('div');_tpick.className='panel tpick';_tpick.innerHTML='<div class="panel-h"><div class="panel-t">Pick text</div><button class="panel-x">×</button></div><div class="panel-b"><select class="fx-sel tp-proj"></select><div class="tp-page editor"></div><div class="hw-row"><button class="fx-primary tp-use" disabled>Use selected text</button><span class="hw-hint">Select some words above.</span></div></div>';document.body.appendChild(_tpick);
+    _tpick.querySelector('.panel-x').onclick=()=>_tpick.style.display='none';makeDraggable(_tpick,_tpick.querySelector('.panel-h'));
+    document.addEventListener('selectionchange',()=>{if(_tpick.style.display==='none')return;const s=getSelection();_tpick.querySelector('.tp-use').disabled=!(s&&!s.isCollapsed&&_tpick.querySelector('.tp-page').contains(s.anchorNode));});}
+  const sel=_tpick.querySelector('.tp-proj'),page=_tpick.querySelector('.tp-page');sel.innerHTML=projects.map(p=>'<option value="'+p.id+'">'+esc(p.name)+'</option>').join('');const other=projects.find(p=>p.id!==pid);if(other)sel.value=other.id;
+  const load=async()=>{const pg=(await db.pages.get(+sel.value))||{};page.innerHTML=DOMPurify.sanitize(pg.html||'')||'<div class="hw-hint">This page is empty.</div>';};sel.onchange=load;load();
+  _tpick.querySelector('.tp-use').onclick=()=>{const t=getSelection().toString().trim();if(!t)return;_tpick.style.display='none';cb(t.slice(0,2000),+sel.value);};
+  _tpick.style.display='flex';_tpick.style.left=Math.max(8,(innerWidth-520)/2)+'px';_tpick.style.top='10vh';_tpick.style.right='auto';}

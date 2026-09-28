@@ -59,7 +59,9 @@ function ensureTimeline(){if(TL)return TL;const el=document.createElement('div')
   const end=()=>{drag=false;};TL.track.addEventListener('pointerup',end);TL.track.addEventListener('pointercancel',end);
   TL.wrap.addEventListener('scroll',()=>tlInk(),{passive:true});
   addEventListener('resize',()=>{if(tlOpen()){tlLayout();tlShow(true);}});
-  addEventListener('keydown',e=>{if(!tlOpen())return;if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeTimeline();}else if(e.key==='ArrowLeft'){e.preventDefault();tlStep(-1);}else if(e.key==='ArrowRight'){e.preventDefault();tlStep(1);}else if(e.key==='Home'){TL.T=TL.t0;tlSchedule();}else if(e.key==='End'){TL.T=TL.t1;tlSchedule();}},true);
+  // a movable, resizable window over the page
+  makeDraggable(el,el.querySelector('.tl-bar'));let _rsT=null;new ResizeObserver(()=>{if(!tlOpen())return;clearTimeout(_rsT);_rsT=setTimeout(()=>{tlLayout();tlShow(true);},30);}).observe(el);
+  addEventListener('keydown',e=>{if(!tlOpen())return;if(e.key!=='Escape'&&(document.activeElement===noteEd||/^(INPUT|TEXTAREA|SELECT)$/.test((e.target&&e.target.tagName)||'')))return;if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeTimeline();}else if(e.key==='ArrowLeft'){e.preventDefault();tlStep(-1);}else if(e.key==='ArrowRight'){e.preventDefault();tlStep(1);}else if(e.key==='Home'){TL.T=TL.t0;tlSchedule();}else if(e.key==='End'){TL.T=TL.t1;tlSchedule();}},true);
   return TL;}
 function tlOpen(){return TL&&TL.el.style.display!=='none';}
 function fmtFull(t){return new Date(t).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit'});}

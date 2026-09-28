@@ -24,7 +24,7 @@ async function backupAll(){
   await savePageNow();
   const pgs=await db.pages.toArray();const allS=(await db.strokes.toArray()).filter(s=>!s.del);
   const data={app:'patchwork',type:'patchwork-backup',version:1,scope:'all',exportedAt:new Date().toISOString(),
-    projects:projects.map(p=>({oid:p.id,name:p.name,created:p.created})),
+    projects:projects.map(p=>({oid:p.id,name:p.name,created:p.created,folder:p.folder||null})),folders:folders.map(f=>({oid:f.id,name:f.name,parent:f.parent||null})),
     pages:await Promise.all(pgs.map(async pg=>({poid:pg.pid,html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0}))),
     marks:marks.map(m=>{const oo=_mexp(m);oo.poid=m.pid;return oo;}),
     strokes:allS.map(s=>{const oo=_sexp(s);oo.poid=s.pid;return oo;}),
@@ -41,7 +41,7 @@ async function importFile(file){
     let goTo=null,summary='';
     if(data.scope==='all'){goTo=await _impAll(data);summary=(data.projects?data.projects.length:0)+' projects';}
     else{goTo=await _impProject(data);summary='project \u201c'+((data.project&&data.project.name)||'Imported')+'\u201d';}
-    projects=await db.projects.toArray();marks=await db.marks.toArray();
+    projects=await db.projects.toArray();marks=await db.marks.toArray();await loadFolders();
     if(goTo)await switchProject(goTo);
     renderProjects();updateBackupLabels();
     toast('Imported '+summary,'ok');
@@ -58,7 +58,8 @@ async function _impProject(data){
 }
 async function _impAll(data){
   const pmap={};
-  for(const p of (data.projects||[])){const nid=await db.projects.add({name:(p.name||'Imported').slice(0,60),created:p.created||Date.now()});pmap[p.oid]=nid;}
+  const fmap={};for(const f of (data.folders||[]))fmap[f.oid]=await db.folders.add({name:(f.name||'Folder').slice(0,60),parent:null,created:Date.now()});for(const f of (data.folders||[]))if(f.parent!=null&&fmap[f.parent])await db.folders.update(fmap[f.oid],{parent:fmap[f.parent]});
+  for(const p of (data.projects||[])){const nid=await db.projects.add({name:(p.name||'Imported').slice(0,60),created:p.created||Date.now(),folder:p.folder!=null&&fmap[p.folder]?fmap[p.folder]:null});pmap[p.oid]=nid;}
   const map={};
   for(const m of (data.marks||[])){const np=pmap[m.poid];if(np==null)continue;const nid=await db.marks.add({pid:np,type:m.type||'note',name:m.name||'',tags:m.tags||[],created:m.created||Date.now(),done:!!m.done,doneAt:m.doneAt||null,links:[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',fields:m.fields||{},hover:m.hover||''});map[m.oid]=nid;}
   for(const m of (data.marks||[]))if(m.links&&m.links.length&&map[m.oid]){const mm=m.links.map(x=>map[x]).filter(Boolean);if(mm.length)await db.marks.update(map[m.oid],{links:mm});}

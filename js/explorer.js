@@ -60,7 +60,7 @@ function renderExplorer(){const ex=explorer;if(!ex)return;const pool=exPool();
       if(m.name&&m.snippet&&m.name.trim()!==m.snippet.trim().slice(0,80))h+='<div class="ex-name">'+hl(m.name)+'</div>';
       const fl=(H.fields||[]).filter(f=>m.fields&&m.fields[f.id]&&m.fields[f.id].trim());
       if(fl.length)h+='<dl class="ex-fields">'+fl.map(f=>'<dt>'+esc(f.label)+'</dt><dd>'+hl(m.fields[f.id])+'</dd>').join('')+'</dl>';
-      const meta=[];if(m.pid!==pid||EX.scope==='all')meta.push('<span class="sr-proj">\u25a0 '+esc(projName(m.pid))+'</span>');(m.tags||[]).forEach(x=>meta.push('<span class="ex-mtag">#'+esc(x)+'</span>'));
+      const meta=[];if(m.pid!==pid||EX.scope==='all')meta.push('<span class="sr-proj">\u25a0 '+esc(projPath(m.pid))+'</span>');(m.tags||[]).forEach(x=>meta.push('<span class="ex-mtag">#'+esc(x)+'</span>'));
       h+='<div class="ex-meta">'+meta.join('')+'</div>';card.innerHTML=h;
       const links=[...(m.links||[]).map(id=>({m:markById(id),dir:'\u2192'})),...marks.filter(q=>(q.links||[]).includes(m.id)).map(q=>({m:q,dir:'\u2190'}))].filter(x=>x.m);
       if(links.length){const lw=document.createElement('div');lw.className='ex-links';links.slice(0,6).forEach(({m:o,dir})=>{const c=document.createElement('span');c.className='chip link';c.innerHTML=dir+' <span class="fdot" style="background:'+mtype(o.type).c+'"></span>'+esc((o.snippet||o.name||'(untitled)').slice(0,40));c.onclick=e=>{e.stopPropagation();closeExplorer();jumpToMark(o);};lw.appendChild(c);});card.appendChild(lw);}

@@ -8,6 +8,8 @@ db.version(3).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',m
 db.version(4).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id'});
 // v5 adds personal handwriting examples (local only)
 db.version(5).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id',hw:'++id,lang,ch,src'});
+// v6 adds folders (projects get an optional `folder`; none = Home)
+db.version(6).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id',hw:'++id,lang,ch,src',folders:'++id,parent'});
 
 const GAP_MS=4*60*1000;
 const PALETTE=['#ece6da','#f87171','#fb923c','#fbbf24','#4ade80','#22d3ee','#60a5fa','#a78bfa','#f472b6','#1c1c24'];
@@ -220,7 +222,7 @@ async function switchProject(npid){
   requestAnimationFrame(()=>{wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();});setTimeout(pruneOrphanTimestamps,500);
   setMode('text');
 }
-async function newProject(name){const id=await db.projects.add({name:(name||'Untitled').slice(0,60),created:Date.now()});projects=await db.projects.toArray();await switchProject(id);renderProjects();}
+async function newProject(name){const id=await db.projects.add({name:(name||'Untitled').slice(0,60),created:Date.now(),folder:curFolder||null});projects=await db.projects.toArray();await switchProject(id);renderProjects();}
 function renameProject(p,name){p.name=(name||p.name).slice(0,60);db.projects.update(p.id,{name:p.name});if(p.id===pid)document.getElementById('proj-name').textContent=p.name;renderProjects();}
 async function deleteProject(p){
   if(projects.length<=1){toast('Keep at least one project','err');return;}
@@ -383,7 +385,7 @@ async function tagSelection(type){
 document.addEventListener('selectionchange',()=>requestAnimationFrame(updateTagbar));
 
 /* search helpers */
-function markText(m){const T=ht(m.type);const fv=m.fields?Object.keys(m.fields).map(k=>{const v=m.fields[k];if(!v||!String(v).trim())return '';const f=(T.fields||[]).find(x=>x.id===k);return (f?f.label+' ':'')+v;}).join(' '):'';return ((m.name||'')+' '+(m.snippet||'')+' '+(m.tags||[]).join(' ')+' '+T.name+' '+fv+' '+projName(m.pid)).toLowerCase();}
+function markText(m){const T=ht(m.type);const fv=m.fields?Object.keys(m.fields).map(k=>{const v=m.fields[k];if(!v||!String(v).trim())return '';const f=(T.fields||[]).find(x=>x.id===k);return (f?f.label+' ':'')+v;}).join(' '):'';return ((m.name||'')+' '+(m.snippet||'')+' '+(m.tags||[]).join(' ')+' '+T.name+' '+fv+' '+projPath(m.pid)).toLowerCase();}
 function searchable(m){return (m.name&&m.name.trim())||(m.tags&&m.tags.length)||m.type!=='note'||(m.anchor&&m.anchor.kind==='text')||m.done;}
 async function jumpToMark(m){
   if(m.pid!==pid){await switchProject(m.pid);await new Promise(r=>requestAnimationFrame(r));}
@@ -394,24 +396,55 @@ async function jumpToMark(m){
 /* projects panel */
 let projPanel=null;
 function ensureProjects(){if(projPanel)return projPanel;projPanel=document.createElement('div');projPanel.className='panel';projPanel.style.display='none';
-  projPanel.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="panel-t">Projects</div><button class="panel-x">\u00d7</button></div><div class="panel-b"><div id="proj-list" style="display:flex;flex-direction:column;gap:2px;max-height:50vh;overflow:auto"></div><div class="proj-new"><input class="pf-in" id="proj-new-in" placeholder="New project name\u2026" maxlength="60"><button id="proj-new-go" title="Create">+</button></div><div style="margin-top:10px;padding-top:10px;border-top:1px solid #20202e;display:flex;flex-direction:column;gap:7px;"><div class="pf-l">Backup &amp; restore</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="pbtn" id="bk-proj">⤓ this project</button><button class="pbtn" id="bk-all">⤓ everything</button><button class="pbtn" id="bk-imp">⤑ import…</button></div><div class="pf-time">Importing always adds — it never overwrites what you have.</div><input type="file" id="bk-file" accept=".json,application/json" style="display:none"></div></div>';
+  projPanel.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="panel-t">Projects</div><button class="panel-x">\u00d7</button></div><div class="panel-b"><div id="proj-crumb"></div><div id="proj-list" style="display:flex;flex-direction:column;gap:2px;max-height:50vh;overflow:auto"></div><div class="proj-new"><input class="pf-in" id="proj-new-in" placeholder="New project name\u2026" maxlength="60"><button id="proj-new-go" title="New project here">+</button><button id="proj-new-folder" title="New folder here">\ud83d\udcc1+</button></div><div style="margin-top:10px;padding-top:10px;border-top:1px solid #20202e;display:flex;flex-direction:column;gap:7px;"><div class="pf-l">Backup &amp; restore</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="pbtn" id="bk-proj">⤓ this project</button><button class="pbtn" id="bk-all">⤓ everything</button><button class="pbtn" id="bk-imp">⤑ import…</button></div><div class="pf-time">Importing always adds — it never overwrites what you have.</div><input type="file" id="bk-file" accept=".json,application/json" style="display:none"></div></div>';
   document.body.appendChild(projPanel);
   projPanel.querySelector('.panel-x').onclick=()=>projPanel.style.display='none';
   const ni=projPanel.querySelector('#proj-new-in');const go=()=>{const v=ni.value.trim();if(!v)return;ni.value='';newProject(v);};
-  projPanel.querySelector('#proj-new-go').onclick=go;ni.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();go();}};
+  projPanel.querySelector('#proj-new-go').onclick=go;projPanel.querySelector('#proj-new-folder').onclick=()=>{const v=ni.value.trim()||'New folder';ni.value='';newFolder(v);};ni.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();go();}};
   projPanel.querySelector('#bk-proj').onclick=()=>backupProject();projPanel.querySelector('#bk-all').onclick=()=>backupAll();const _bf=projPanel.querySelector('#bk-file');projPanel.querySelector('#bk-imp').onclick=()=>_bf.click();_bf.onchange=()=>{if(_bf.files[0]){importFile(_bf.files[0]);_bf.value='';}};makeDraggable(projPanel,projPanel.querySelector('.panel-h'));return projPanel;}
+/* ===== folders: a light hierarchy around projects (organisation only; they don't own pages or the editor) ===== */
+let folders=[],curFolder=null;   // curFolder: folder shown in the Projects panel (null = Home)
+async function loadFolders(){try{folders=await db.folders.toArray();}catch(e){folders=[];}if(curFolder!=null&&!folders.some(f=>f.id===curFolder))curFolder=null;}
+function folderById(id){return folders.find(f=>f.id===id);}
+function folderPath(id){const out=[];let f=folderById(id),g=0;while(f&&g++<100){out.unshift(f);f=folderById(f.parent);}return out;}
+function projPath(id){const p=projects.find(x=>x.id===id);if(!p)return '?';const fp=folderPath(p.folder).map(f=>f.name);return fp.length?fp.join(' / ')+' / '+p.name:p.name;}
+function folderInside(id,anc){return folderPath(id).some(f=>f.id===anc);}
+function folderCount(id){let n=projects.filter(p=>(p.folder||null)===id).length;for(const f of folders)if((f.parent||null)===id)n+=1+folderCount(f.id);return n;}
+async function newFolder(name){await db.folders.add({name:name.slice(0,60),parent:curFolder,created:Date.now()});await loadFolders();syncPing('projects');renderProjects();}
+async function moveItem(kind,id,to){to=to||null;if(kind==='folder'){if(id===to||(to!=null&&folderInside(to,id))){toast('A folder can’t go inside itself','err');return;}await db.folders.update(id,{parent:to});}else await db.projects.update(id,{folder:to});
+  projects=await db.projects.toArray();await loadFolders();syncPing('projects');renderProjects();toast('Moved to '+(to?folderPath(to).map(f=>f.name).join(' / '):'Home'),'ok');}
+// deleting a folder never deletes pages: whatever it held moves up to its parent (with undo)
+async function deleteFolder(f){const kids=folders.filter(x=>(x.parent||null)===f.id).map(x=>x.id),pages=projects.filter(p=>(p.folder||null)===f.id).map(p=>p.id),up=f.parent||null,snap={...f};
+  for(const k of kids)await db.folders.update(k,{parent:up});for(const p of pages)await db.projects.update(p,{folder:up});await db.folders.delete(f.id);
+  projects=await db.projects.toArray();await loadFolders();syncPing('projects');renderProjects();
+  toast('Folder “'+f.name+'” removed'+(kids.length+pages.length?' — its '+(kids.length+pages.length)+' item'+(kids.length+pages.length>1?'s':'')+' moved up':''),'ok',{label:'Undo',fn:async()=>{await db.folders.put(snap);for(const k of kids)await db.folders.update(k,{parent:snap.id});for(const p of pages)await db.projects.update(p,{folder:snap.id});projects=await db.projects.toArray();await loadFolders();syncPing('projects');renderProjects();}});}
+function moveSelect(kind,id,cur,onDone){const sel=document.createElement('select');sel.className='fx-sel pr-move';const opt=(v,l,dis)=>{const o=document.createElement('option');o.value=v;o.textContent=l;if(dis)o.disabled=true;sel.appendChild(o);};
+  opt('','Move to…',true);sel.value='';opt('home','Home',cur==null);
+  const walk=(parent,depth)=>folders.filter(f=>(f.parent||null)===parent).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f=>{const bad=kind==='folder'&&(f.id===id||folderInside(f.id,id));opt(f.id,'  '.repeat(depth)+'📁 '+f.name,bad||f.id===cur);if(!bad)walk(f.id,depth+1);});walk(null,1);
+  sel.onchange=()=>{moveItem(kind,id,sel.value==='home'?null:+sel.value);};sel.onblur=()=>onDone&&onDone();return sel;}
 function renderProjects(){
   if(!projPanel)return;const list=projPanel.querySelector('#proj-list');list.innerHTML='';
-  projects.forEach(p=>{const cnt=marks.filter(m=>m.pid===p.id&&searchable(m)).length;
+  const crumb=projPanel.querySelector('#proj-crumb');crumb.innerHTML='';const cs=[{id:null,name:'Home'},...folderPath(curFolder)];
+  cs.forEach((c,i)=>{if(i){const s=document.createElement('span');s.className='pc-sep';s.textContent='/';crumb.appendChild(s);}const b=document.createElement('button');b.className='pc-item'+(i===cs.length-1?' cur':'');b.textContent=c.name;b.onclick=()=>{curFolder=c.id;renderProjects();};crumb.appendChild(b);});
+  const tool=(txt,title)=>{const b=document.createElement('button');b.className='pr-tool';b.textContent=txt;b.title=title;return b;};
+  const arm=(del,fn)=>{del.onclick=e=>{e.stopPropagation();if(del.classList.contains('armed')){fn();}else{del.classList.add('armed');del.textContent='✓?';setTimeout(()=>{del.classList.remove('armed');del.textContent='🗑';},2500);}};};
+  const rename=(row,nm,cur,save)=>e=>{e.stopPropagation();const inp=document.createElement('input');inp.className='pf-in';inp.value=cur;inp.style.flex='1';row.replaceChild(inp,nm);inp.focus();inp.onclick=ev=>ev.stopPropagation();inp.onblur=()=>save(inp.value.trim());inp.onkeydown=ev=>{if(ev.key==='Enter')inp.blur();};};
+  const mover=(row,kind,id,cur)=>e=>{e.stopPropagation();const s=moveSelect(kind,id,cur,()=>renderProjects());row.appendChild(s);s.focus();s.onclick=ev=>ev.stopPropagation();};
+  if(curFolder!=null){const up=document.createElement('div');up.className='proj-row pr-up';up.textContent='← '+(folderPath(curFolder).length>1?folderPath(curFolder).slice(-2)[0].name:'Home');up.onclick=()=>{curFolder=folderById(curFolder).parent||null;renderProjects();};list.appendChild(up);}
+  folders.filter(f=>(f.parent||null)===curFolder).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f=>{const row=document.createElement('div');row.className='proj-row pr-folder';
+    const nm=document.createElement('div');nm.className='pr-name';nm.textContent='📁 '+f.name;const cn=document.createElement('span');cn.className='pr-cnt';cn.textContent=folderCount(f.id);
+    const ren=tool('✎','Rename'),mv=tool('⇢','Move folder'),del=tool('🗑','Delete folder (its pages move up, nothing is deleted)');
+    ren.onclick=rename(row,nm,f.name,v=>{if(v)db.folders.update(f.id,{name:v.slice(0,60)}).then(loadFolders).then(()=>{syncPing('projects');renderProjects();});else renderProjects();});mv.onclick=mover(row,'folder',f.id,f.parent||null);arm(del,()=>deleteFolder(f));
+    row.onclick=()=>{curFolder=f.id;renderProjects();};[nm,cn,ren,mv,del].forEach(x=>row.appendChild(x));list.appendChild(row);});
+  projects.filter(p=>(p.folder||null)===curFolder).forEach(p=>{const cnt=marks.filter(m=>m.pid===p.id&&searchable(m)).length;
     const row=document.createElement('div');row.className='proj-row'+(p.id===pid?' cur':'');
     const nm=document.createElement('div');nm.className='pr-name';nm.textContent=p.name;
     const cn=document.createElement('span');cn.className='pr-cnt';cn.textContent=cnt;
-    const ren=document.createElement('button');ren.className='pr-tool';ren.textContent='\u270e';ren.title='Rename';
-    const del=document.createElement('button');del.className='pr-tool';del.textContent='\uD83D\uDDD1';del.title='Delete';
-    row.onclick=e=>{if(e.target===ren||e.target===del)return;switchProject(p.id).then(renderProjects);projPanel.style.display='none';};
-    ren.onclick=e=>{e.stopPropagation();const inp=document.createElement('input');inp.className='pf-in';inp.value=p.name;inp.style.flex='1';row.replaceChild(inp,nm);inp.focus();const fin=()=>{renameProject(p,inp.value.trim());};inp.onblur=fin;inp.onkeydown=ev=>{if(ev.key==='Enter')inp.blur();};};
-    del.onclick=e=>{e.stopPropagation();if(del.classList.contains('armed')){deleteProject(p);}else{del.classList.add('armed');del.textContent='\u2713?';del.title='Click again to delete';setTimeout(()=>{del.classList.remove('armed');del.textContent='\uD83D\uDDD1';},2500);}};
-    row.appendChild(nm);row.appendChild(cn);row.appendChild(ren);row.appendChild(del);list.appendChild(row);});
+    const ren=tool('✎','Rename'),mv=tool('⇢','Move to a folder'),del=tool('🗑','Delete');
+    row.onclick=e=>{if(e.target.closest('.pr-tool,select,input'))return;switchProject(p.id).then(renderProjects);projPanel.style.display='none';};
+    ren.onclick=rename(row,nm,p.name,v=>renameProject(p,v));mv.onclick=mover(row,'project',p.id,p.folder||null);arm(del,()=>deleteProject(p));
+    [nm,cn,ren,mv,del].forEach(x=>row.appendChild(x));list.appendChild(row);});
+  if(!list.children.length||(curFolder!=null&&list.children.length===1)){const e=document.createElement('div');e.className='sr-empty';e.style.padding='14px';e.textContent='Empty folder — add a project or folder below, or move one here.';list.appendChild(e);}
 }
 function openProjects(){ensureProjects();renderProjects();projPanel.style.display='flex';projPanel.style.left=Math.min(70,window.innerWidth-340)+'px';projPanel.style.top='70px';projPanel.style.right='auto';}
 
@@ -486,7 +519,7 @@ addEventListener('DOMContentLoaded',async function(){
   if(!IS_MINI)try{const _bc=new BroadcastChannel('patchwork-app');let _others=false;_bc.onmessage=ev=>{if(ev.data==='ping'){_bc.postMessage('pong');}else if(ev.data==='pong'&&!_others){_others=true;toast('Patchwork is open in another tab — editing the same project in two tabs can overwrite changes','err');}};_bc.postMessage('ping');}catch(_){}
   await DB_loadColors();
   if(typeof extBoot==='function')await extBoot();
-  projects=await db.projects.toArray();
+  projects=await db.projects.toArray();await loadFolders();
   if(!projects.length){
     const id=await db.projects.add({name:'Main',created:Date.now()});projects=await db.projects.toArray();
     const legacy=await db.meta.get('meta');
@@ -535,7 +568,7 @@ function editorWindows(){const top=IS_MINI?window.parent:window;const w=[top];to
 function projectOpenElsewhere(n){try{return editorWindows().some(w=>w!==window&&typeof w.currentPid==='function'&&w.currentPid()===n);}catch(e){return false;}}
 const _sync=(()=>{try{return new BroadcastChannel('patchwork-sync');}catch(e){return null;}})();let _syncT=null,_syncTypes=false;
 function syncPing(kind){if(_sync)_sync.postMessage(kind);}
-if(_sync)_sync.onmessage=ev=>{if(ev.data==='types')_syncTypes=true;clearTimeout(_syncT);_syncT=setTimeout(async()=>{try{if(_syncTypes&&typeof loadHighlightTypes==='function'){_syncTypes=false;await loadHighlightTypes();}marks=await db.marks.toArray();projects=await db.projects.toArray();
+if(_sync)_sync.onmessage=ev=>{if(ev.data==='types')_syncTypes=true;clearTimeout(_syncT);_syncT=setTimeout(async()=>{try{if(_syncTypes&&typeof loadHighlightTypes==='function'){_syncTypes=false;await loadHighlightTypes();}marks=await db.marks.toArray();projects=await db.projects.toArray();await loadFolders();
   if(typeof typesChanged==='function')typesChanged();else{if(editor)editor.refresh();redrawInk();}renderProjects();miniTitles();}catch(e){console.error(e);}},250);};
 function miniTitles(){document.querySelectorAll('.mini-win').forEach(w=>{try{const p=w.querySelector('iframe').contentWindow.currentPid();w.dataset.pid=p;w.querySelector('.panel-t').textContent=projName(p);}catch(e){}});}
 let _miniN=0,_miniZ=8100,_miniMenu=null;

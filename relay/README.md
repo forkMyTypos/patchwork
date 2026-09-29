@@ -52,6 +52,14 @@ Deploy prints an address like `https://patchwork-classroom.<you>.workers.dev`. O
 In Patchwork: click the logo, then **Classroom**, and paste the address into "Classroom server". Sign in with Google,
 then create or join a classroom. Teacher and students all use the same server address.
 
+## Deploying from the browser instead (no command line)
+
+Everything above can be done in the Cloudflare dashboard: create a Worker, paste **`worker-dashboard.js`** (the relay as a
+single file) into its code editor, then add in the Worker's Settings: variables `GOOGLE_CLIENT_ID` and `ALLOWED_ORIGINS`,
+a D1 binding `DB` (run `schema.sql` in the D1 console first), a Durable Object binding `CLASSROOM` -> class `Classroom`,
+and a cron trigger `17 3 * * *`. `worker-dashboard.js` is just `relay-core.mjs` + `worker.mjs` joined; re-create it if
+those change.
+
 ## Responding to a lawful request
 
 Records are keyed by Google account ID (the stable "sub" Google issues; Google can link it to an account under their

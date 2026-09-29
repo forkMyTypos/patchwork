@@ -7,7 +7,7 @@ compatibility_date = "2025-01-01"
 # Comma-separated origins allowed to use this relay, e.g. "https://forkmytypos.github.io"
 ALLOWED_ORIGINS = "https://forkmytypos.github.io"
 # Google OAuth Web client ID (Google Cloud Console > APIs & Services > Credentials)
-GOOGLE_CLIENT_ID = "PASTE-YOUR-CLIENT-ID.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = "668163330380-n17ptjmfo0f51j3gcsinq9t6dk80bb2r.apps.googleusercontent.com"
 
 [[durable_objects.bindings]]
 name = "CLASSROOM"

@@ -44,12 +44,24 @@ async function clsTick(){if(CLS.role!=='teacher'||!CLS.broadcast)return;
 function clsSetBroadcast(on){CLS.broadcast=!!on;clearInterval(CLS.timer);CLS.lastHash='';if(CLS.broadcast){CLS.timer=setInterval(clsTick,700);clsTick();}else{CLS.lastJson='{"t":"clear"}';rtcBroadcast(CLS.lastJson);}clsRender();}
 
 /* ---------- connections ---------- */
+// shown before every create / join: the peer-to-peer link exposes IP addresses to the other side
+function clsNotice(){return new Promise(res=>{const m=document.createElement('div');m.className='cls-modal';
+  m.innerHTML='<div class="panel cls-notice" role="dialog" aria-modal="true" aria-labelledby="cls-n-t"><div class="panel-h"><div class="panel-t" id="cls-n-t">Direct Connection Notice</div></div><div class="panel-b">'+
+    '<p>Teaching Mode uses a direct peer-to-peer connection between the teacher and each student.</p>'+
+    '<p>Because of this direct connection, <b>your IP address may be visible to the other person you are directly connected to.</b></p>'+
+    '<p>Patchwork does not intentionally store your IP address.</p>'+
+    '<div class="hw-row"><button class="fx-primary cls-n-ok">Continue</button><button class="pbtn cls-n-no">Cancel</button></div></div></div>';
+  document.body.appendChild(m);const k=e=>{if(e.key==='Escape'){e.stopPropagation();done(false);}};
+  const done=v=>{m.remove();removeEventListener('keydown',k,true);res(v);};addEventListener('keydown',k,true);
+  m.querySelector('.cls-n-ok').onclick=()=>done(true);m.querySelector('.cls-n-no').onclick=()=>done(false);m.onclick=e=>{if(e.target===m)done(false);};
+  m.querySelector('.cls-n-ok').focus();});}
 async function clsCreate(){if(!clsRelayOk(CLS.relay)){toast('Set the classroom server first','err');return;}
   if(!clsSignedIn()){toast('Sign in with Google first','err');return;}
+  if(!await clsNotice())return;
   try{const r=await fetch(CLS.relay.replace(/\/$/,'')+'/api/session',{method:'POST',headers:{Authorization:'Bearer '+CLS.auth.token}});if(r.status===401){clsSignOut();throw new Error('please sign in again');}if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();CLS.code=j.code;CLS.secret=j.secret;}catch(e){toast('Could not create a classroom: '+e.message,'err');return;}
   CLS.role='teacher';clsConnect();}
-function clsJoin(code){if(!clsSignedIn()){toast('Sign in with Google first','err');return;}CLS.name=CLS.auth.name||'';code=String(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!/^[A-HJ-NP-TV-Z2-9]{10}$/.test(code)){toast('That code doesn’t look right (10 letters/numbers)','err');return;}
-  if(!clsRelayOk(CLS.relay)){toast('Set the classroom server first','err');return;}CLS.role='student';CLS.code=code;clsConnect();clsOpenView();}
+async function clsJoin(code){if(!clsSignedIn()){toast('Sign in with Google first','err');return;}CLS.name=CLS.auth.name||'';code=String(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!/^[A-HJ-NP-TV-Z2-9]{10}$/.test(code)){toast('That code doesn’t look right (10 letters/numbers)','err');return;}
+  if(!clsRelayOk(CLS.relay)){toast('Set the classroom server first','err');return;}if(!await clsNotice())return;CLS.role='student';CLS.code=code;clsConnect();clsOpenView();}
 function clsConnect(){clearTimeout(CLS.rt);let ws;try{ws=new WebSocket(clsWsUrl(CLS.code));}catch(e){clsState('off');return;}CLS.ws=ws;clsState(CLS.retry?'retry':'connecting');
   ws.onopen=()=>{let tok='';try{tok=localStorage.getItem(clsTokKey())||'';}catch(e){}ws.send(JSON.stringify(CLS.role==='teacher'?{t:'hello',secret:CLS.secret}:{t:'hello',idToken:tok?undefined:(CLS.auth&&CLS.auth.token),resume:tok||undefined}));};
   ws.onmessage=ev=>{let m;if(typeof ev.data!=='string'||ev.data.length>(CLS.role==='teacher'?7_200_000:CLS_MAX.msg+200))return;try{m=JSON.parse(ev.data);}catch(e){return;}clsOnMessage(m);};
@@ -64,7 +76,7 @@ function clsOnMessage(m){if(m.t==='welcome'){CLS.retry=0;CLS.welcomed=true;clsSt
   if(m.t==='ended'){toast('The classroom has ended','info');}}
 function clsLeave(){if(CLS.role==='teacher'&&CLS.ws&&CLS.ws.readyState===1)CLS.ws.send('{"t":"end"}');clsReset(true);}
 function clsReset(closeView){rtcClose();const ws=CLS.ws;CLS.ws=null;clearTimeout(CLS.rt);clearInterval(CLS.timer);try{if(ws)ws.close(1000,'bye');}catch(e){}
-  Object.assign(CLS,{welcomed:false,role:null,code:'',secret:'',broadcast:false,students:0,teacherOnline:false,retry:0,lastHash:''});clsState('off');if(closeView&&CLS.view){CLS.view.remove();CLS.view=null;CLS.snap=null;}clsRender();}
+  Object.assign(CLS,{welcomed:false,role:null,code:'',secret:'',broadcast:false,students:0,teacherOnline:false,retry:0,lastHash:''});clsState('off');if(closeView&&CLS.view){CLS.view.remove();CLS.view=null;CLS.snap=null;clsSplit(false);}clsRender();}
 function clsState(s){CLS.status=s;clsRender();}
 
 /* ---------- student: validate everything received ---------- */
@@ -83,12 +95,15 @@ function clsClean(b){const fail=w=>{throw new Error(w);};if(!b||typeof b!=='obje
   return out;}
 
 /* ---------- the Teacher View: a read-only floating window (same window system as pop-up editors) ---------- */
-function clsOpenView(){if(CLS.view){CLS.view.style.display='flex';return;}const w=document.createElement('div');w.className='panel mini-win cls-view';
+// the teacher view takes the right half of the working area; your own page keeps the left half
+function clsSplit(on){document.body.classList.toggle('cls-split',on);if(on&&CLS.view)CLS.view.style.top=stage.getBoundingClientRect().top+'px';dispatchEvent(new Event('resize'));}
+addEventListener('resize',()=>{if(CLS.view&&document.body.classList.contains('cls-split'))CLS.view.style.top=stage.getBoundingClientRect().top+'px';});
+function clsOpenView(){if(CLS.view){CLS.view.style.display='flex';clsSplit(true);return;}const w=document.createElement('div');w.className='panel mini-win cls-view';
   w.innerHTML='<div class="panel-h"><span class="cls-dot"></span><div class="panel-t">Teacher</div><span class="cls-ro">read-only</span><label class="cls-follow" title="Scroll with the teacher"><input type="checkbox" checked> follow</label><button class="panel-x" title="Hide (you stay in the classroom)">×</button></div><div class="cls-scroll"><div class="cls-page"><div class="editor cls-ed"></div><canvas class="cls-ink"></canvas></div><div class="cls-wait">Waiting for the teacher to broadcast…</div></div>';
-  w.style.left=Math.max(8,innerWidth*0.5)+'px';w.style.top='70px';w.style.zIndex=++_miniZ;document.body.appendChild(w);makeDraggable(w,w.querySelector('.panel-h'));w.addEventListener('pointerdown',()=>{w.style.zIndex=++_miniZ;},true);
-  w.querySelector('.panel-x').onclick=()=>{w.style.display='none';};const fl=w.querySelector('.cls-follow input');fl.onchange=()=>{CLS.follow=fl.checked;clsScroll();};
+  w.style.zIndex=++_miniZ;document.body.appendChild(w);w.addEventListener('pointerdown',()=>{w.style.zIndex=++_miniZ;},true);
+  w.querySelector('.panel-x').onclick=()=>{w.style.display='none';clsSplit(false);};const fl=w.querySelector('.cls-follow input');fl.onchange=()=>{CLS.follow=fl.checked;clsScroll();};
   const sc=w.querySelector('.cls-scroll');sc.addEventListener('wheel',()=>{CLS.follow=false;fl.checked=false;},{passive:true});sc.addEventListener('touchmove',()=>{CLS.follow=false;fl.checked=false;},{passive:true});
-  new ResizeObserver(()=>clsFit()).observe(sc);CLS.view=w;clsDrawView();clsRender();}
+  new ResizeObserver(()=>clsFit()).observe(sc);CLS.view=w;clsSplit(true);clsDrawView();clsRender();}
 // render at the teacher's page width, then scale to fit: text and ink line up exactly as on the teacher's screen
 function clsDrawView(){const w=CLS.view;if(!w)return;const s=CLS.snap,ed=w.querySelector('.cls-ed'),cv=w.querySelector('.cls-ink'),page=w.querySelector('.cls-page');w.querySelector('.cls-wait').style.display=s?'none':'';page.style.display=s?'':'none';if(!s)return;
   w.querySelector('.panel-t').textContent='Teacher · '+(s.title||'page');const G=24;page.style.width=(s.w+G+12)+'px';ed.style.paddingLeft=(G+10)+'px';
@@ -104,9 +119,15 @@ function clsScroll(){const w=CLS.view,s=CLS.snap;if(!w||!s||!CLS.follow)return;w
 /* ---------- panel ---------- */
 let clsPanel=null;
 function openClassroom(){if(!clsPanel){clsPanel=document.createElement('div');clsPanel.className='panel cls-panel';document.body.appendChild(clsPanel);}clsPanel.style.display='flex';clsPanel.style.left=Math.max(8,Math.min(360,innerWidth-380))+'px';clsPanel.style.top='70px';clsPanel.style.right='auto';clsRender(true);}
-function clsRender(full){if(CLS.view){const d=CLS.view.querySelector('.cls-dot');const direct=rtcOpen(CLS.peer);d.className='cls-dot '+(CLS.status==='on'&&direct?'on':CLS.status==='off'?'off':'retry');d.title=direct?'Connected directly to the teacher':CLS.status==='on'?(!CLS.teacherOnline?'Teacher offline':CLS.rtcFailed?'Couldn’t connect directly to the teacher (network blocks it)':'Connecting directly to the teacher…'):CLS.status==='off'?'Disconnected':'Reconnecting…';}
+let clsPill=null;
+function clsMinimise(){clsPanel.style.display='none';clsRender();}
+function clsPillSync(){const show=!!CLS.role&&(!clsPanel||clsPanel.style.display==='none');
+  if(show&&!clsPill){clsPill=document.createElement('button');clsPill.className='cls-pill';clsPill.title='Open the classroom panel';clsPill.onclick=openClassroom;document.body.appendChild(clsPill);}
+  if(!clsPill)return;clsPill.style.display=show?'flex':'none';
+  if(show)clsPill.innerHTML='<span class="cls-dot '+(CLS.status==='on'?'on':CLS.status==='off'?'off':'retry')+'"></span>Classroom'+(CLS.role==='teacher'?' \u00b7 '+CLS.students+' student'+(CLS.students!==1?'s':''):'');}
+function clsRender(full){clsPillSync();if(CLS.view){const d=CLS.view.querySelector('.cls-dot');const direct=rtcOpen(CLS.peer);d.className='cls-dot '+(CLS.status==='on'&&direct?'on':CLS.status==='off'?'off':'retry');d.title=direct?'Connected directly to the teacher':CLS.status==='on'?(!CLS.teacherOnline?'Teacher offline':CLS.rtcFailed?'Couldn’t connect directly to the teacher (network blocks it)':'Connecting directly to the teacher…'):CLS.status==='off'?'Disconnected':'Reconnecting…';}
   if(!clsPanel||clsPanel.style.display==='none')return;const dot=t=>'<span class="cls-dot '+(CLS.status==='on'?'on':CLS.status==='off'?'off':'retry')+'"></span>'+t;
-  const st=CLS.status==='on'?'Connected':CLS.status==='off'?'Disconnected':'Reconnecting…';let h='<div class="panel-h"><div class="panel-t">Classroom</div><button class="panel-x">×</button></div><div class="panel-b">';
+  const st=CLS.status==='on'?'Connected':CLS.status==='off'?'Disconnected':'Reconnecting…';let h='<div class="panel-h"><div class="panel-t">Classroom</div>'+(CLS.role?'<button class="panel-x cls-min" title="Minimise (you stay in the classroom)">\u2013</button>':'<button class="panel-x">×</button>')+'</div><div class="panel-b">';
   if(!CLS.role){h+=(CLS_RELAY?'':'<div class="pf"><div class="pf-l">Classroom server</div><input class="pf-in cls-relay" placeholder="https://your-relay.workers.dev" value="'+esc(CLS.relay)+'"><div class="hw-hint">Only used when you create or join a classroom.</div></div>')+
       '<div class="pf"><div class="pf-l">1. Sign in with Google</div><div class="cls-auth"></div></div>'+
       (!clsSignedIn()?'<div class="hw-hint">2. Then create a classroom (teacher) or join one with a code (student).</div>':
@@ -120,7 +141,7 @@ function clsRender(full){if(CLS.view){const d=CLS.view.querySelector('.cls-dot')
       '<button class="fx-link danger cls-end">End classroom</button>';}
   else{h+='<div class="cls-status">'+dot(st+(CLS.status==='on'?(!CLS.teacherOnline?' · teacher offline':rtcOpen(CLS.peer)?' · connected directly to the teacher':CLS.rtcFailed?' · couldn’t connect directly (network blocks it)':' · connecting to the teacher…'):''))+'</div><div class="hw-hint">You are \u201c'+esc(CLS.name)+'\u201d</div><div class="hw-row"><button class="fx-primary cls-show">Show teacher view</button><button class="pbtn cls-hand">\ud83d\udce4 Hand in a file\u2026</button><input type="file" class="cls-file" hidden accept="'+Object.keys(CLS_TYPES).map(e=>'.'+e).join(',')+'"><button class="fx-link danger cls-leave">Leave classroom</button></div>';}
   h+='<div class="hw-hint cls-privacy">Teacher \u2192 students only. Students never send their pages. Class content and hand-ins go directly between your browsers (WebRTC), never through the server, so participants can see each other\u2019s IP address. <b>Teaching mode is not anonymous:</b> signing in with Google is required, and the classroom server records your Google account ID and join/leave times for 90 days (no IP addresses, names, emails or class content).</div></div>';
-  clsPanel.innerHTML=h;makeDraggable(clsPanel,clsPanel.querySelector('.panel-h'));const q=x=>clsPanel.querySelector(x);q('.panel-x').onclick=()=>clsPanel.style.display='none';
+  clsPanel.innerHTML=h;makeDraggable(clsPanel,clsPanel.querySelector('.panel-h'));const q=x=>clsPanel.querySelector(x);q('.panel-x').onclick=CLS.role?clsMinimise:()=>clsPanel.style.display='none';
   if(q('.cls-relay'))q('.cls-relay').onchange=e=>{const v=e.target.value.trim();if(v&&!clsRelayOk(v)){toast('Use an https:// address','err');return;}const was=CLS.relay;CLS.relay=v;try{localStorage.setItem('pw-relay',v);}catch(_){}if(v!==was&&q('.cls-auth'))clsAuthUI(q('.cls-auth'));};
   if(q('.cls-create'))q('.cls-create').onclick=()=>{const r=q('.cls-relay');if(r){r.dispatchEvent(new Event('change'));}clsCreate();};
   if(q('.cls-join')){const go=()=>{const r=q('.cls-relay');if(r)r.dispatchEvent(new Event('change'));clsJoin(q('.cls-code').value);};q('.cls-join').onclick=go;q('.cls-code').onkeydown=e=>{if(e.key==='Enter')go();};}

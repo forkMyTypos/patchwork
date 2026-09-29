@@ -104,7 +104,7 @@ function isLegacyAutoStamp(m){return m.anchor&&m.anchor.kind==='time'&&m.auto&&!
 function drawGutter(){
   ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
   ctx.fillStyle='rgba(16,13,22,.86)';ctx.fillRect(0,0,gutter,H);
-  ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gutter+.5,0);ctx.lineTo(gutter+.5,H);ctx.stroke();
+  ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gutter-.5,0);ctx.lineTo(gutter-.5,H);ctx.stroke();
   const st=scrollTop(),tY=textMarkY(),labels=[];pinHits=[];
   // 1) session stamps (time labels)
   for(const sp of sessionStamps()){const y=sp.y-st;if(y<-30||y>H+30)continue;labels.push({y,prio:1,kind:'stamp',sp});}

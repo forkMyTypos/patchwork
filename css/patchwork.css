@@ -451,3 +451,13 @@ html.light img,html.light .fx-swb,html.light .cp-sw,html.light .cp-fav,html.ligh
 .panel.cls-inbox-panel{width:420px;height:50vh;min-width:300px;min-height:220px;resize:both;z-index:9050;}.cls-inbox-panel .panel-b{flex:1;min-height:0;max-height:none;}
 .inbox-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:4px;}.inbox-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid #20202e;border-radius:9px;}
 .inbox-main{flex:1;min-width:0;display:flex;flex-direction:column;font-size:12.5px;}.inbox-file{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c4c4dc;}
+/* classroom: direct connection notice, teacher view docked as the right half, minimised pill */
+.cls-modal{position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;}
+.cls-modal .panel.cls-notice{position:relative;width:min(440px,100%);}
+.cls-notice .panel-h{cursor:default;}.cls-notice .panel-b{padding:14px 16px 16px;}
+.cls-notice p{font-size:13.5px;line-height:1.55;margin:0 0 10px;color:#d6d6e4;}.cls-notice b{color:#fbbf24;}
+body.cls-split #stage{margin-right:50%;}
+.panel.mini-win.cls-view{left:50%;right:0;bottom:0;width:auto;height:auto;min-width:0;max-width:none;max-height:none;resize:none;border-radius:0;border-width:0 0 0 1px;box-shadow:none;}
+.cls-view .panel-h{cursor:default;}
+.cls-pill{position:fixed;left:14px;bottom:14px;z-index:9050;display:flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;border:1px solid var(--pborder);background:var(--panel);color:#e6e6f0;font-size:12.5px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.45);}
+.cls-pill:hover{border-color:#5a4a2b;}

@@ -28,4 +28,3 @@
 - `js/classroom.js` - optional classroom: teacher broadcast, read-only Teacher View window for students
 - `relay/` - classroom relay: `relay-core.mjs` (logic), `worker.mjs` + `wrangler.toml` (Cloudflare), `schema.sql` (D1 log), `dev-server.mjs` (local, needs `ws`); setup in `relay/README.md`
 - `tools/hw-eval/` - offline recogniser evaluation (test-only)
-- `tools/admin/` - local relay admin (`python admin.py`): log overview, lookup/export, setup check; token stays on your machine

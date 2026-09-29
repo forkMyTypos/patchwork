@@ -1,4 +1,4 @@
-# Deploy: npx wrangler deploy   (from this folder)
+# See README.md for the full setup. Deploy: npx wrangler deploy   (from this folder)
 name = "patchwork-classroom"
 main = "worker.mjs"
 compatibility_date = "2025-01-01"
@@ -6,6 +6,8 @@ compatibility_date = "2025-01-01"
 [vars]
 # Comma-separated origins allowed to use this relay, e.g. "https://forkmytypos.github.io"
 ALLOWED_ORIGINS = "https://forkmytypos.github.io"
+# Google OAuth Web client ID (Google Cloud Console > APIs & Services > Credentials)
+GOOGLE_CLIENT_ID = "PASTE-YOUR-CLIENT-ID.apps.googleusercontent.com"
 
 [[durable_objects.bindings]]
 name = "CLASSROOM"
@@ -14,3 +16,13 @@ class_name = "Classroom"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Classroom"]
+
+# Teaching-session connection log (Google account ID + times, 90 days)
+[[d1_databases]]
+binding = "DB"
+database_name = "patchwork-classroom"
+database_id = "PASTE-THE-ID-FROM-wrangler-d1-create"
+
+# Daily clean-up of records older than 90 days (03:17 UTC)
+[triggers]
+crons = ["17 3 * * *"]

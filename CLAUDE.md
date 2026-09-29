@@ -5,6 +5,8 @@
   The ONE exception is the opt-in classroom (`js/classroom.js` + `relay/`): it connects only when a user creates/joins
   a classroom; broadcast is teacher -> students only; the only student -> teacher path is an explicit file hand-in
   (allow-listed types, size/rate caps, teacher only, never stored by the relay); received data is validated before use.
+  Teaching mode requires Google sign-in; the relay logs only Google account ID + join/leave times (D1, deleted after
+  90 days). Never store IP addresses, names, emails or classroom content.
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.
@@ -22,5 +24,5 @@
 - `js/handwriting-core.js`, `js/handwriting.js` - recogniser core; language modules + Handwriting Lab
 - `js/backup.js`, `js/about.js`, `js/menu.js` - backup/import; About panel; main menu (logo) + light mode
 - `js/classroom.js` - optional classroom: teacher broadcast, read-only Teacher View window for students
-- `relay/` - classroom relay: `relay-core.mjs` (logic), `worker.mjs` + `wrangler.toml` (Cloudflare), `dev-server.mjs` (local, needs `ws`)
+- `relay/` - classroom relay: `relay-core.mjs` (logic), `worker.mjs` + `wrangler.toml` (Cloudflare), `schema.sql` (D1 log), `dev-server.mjs` (local, needs `ws`); setup in `relay/README.md`
 - `tools/hw-eval/` - offline recogniser evaluation (test-only)

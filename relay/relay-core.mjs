@@ -32,12 +32,16 @@ function extOf(n){const m=/\.([a-z0-9]{1,5})$/i.exec(n||'');return m?m[1].toLowe
 
 // A socket here is anything with send(string) and close(code, reason).
 export class Session{
-  constructor(code,secretHash,now=Date.now()){this.code=code;this.secretHash=secretHash;this.teacher=null;this.pending=new Map();
+  // hooks: verify(idToken) -> {sub,name}|null (Google sign-in), log: {join(sessionId,userId,role)->Promise<rowId>, leave(rowId), end(sessionId)}
+  constructor(code,secretHash,now=Date.now(),opt={}){this.code=code;this.secretHash=secretHash;this.sessionId=opt.sessionId||code;this.teacherId=opt.teacherId||null;this.hooks=opt.hooks||{};this.kickedUsers=new Set();this.meta=new Map();this.teacher=null;this.pending=new Map();
     this.people=new Map();   // participant id -> {id,name,token,sock,status:'on'|'retry'|'off',since,kicked,handins,lastHandin}
     this.bySock=new Map();this.locked=false;this.state=null;this.seq=0;this.created=now;this.lastTeacher=now;this.ended=false;this.tokens=LIMITS.teacherBurst;this.tokT=now;}
   get students(){return [...this.people.values()].filter(p=>p.sock);}
   expired(now=Date.now()){return this.ended||now-this.lastTeacher>LIMITS.idleMs||now-this.created>LIMITS.maxLifeMs;}
-  open(sock,now=Date.now()){if(this.ended){sock.close(4404,'ended');return;}this.pending.set(sock,now);}
+  open(sock,now=Date.now()){if(this.ended){sock.close(4404,'ended');return;}this.pending.set(sock,now);this.meta.set(sock,{row:null});}
+  // connection log (Google account ID + times only; no IP, name, email or content). Fire-and-forget: logging problems must not break a class.
+  logJoin(sock,userId,role){const lg=this.hooks.log,m=this.meta.get(sock);if(!lg||!m)return;Promise.resolve(lg.join(this.sessionId,userId,role)).then(id=>{m.row=id;if(m.left)lg.leave(id);}).catch(()=>{});}
+  logLeave(sock){const lg=this.hooks.log,m=this.meta.get(sock);if(!m)return;this.meta.delete(sock);if(!lg)return;if(m.row!=null)Promise.resolve(lg.leave(m.row)).catch(()=>{});else m.left=true;}
   // roles are decided HERE (teacher = knows the secret), never taken from what a client claims
   async message(sock,raw,now=Date.now()){
     if(this.ended){sock.close(4404,'ended');return;}
@@ -51,14 +55,17 @@ export class Session{
       if(typeof m.secret==='string'&&m.secret.length===64){
         if(!safeEq(await sha256(m.secret),this.secretHash)){sock.close(4403,'not the teacher');return;}
         if(this.teacher&&this.teacher!==sock)try{this.teacher.close(4409,'replaced');}catch(e){}
-        this.teacher=sock;this.lastTeacher=now;sock.send(JSON.stringify({t:'welcome',role:'teacher'}));this.roster();this.toStudents({t:'teacher',online:true});return;}
-      // student: resume with the token we issued, or join as someone new
+        this.teacher=sock;this.lastTeacher=now;this.logJoin(sock,this.teacherId,'teacher');sock.send(JSON.stringify({t:'welcome',role:'teacher'}));this.roster();this.toStudents({t:'teacher',online:true});return;}
+      // student: resume with the token we issued, or sign in with Google to join
       let p=null;if(typeof m.resume==='string')for(const q of this.people.values())if(safeEq(q.token,m.resume)){p=q;break;}
-      if(p&&p.kicked){sock.close(4403,'removed by the teacher');return;}
-      if(!p){if(this.locked){sock.close(4423,'classroom locked');return;}if(this.students.length>=LIMITS.maxStudents){sock.close(4429,'class full');return;}
-        p={id:newId(),name:cleanName(m.name)||fallbackName(),token:newSecret(),sock:null,status:'on',since:now,kicked:false,handins:0,lastHandin:0};this.people.set(p.id,p);}
+      if(!p){if(!this.hooks.verify){sock.close(4401,'sign-in unavailable');return;}const who=await this.hooks.verify(m.idToken).catch(()=>null);if(!who||!who.sub){sock.close(4401,'sign in with Google');return;}
+        if(this.kickedUsers.has(who.sub)){sock.close(4403,'removed by the teacher');return;}
+        for(const q of this.people.values())if(q.userId===who.sub){p=q;break;}   // same person on another tab/device
+        if(!p){if(this.locked){sock.close(4423,'classroom locked');return;}if(this.students.length>=LIMITS.maxStudents){sock.close(4429,'class full');return;}
+          p={id:newId(),userId:who.sub,name:cleanName(who.name)||fallbackName(),token:newSecret(),sock:null,status:'on',since:now,kicked:false,handins:0,lastHandin:0};this.people.set(p.id,p);}}
+      if(p.kicked||this.kickedUsers.has(p.userId)){sock.close(4403,'removed by the teacher');return;}
       if(p.sock&&p.sock!==sock)try{p.sock.close(4409,'replaced');this.bySock.delete(p.sock);}catch(e){}
-      p.sock=sock;p.status='on';p.since=now;this.bySock.set(sock,p);
+      p.sock=sock;p.status='on';p.since=now;this.bySock.set(sock,p);this.logJoin(sock,p.userId,'student');
       sock.send(JSON.stringify({t:'welcome',role:'student',id:p.id,name:p.name,token:p.token,teacher:!!this.teacher}));
       if(this.state)sock.send(this.state);this.roster();return;}
     if(sock===this.teacher){this.lastTeacher=now;
@@ -68,7 +75,7 @@ export class Session{
       if(m.t==='state'){if(!m.body||typeof m.body!=='object'){sock.send('{"t":"rejected"}');return;}
         this.seq++;this.state=JSON.stringify({t:'state',seq:this.seq,body:m.body});this.toStudents(this.state,true);return;}
       if(m.t==='clear'){this.state=null;this.seq++;this.toStudents({t:'clear',seq:this.seq});return;}
-      if(m.t==='kick'){const p=this.people.get(m.id);if(p&&!p.kicked){p.kicked=true;p.status='off';if(p.sock){try{p.sock.send('{"t":"kicked"}');p.sock.close(4403,'removed by the teacher');}catch(e){}this.bySock.delete(p.sock);p.sock=null;}this.roster();}return;}
+      if(m.t==='kick'){const p=this.people.get(m.id);if(p&&!p.kicked){p.kicked=true;if(p.userId)this.kickedUsers.add(p.userId);p.status='off';if(p.sock){try{p.sock.send('{"t":"kicked"}');p.sock.close(4403,'removed by the teacher');}catch(e){}this.bySock.delete(p.sock);p.sock=null;}this.roster();}return;}
       if(m.t==='lock'){this.locked=!!m.on;this.roster();return;}
       if(m.t==='end'){this.end();return;}
       return;}
@@ -88,14 +95,30 @@ export class Session{
     sock.close(1008,'unknown connection');}
   toStudents(msg,raw){const s=raw?msg:JSON.stringify(msg);for(const p of this.people.values())if(p.sock)try{p.sock.send(s);}catch(e){this.drop(p.sock);}}
   roster(){if(!this.teacher)return;const list=[...this.people.values()].filter(p=>!p.kicked).map(p=>({id:p.id,name:p.name,status:p.status}));try{this.teacher.send(JSON.stringify({t:'roster',list,locked:this.locked}));}catch(e){}}
-  drop(sock,now=Date.now()){this.pending.delete(sock);const p=this.bySock.get(sock);if(p){this.bySock.delete(sock);if(p.sock===sock){p.sock=null;if(!p.kicked){p.status='retry';p.since=now;}}this.roster();}
+  drop(sock,now=Date.now()){this.pending.delete(sock);this.logLeave(sock);const p=this.bySock.get(sock);if(p){this.bySock.delete(sock);if(p.sock===sock){p.sock=null;if(!p.kicked){p.status='retry';p.since=now;}}this.roster();}
     if(sock===this.teacher){this.teacher=null;this.toStudents({t:'teacher',online:false});}}
   sweep(now=Date.now()){for(const [s,t] of this.pending)if(now-t>LIMITS.helloMs){try{s.close(1008,'no hello');}catch(e){}this.pending.delete(s);}
     let ch=false;for(const p of this.people.values())if(p.status==='retry'&&now-p.since>30_000){p.status='off';ch=true;}if(ch)this.roster();
     if(this.expired(now)&&!this.ended)this.end();}
-  end(){this.ended=true;this.state=null;const all=[...this.students.map(p=>p.sock),...(this.teacher?[this.teacher]:[]),...this.pending.keys()];for(const s of all){try{s.send('{"t":"ended"}');s.close(4404,'ended');}catch(e){}}this.people.clear();this.bySock.clear();this.pending.clear();this.teacher=null;}
+  end(){if(!this.ended&&this.hooks.log&&this.hooks.log.end)Promise.resolve(this.hooks.log.end(this.sessionId)).catch(()=>{});for(const s of [...this.meta.keys()])this.logLeave(s);this.ended=true;this.state=null;const all=[...this.students.map(p=>p.sock),...(this.teacher?[this.teacher]:[]),...this.pending.keys()];for(const s of all){try{s.send('{"t":"ended"}');s.close(4404,'ended');}catch(e){}}this.people.clear();this.bySock.clear();this.pending.clear();this.teacher=null;}
 }
 // Simple fixed-window limiter for session creation / join attempts per client address.
 export class Limiter{constructor(max,windowMs){this.max=max;this.win=windowMs;this.m=new Map();}
   hit(key,now=Date.now()){let e=this.m.get(key);if(!e||now-e.t>this.win){e={t:now,n:0};this.m.set(key,e);}e.n++;if(this.m.size>10000)for(const [k,v] of this.m)if(now-v.t>this.win)this.m.delete(k);return e.n<=this.max;}}
 export function originAllowed(origin,allowList){if(!allowList)return true;const list=allowList.split(',').map(s=>s.trim()).filter(Boolean);return !list.length||list.includes(origin);}
+
+// Verify a Google Sign-In ID token (JWT, RS256) against Google's public keys. Returns {sub,name} or null.
+let _jwks={keys:null,exp:0};
+export async function verifyGoogleIdToken(tok,clientId,{now=Date.now(),certsUrl='https://www.googleapis.com/oauth2/v3/certs',fetcher=fetch}={}){
+  if(typeof tok!=='string'||tok.length>4096||!clientId)return null;const parts=tok.split('.');if(parts.length!==3)return null;
+  const b64=x=>{x=x.replace(/-/g,'+').replace(/_/g,'/');while(x.length%4)x+='=';return x;};const dec=x=>JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64(x)),c=>c.charCodeAt(0))));
+  let h,p;try{h=dec(parts[0]);p=dec(parts[1]);}catch(e){return null;}
+  if(h.alg!=='RS256'||typeof h.kid!=='string')return null;
+  if(!['accounts.google.com','https://accounts.google.com'].includes(p.iss)||p.aud!==clientId||typeof p.sub!=='string'||!/^\d{1,40}$/.test(p.sub))return null;
+  const t=Math.floor(now/1000);if(!(p.exp>t-60)||!(p.iat<t+300))return null;
+  if(!_jwks.keys||now>_jwks.exp){const r=await fetcher(certsUrl);if(!r.ok)return null;const cc=/max-age=(\d+)/.exec(r.headers.get('cache-control')||'');_jwks={keys:(await r.json()).keys||[],exp:now+Math.min(86400,cc?+cc[1]:3600)*1000};}
+  const jwk=_jwks.keys.find(k=>k.kid===h.kid);if(!jwk)return null;
+  const key=await crypto.subtle.importKey('jwk',jwk,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['verify']);
+  const ok=await crypto.subtle.verify('RSASSA-PKCS1-v1_5',key,Uint8Array.from(atob(b64(parts[2])),c=>c.charCodeAt(0)),new TextEncoder().encode(parts[0]+'.'+parts[1]));
+  return ok?{sub:p.sub,name:typeof p.name==='string'?p.name:''}:null;}
+export function _resetJwksCache(){_jwks={keys:null,exp:0};}

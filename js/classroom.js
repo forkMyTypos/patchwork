@@ -18,7 +18,9 @@ const CLS_TYPES={pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'im
 const CLS_ADJ=['Blue','Green','Amber','Swift','Quiet','Bright','Silver','Brave','Lucky','Clever'],CLS_ANI=['Tiger','Otter','Falcon','Panda','Fox','Heron','Koala','Lynx','Robin','Whale'];
 function clsFallbackName(){const r=n=>crypto.getRandomValues(new Uint32Array(1))[0]%n;return CLS_ADJ[r(10)]+' '+CLS_ANI[r(10)]+' '+(10+r(90));}
 function clsTokKey(){return 'pw-cls-'+CLS.code;}
-try{CLS.relay=localStorage.getItem('pw-relay')||'';}catch(e){}
+/* the owner's classroom server; when set, the address box is hidden */
+const CLS_RELAY='';
+try{CLS.relay=CLS_RELAY||localStorage.getItem('pw-relay')||'';}catch(e){CLS.relay=CLS_RELAY;}
 function clsRelayOk(u){try{const x=new URL(u);return x.protocol==='https:'||(x.protocol==='http:'&&/^(localhost|127\.0\.0\.1)$/.test(x.hostname));}catch(e){return false;}}
 function clsWsUrl(code){const x=new URL(CLS.relay);x.protocol=x.protocol==='https:'?'wss:':'ws:';x.pathname=x.pathname.replace(/\/$/,'')+'/api/ws';x.search='?code='+encodeURIComponent(code);return x.toString();}
 function clsHex(c){if(!c)return null;const h=normalizeHex(c);if(h)return h;const m=String(c).match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);return m?'#'+[m[1],m[2],m[3]].map(n=>(+n).toString(16).padStart(2,'0')).join(''):null;}
@@ -105,10 +107,11 @@ function openClassroom(){if(!clsPanel){clsPanel=document.createElement('div');cl
 function clsRender(full){if(CLS.view){const d=CLS.view.querySelector('.cls-dot');const direct=rtcOpen(CLS.peer);d.className='cls-dot '+(CLS.status==='on'&&direct?'on':CLS.status==='off'?'off':'retry');d.title=direct?'Connected directly to the teacher':CLS.status==='on'?(!CLS.teacherOnline?'Teacher offline':CLS.rtcFailed?'Couldn’t connect directly to the teacher (network blocks it)':'Connecting directly to the teacher…'):CLS.status==='off'?'Disconnected':'Reconnecting…';}
   if(!clsPanel||clsPanel.style.display==='none')return;const dot=t=>'<span class="cls-dot '+(CLS.status==='on'?'on':CLS.status==='off'?'off':'retry')+'"></span>'+t;
   const st=CLS.status==='on'?'Connected':CLS.status==='off'?'Disconnected':'Reconnecting…';let h='<div class="panel-h"><div class="panel-t">Classroom</div><button class="panel-x">×</button></div><div class="panel-b">';
-  if(!CLS.role){h+='<div class="pf"><div class="pf-l">Classroom server</div><input class="pf-in cls-relay" placeholder="https://your-relay.workers.dev" value="'+esc(CLS.relay)+'"><div class="hw-hint">Only used when you create or join a classroom.</div></div>'+
-      '<div class="pf"><div class="pf-l">Your account</div><div class="cls-auth"></div></div>'+
+  if(!CLS.role){h+=(CLS_RELAY?'':'<div class="pf"><div class="pf-l">Classroom server</div><input class="pf-in cls-relay" placeholder="https://your-relay.workers.dev" value="'+esc(CLS.relay)+'"><div class="hw-hint">Only used when you create or join a classroom.</div></div>')+
+      '<div class="pf"><div class="pf-l">1. Sign in with Google</div><div class="cls-auth"></div></div>'+
+      (!clsSignedIn()?'<div class="hw-hint">2. Then create a classroom (teacher) or join one with a code (student).</div>':
       '<div class="pf"><div class="pf-l">Teach</div><button class="fx-primary cls-create">Create a classroom</button></div>'+
-      '<div class="pf"><div class="pf-l">Learn</div><input class="pf-in cls-code" placeholder="Classroom code" maxlength="14" style="text-transform:uppercase;letter-spacing:.12em"><div class="hw-row" style="margin-top:6px"><button class="fx-primary cls-join">Join</button></div></div>';}
+      '<div class="pf"><div class="pf-l">Learn</div><input class="pf-in cls-code" placeholder="Classroom code" maxlength="14" style="text-transform:uppercase;letter-spacing:.12em"><div class="hw-row" style="margin-top:6px"><button class="fx-primary cls-join">Join</button></div></div>');}
   else if(CLS.role==='teacher'){h+='<div class="pf"><div class="pf-l">Classroom code — give this to your students</div><div class="cls-code-big">'+esc(CLS.code.slice(0,5)+' '+CLS.code.slice(5))+'</div></div><div class="cls-status">'+dot(st)+' · '+CLS.students+' student'+(CLS.students!==1?'s':'')+'</div>'+
       '<div class="cls-roster">'+(CLS.roster.length?CLS.roster.map(p=>'<div class="cls-person"><span class="cls-dot '+p.status+'"></span><span class="cls-pname">'+esc(p.name)+'</span><span class="hw-hint">'+(p.status==='retry'?'reconnecting':p.status==='off'?'disconnected':rtcLabel(p.id))+'</span><button class="pr-tool cls-kick" data-id="'+esc(p.id)+'" title="Remove from the classroom">\u00d7</button></div>').join(''):'<div class="hw-hint">No students yet.</div>')+'</div>'+
       '<label class="pf-row"><input type="checkbox" class="pf-cb cls-lock"'+(CLS.locked?' checked':'')+'> Lock classroom (no new students)</label>'+

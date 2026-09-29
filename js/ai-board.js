@@ -3,8 +3,9 @@
    Lets an outside program add a Question, Answer or Note to the page that was open when you switched the link on.
    - Off unless you switch it on (menu → AI board link). Needs Google sign-in (the same one as Classroom).
    - Uses the classroom server only to pass commands along; it stores nothing. This tab answers each command.
-   - The only commands are createQuestion / createAnswer / createNote with plain text. They become highlights
-     through the same path as selecting text and tagging it (addMark + a marked text run), nothing else.
+   - The only commands are createQuestion / createAnswer / createNote with plain text, which become highlights through
+     the same path as selecting text and tagging it (addMark + a marked text run), and drawStrokes: a capped doodle of
+     plain pen lines, saved as ordinary pen strokes (commitStroke) in free space below everything on the page.
    - The link ends when you switch it off, close or reload the tab. The key you give the AI works only while it's on.
    To remove the feature: delete this file, its <script> tag, the menu line in menu.js, relay/ai-board.mjs
    and the "ai" parts of relay/worker.mjs and relay/dev-server.mjs. */
@@ -24,7 +25,7 @@ async function aiStart(){if(!clsRelayOk(CLS.relay)){toast('No classroom server s
 
 function aiConnect(){if(!AI.on)return;AI.status='retry';let ws;try{ws=new WebSocket(aiWsUrl());}catch(e){aiRetry();return;}AI.ws=ws;
   ws.onopen=()=>ws.send(JSON.stringify({t:'hello',secret:AI.secret}));
-  ws.onmessage=async ev=>{if(typeof ev.data!=='string'||ev.data.length>6000)return;let m;try{m=JSON.parse(ev.data);}catch(e){return;}
+  ws.onmessage=async ev=>{if(typeof ev.data!=='string'||ev.data.length>200_000)return;let m;try{m=JSON.parse(ev.data);}catch(e){return;}
     if(m.t==='welcome'){AI.status='on';AI.retry=0;aiRender();return;}
     if(m.t==='cmd'&&Number.isInteger(m.id)){const r=await aiRun(m);if(ws.readyState===1)ws.send(JSON.stringify(Object.assign({t:'ack',id:m.id},r)));}};
   ws.onclose=ev=>{if(AI.ws!==ws)return;AI.ws=null;if(!AI.on)return;
@@ -34,7 +35,7 @@ function aiStop(msg){const ws=AI.ws;AI.on=false;AI.ws=null;clearTimeout(AI.rt);i
   Object.assign(AI,{status:'off',boardId:'',key:'',secret:''});if(msg)toast(msg,'info');aiRender();}
 
 // one command -> one highlight, via the same records a human tag creates. Returns {ok} or {ok:false,error}.
-async function aiRun(c){const type=AI_TYPES[c.action];
+async function aiRun(c){if(c.action==='drawStrokes')return aiDraw(c);const type=AI_TYPES[c.action];
   if(!type||!HT.has(type))return{ok:false,error:'unsupported action'};
   const text=typeof c.text==='string'?c.text.replace(/\s+/g,' ').trim():'';
   if(!text||text.length>2000)return{ok:false,error:'bad text'};
@@ -47,11 +48,26 @@ async function aiRun(c){const type=AI_TYPES[c.action];
   const el=editor.markEl(m.id);if(el){const wr=wrap.getBoundingClientRect(),r=el.getBoundingClientRect();wrap.scrollTo({top:Math.max(0,scrollTop()+(r.top-wr.top)-H*0.35),behavior:'smooth'});el.classList.add('mark-flash');setTimeout(()=>el.classList.remove('mark-flash'),1100);}
   AI.count++;aiRender();return{ok:true};}
 
+// a doodle: points on a 0-1000 canvas, placed half a page wide in free space below the page's text and ink
+function aiDraw(c){if(pid!==AI.pid)return{ok:false,error:'this board is not the open page right now'};
+  const L=c.strokes;if(!Array.isArray(L)||!L.length||L.length>50)return{ok:false,error:'bad strokes'};
+  let total=0;const ok=n=>Number.isFinite(n)&&n>=0&&n<=1000;
+  for(const st of L){if(!st||!Array.isArray(st.points)||!st.points.length||st.points.length>500)return{ok:false,error:'bad strokes'};total+=st.points.length;
+    if(!st.points.every(p=>Array.isArray(p)&&p.length===2&&ok(p[0])&&ok(p[1])))return{ok:false,error:'bad points'};}
+  if(total>5000)return{ok:false,error:'too many points'};
+  const box=0.5,x0=0.04,y0=(Math.max(noteEd.scrollHeight,inkBottomPx())+24)/drawW,t=Date.now();
+  for(const st of L){const color=normalizeHex(st.color)||'#e0e0ea',wn=Math.min(40,Math.max(1,+st.width||4))/1000*box;
+    const pts=st.points.map(p=>({xn:x0+p[0]/1000*box,yn:y0+p[1]/1000*box,wn}));
+    let minYn=Infinity,maxYn=-Infinity;for(const p of pts){if(p.yn<minYn)minYn=p.yn;if(p.yn>maxYn)maxYn=p.yn;}
+    commitStroke({kind:'stroke',tool:'pen',color,t,pts,minYn,maxYn,pid});}
+  redrawInk();updatePad();wrap.scrollTo({top:Math.max(0,y0*drawW-H*0.2),behavior:'smooth'});
+  AI.count++;aiRender();return{ok:true};}
+
 function openAiLink(){if(!aiPanel){aiPanel=document.createElement('div');aiPanel.className='panel cls-panel';document.body.appendChild(aiPanel);}
   aiPanel.style.display='flex';aiPanel.style.left=Math.max(8,Math.min(400,innerWidth-380))+'px';aiPanel.style.top='90px';aiPanel.style.right='auto';aiRender();}
 function aiRender(){if(!aiPanel||aiPanel.style.display==='none')return;
   let h='<div class="panel-h"><div class="panel-t">AI board link <span class="hw-hint">experimental</span></div><button class="panel-x">×</button></div><div class="panel-b">'+
-    '<div class="hw-hint">Lets an outside program add a <b>Question</b>, <b>Answer</b> or <b>Note</b> to this page while this tab is open. Nothing else: it can’t read your page or touch anything else.</div>';
+    '<div class="hw-hint">Lets an outside program add a <b>Question</b>, <b>Answer</b>, <b>Note</b> or a small <b>doodle</b> to this page while this tab is open. Nothing else: it can’t read your page or change what’s already there.</div>';
   if(!AI.on){h+='<div class="pf"><div class="pf-l">1. Sign in with Google</div><div class="ai-auth"></div></div>'+
       (clsSignedIn()?'<div class="pf"><div class="pf-l">2. Switch on for “'+esc(projName(pid))+'”</div><button class="fx-primary ai-start">Switch on</button></div>':'');}
   else{const st=AI.status==='on'?'Listening':'Connecting…';

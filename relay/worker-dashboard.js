@@ -125,11 +125,12 @@ function _resetJwksCache(){_jwks={keys:null,exp:0};}
 // - A board link exists only while its owner has it switched on in Patchwork. Creating one needs Google sign-in.
 // - Two secrets: the owner's (browser <-> relay) and the key the owner gives the AI (external client -> relay).
 //   The relay keeps only their SHA-256 hashes, in memory.
-// - Commands are {action, text} with action in AI_ACTIONS; the browser decides how they become board objects.
+// - Commands are {action, text} (createQuestion/Answer/Note) or {action:'drawStrokes', strokes} (a simple doodle: plain
+//   pen lines on a 0-1000 canvas, capped). The browser decides how they become board objects.
 // - Nothing is stored: no board contents, no command history. The browser only ever sends hello and ack.
 
-const AI_ACTIONS=['createQuestion','createAnswer','createNote'];
-const AI_LIMITS={text:2000,body:8000,msg:1000,perMin:30,ackMs:8000,idleMs:10*60_000};
+const AI_ACTIONS=['createQuestion','createAnswer','createNote','drawStrokes'];
+const AI_LIMITS={text:2000,body:64_000,msg:1000,perMin:30,ackMs:8000,idleMs:10*60_000,strokes:50,points:500,totalPoints:5000};
 
 function aiSafeEq(a,b){if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;let d=0;for(let i=0;i<a.length;i++)d|=a.charCodeAt(i)^b.charCodeAt(i);return d===0;}
 
@@ -137,12 +138,29 @@ function aiSafeEq(a,b){if(typeof a!=='string'||typeof b!=='string'||a.length!==b
 function cleanCommand(body){
   if(!body||typeof body!=='object'||Array.isArray(body))return{error:'body must be a JSON object'};
   if(!AI_ACTIONS.includes(body.action))return{error:'unsupported action (use '+AI_ACTIONS.join(', ')+')'};
+  if(body.action==='drawStrokes')return cleanStrokes(body.strokes);
   if(typeof body.text!=='string')return{error:'text must be a string'};
   const text=body.text.normalize('NFC').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g,' ').replace(/\s+/g,' ').trim();
   if(!text)return{error:'text is empty'};
   if(text.length>AI_LIMITS.text)return{error:'text is longer than '+AI_LIMITS.text+' characters'};
   return{action:body.action,text};
 }
+
+// strokes: [{color:'#rrggbb', width:1-40, points:[[x,y],...]}], x/y 0-1000 on the doodle's own canvas
+function cleanStrokes(list){const L=AI_LIMITS;
+  if(!Array.isArray(list)||!list.length)return{error:'strokes must be a non-empty array'};
+  if(list.length>L.strokes)return{error:'at most '+L.strokes+' strokes'};
+  const out=[];let total=0;
+  for(const st of list){if(!st||typeof st!=='object')return{error:'each stroke must be an object'};
+    const color=typeof st.color==='string'&&/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(st.color)?st.color.toLowerCase():'#e0e0ea';
+    const width=Number.isFinite(st.width)?Math.min(40,Math.max(1,st.width)):4;
+    if(!Array.isArray(st.points)||!st.points.length)return{error:'each stroke needs points [[x,y],...]'};
+    if(st.points.length>L.points)return{error:'at most '+L.points+' points per stroke'};
+    total+=st.points.length;if(total>L.totalPoints)return{error:'at most '+L.totalPoints+' points in total'};
+    const pts=[];for(const pt of st.points){if(!Array.isArray(pt)||pt.length!==2||!pt.every(n=>Number.isFinite(n)&&n>=0&&n<=1000))return{error:'points are [x,y] with x and y from 0 to 1000'};
+      pts.push([Math.round(pt[0]*10)/10,Math.round(pt[1]*10)/10]);}
+    out.push({color,width:Math.round(width*10)/10,points:pts});}
+  return{action:'drawStrokes',strokes:out};}
 
 class AiBoard{
   constructor(boardId,ownerHash,keyHash,now=Date.now()){this.boardId=boardId;this.ownerHash=ownerHash;this.keyHash=keyHash;
@@ -166,7 +184,7 @@ class AiBoard{
     if(!this.browser)return{status:409,body:{ok:false,error:'the board is not open right now'}};
     this.hits=this.hits.filter(t=>now-t<60_000);if(this.hits.length>=AI_LIMITS.perMin)return{status:429,body:{ok:false,error:'slow down'}};this.hits.push(now);
     const id=++this.seq;const res=await new Promise(done=>{this.pending.set(id,done);
-      try{this.browser.send(JSON.stringify({t:'cmd',id,action:cmd.action,text:cmd.text}));}catch(e){this.pending.delete(id);done({ok:false,error:'the board went offline'});return;}
+      try{this.browser.send(JSON.stringify(Object.assign({t:'cmd',id},cmd.action==='drawStrokes'?{action:cmd.action,strokes:cmd.strokes}:{action:cmd.action,text:cmd.text})));}catch(e){this.pending.delete(id);done({ok:false,error:'the board went offline'});return;}
       setTimeout(()=>{if(this.pending.has(id)){this.pending.delete(id);done({ok:false,timeout:true,error:'the board did not answer'});}},AI_LIMITS.ackMs);});
     if(res.ok)return{status:200,body:{ok:true,boardId:this.boardId,action:cmd.action}};
     return{status:res.timeout?504:422,body:{ok:false,error:res.error}};}

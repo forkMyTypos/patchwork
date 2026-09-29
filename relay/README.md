@@ -62,7 +62,7 @@ those change.
 
 ## AI board link (experimental)
 
-Lets an outside program add a **Question**, **Answer** or **Note** to one open Patchwork page. It uses the same Worker
+Lets an outside program add a **Question**, **Answer**, **Note** or a small **doodle** to one open Patchwork page. It uses the same Worker
 and Durable Object class as the classroom (as separate `ai:<boardId>` instances), so no new bindings or migrations.
 
 1. In Patchwork: logo → **AI board link** → sign in with Google → **Switch on**. The panel shows a **board ID**, a
@@ -76,15 +76,22 @@ curl -X POST https://patchwork-classroom.northstarcode.workers.dev/api/ai/board 
   -d '{"boardId":"<board ID>","action":"createQuestion","text":"Why does WebRTC need signalling?"}'
 ```
 
-`action` is `createQuestion`, `createAnswer` or `createNote`; `text` is plain text, 1-2000 characters. Answers:
+`action` is `createQuestion`, `createAnswer` or `createNote`; `text` is plain text, 1-2000 characters.
+
+Doodle: `{"boardId":"...","action":"drawStrokes","strokes":[{"color":"#fbbf24","width":6,"points":[[100,100],[900,100]]}]}`.
+Points are `[x,y]` from 0 to 1000 on the doodle's own square canvas, which Patchwork places half a page wide below
+everything already on the page (it never covers existing work). Width 1-40, colour `#rgb`/`#rrggbb`; at most 50 strokes,
+500 points per stroke, 5000 in total. They become ordinary pen strokes (undo works).
+
+Answers:
 `200 {"ok":true}` added · `400` bad request · `401` no key · `403` wrong key · `404` no such board · `409` board
 tab not connected · `422` the board refused (e.g. another page is open) · `429` too many (30/min per board) · `504` no
 answer from the tab.
 
 How it works: the Patchwork tab keeps a WebSocket to `/api/ai/ws` and proves it owns the board with its own secret.
 `POST /api/ai/board` checks the key (the relay keeps only SHA-256 hashes, in memory), forwards `{action, text}` to that
-tab, and waits for its answer. The tab turns it into a highlight exactly like tagging selected text (`addMark` + a
-marked text run). Nothing is stored on the server. Creating a link needs Google sign-in; links are not logged.
+tab, and waits for its answer. The tab turns text into a highlight exactly like tagging selected text (`addMark` + a
+marked text run), and a doodle into ordinary pen strokes (`commitStroke`). Nothing is stored on the server. Creating a link needs Google sign-in; links are not logged.
 
 Local test: `node dev-server.mjs 8787` also serves these routes (dev sign-in). To remove the feature: delete
 `ai-board.mjs` and `js/ai-board.js`, and the lines marked "AI" in `worker.mjs`, `dev-server.mjs`, `menu.js`,

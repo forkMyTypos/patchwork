@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="robots" content="noindex,nofollow"/>
+<title>Patchwork admin (local)</title>
+<style>
+:root{--bg:#0d0d14;--panel:#15151f;--panel2:#10101a;--line:#2a2a3a;--row:#1c1c28;--ink:#e0e0ea;--dim:#9a9ab4;--dimmer:#6f6f8a;
+  --amber:#f59e0b;--gold:#fbbf24;--blue:#7cb0ff;--ok:#7bd88f;--bad:#f88}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13.5px/1.5 ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:#1a1a26;color:var(--ink);height:28px;padding:0 10px;font-size:12px;font-weight:600}
+button:hover:not(:disabled){border-color:var(--amber)}
+button:disabled{opacity:.45;cursor:default}
+button.primary{border-color:#7a5510;color:var(--gold);background:#231a08}
+input,textarea{font:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:6px 9px;outline:none;font-size:13px}
+input:focus,textarea:focus{border-color:var(--amber)}
+.hide{display:none!important}
+.dim{color:var(--dim)} .mono{font:12px ui-monospace,Menlo,Consolas,monospace}
+.top{position:sticky;top:0;z-index:10;background:rgba(13,13,20,.95);border-bottom:1px solid var(--line)}
+.top-in{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{font-weight:800;font-size:16px} .brand b{color:var(--amber)} .brand span{color:var(--dimmer);font-weight:600;font-size:12px;margin-left:6px}
+.tabs{display:flex;gap:3px;flex-wrap:wrap}
+.tab{background:transparent;border-color:transparent;color:var(--dim)}
+.tab.on{background:#231a08;border-color:#7a5510;color:#fff}
+.wrap{max-width:1100px;margin:0 auto;padding:16px 16px 60px}
+.demobar{background:#231a08;color:var(--gold);text-align:center;padding:6px;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;border-top:2px solid var(--amber)}
+.card h3{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim)}
+.big{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
+.sub{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:var(--dim)} .sub b{color:var(--ink)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:12px}
+.panel h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--gold)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10.5px;color:#8a8aa8;text-transform:uppercase;letter-spacing:.04em;font-weight:600;padding:0 8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid var(--row);font-size:12.5px;vertical-align:top}
+tr.click{cursor:pointer} tr.click:hover td{background:#1a1a2a}
+.scroll{overflow-x:auto}
+.chk{display:flex;gap:8px;align-items:baseline;padding:3px 0}
+.ok{color:var(--ok)} .bad{color:var(--bad)}
+.empty{color:var(--dim);padding:20px 0}
+.form{display:grid;grid-template-columns:180px 1fr;gap:8px 12px;align-items:center;max-width:720px}
+.form input{width:100%}
+.help{font-size:12px;color:var(--dimmer);grid-column:2}
+textarea{width:100%;min-height:90px;font:12px ui-monospace,Menlo,Consolas,monospace}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1e2a1e;border:1px solid #2c5c3a;color:var(--ok);padding:8px 14px;border-radius:8px;font-size:13px}
+#toast.err{background:#2a1414;border-color:#5a2b2b;color:var(--bad)}
+@media (max-width:600px){.form{grid-template-columns:1fr}.help{grid-column:1}}
+</style>
+</head>
+<body>
+<div id="demoBar" class="demobar hide">DEMO MODE: sample data, nothing real is touched. Run <code>python admin.py</code> without <code>--demo</code> for the real thing.</div>
+<div class="top"><div class="top-in">
+  <div class="brand">patch<b>work</b><span>admin · local</span></div>
+  <div class="tabs">
+    <button class="tab" data-t="overview">Overview</button>
+    <button class="tab" data-t="sessions">Sessions</button>
+    <button class="tab" data-t="lookup">Look up</button>
+    <button class="tab" data-t="sql">SQL</button>
+    <button class="tab" data-t="settings">Settings</button>
+  </div>
+</div></div>
+<div class="wrap" id="view"></div>
+<div id="toast" class="hide"></div>
+
+<script>
+/* Patchwork admin (local). Talks only to the Python server that served it, which
+   holds the token. Everything shown is written with textContent via el(). */
+const $ = s => document.querySelector(s);
+const SESSION = '%%SESSION%%';
+const DEMO = %%DEMO%%;
+
+function el(tag, attrs, ...kids){
+  const n = document.createElement(tag);
+  for(const [k, v] of Object.entries(attrs || {})){
+    if(v == null || v === false) continue;
+    if(k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else if(k === 'class') n.className = v;
+    else n.setAttribute(k, v === true ? '' : String(v));
+  }
+  for(const k of kids.flat()){ if(k == null || k === false) continue; n.append(k instanceof Node ? k : document.createTextNode(String(k))); }
+  return n;
+}
+const clear = n => { while(n.firstChild) n.removeChild(n.firstChild); return n; };
+function toast(msg, err){ const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : ''; clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hide'), 3800); }
+const num = n => Number(n || 0).toLocaleString();
+const when = ms => ms == null ? '—' : new Date(ms).toLocaleString();
+const iso = ms => ms == null ? '' : new Date(ms).toISOString();
+const dur = (a, b) => b == null ? 'still open' : Math.max(1, Math.round((b - a) / 60000)) + ' min';
+const days = ms => Math.floor((Date.now() - ms) / 86400000);
+
+async function api(path, body){
+  const r = await fetch(path, { method: body !== undefined ? 'POST' : 'GET',
+    headers: { 'X-Session': SESSION, 'Content-Type': 'application/json' },
+    body: body !== undefined ? JSON.stringify(body) : undefined });
+  let j = null; try{ j = await r.json(); }catch(_){ }
+  if(!r.ok) throw new Error((j && j.error) || 'HTTP ' + r.status + (r.status === 403 ? ': reload the page' : ''));
+  return j;
+}
+function table(cols, rows, onclick){
+  if(!rows.length) return el('div', { class:'empty' }, 'Nothing here.');
+  return el('div', { class:'scroll' }, el('table', {},
+    el('tr', {}, cols.map(c => el('th', {}, c[0]))),
+    rows.map(r => el('tr', { class: onclick ? 'click' : null, onclick: onclick ? () => onclick(r) : null },
+      cols.map(c => el('td', { class: c[2] || null }, c[1](r)))))));
+}
+function download(name, text, type){
+  const a = el('a', { href: URL.createObjectURL(new Blob([text], { type })), download: name });
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+const csvCell = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+const toCsv = (head, rows) => [head, ...rows].map(r => r.map(csvCell).join(',')).join('\n') + '\n';
+
+async function showTab(t, arg){
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  const v = clear($('#view'));
+  v.append(el('div', { class:'empty' }, 'Loading…'));
+  try{ await VIEWS[t](v, arg); }
+  catch(e){ clear(v).append(el('div', { class:'empty' }, 'Couldn’t load: ' + e.message,
+    /set up yet/.test(e.message) ? [' ', el('button', { onclick: () => showTab('settings') }, 'Open Settings')] : '')); }
+}
+
+const VIEWS = {
+  async overview(v){
+    const [o, relay] = await Promise.all([api('/api/overview'), api('/api/relay')]);
+    clear(v);
+    const setup = el('div', { class:'panel' }, el('h2', {}, 'Setup check'));
+    const line = (ok, text, detail) => el('div', { class:'chk' }, el('b', { class: ok ? 'ok' : 'bad' }, ok ? '✓' : '✗'), text, detail ? el('span', { class:'dim mono' }, detail) : '');
+    setup.append(line(relay.reachable && relay.ok, 'Relay answers', relay.error || relay.googleClientId || ''));
+    const missing = Object.entries(o.tables).filter(([, ok]) => !ok).map(([t]) => t);
+    setup.append(line(!missing.length, 'Log tables exist', missing.length ? 'missing: ' + missing.join(', ') : 'sessions, participants'));
+    if(missing.length) setup.append(el('div', { class:'row', style:'margin:6px 0 4px 22px' },
+      el('button', { class:'primary', onclick: async ev => { ev.target.disabled = true;
+        try{ await api('/api/create-tables', {}); toast('Tables created'); showTab('overview'); }
+        catch(e){ toast(e.message, true); ev.target.disabled = false; } } }, 'Create tables'),
+      el('span', { class:'dim' }, 'Runs relay/schema.sql (CREATE … IF NOT EXISTS only; nothing is changed or deleted).')));
+    const wk = el('div', {}, el('div', { class:'dim' }, 'Checking the Worker…'));
+    setup.append(wk);
+    v.append(setup);
+    api('/api/worker').then(list => clear(wk).append(list.map(c => line(c.ok, c.what, c.detail || ''))))
+      .catch(e => clear(wk).append(el('div', { class:'dim' }, 'Worker bindings: ' + e.message)));
+    if(missing.length) return;
+    const card = (title, big, subs) => el('div', { class:'card' }, el('h3', {}, title), el('div', { class:'big' }, big),
+      el('div', { class:'sub' }, subs.map(([k, val]) => el('span', {}, k + ' ', el('b', {}, val)))));
+    const age = o.oldest == null ? null : days(o.oldest);
+    v.prepend(el('div', { class:'grid' },
+      card('Classes taught', num(o.sessions.total), [['24h', num(o.sessions.day)], ['7 days', num(o.sessions.week)]]),
+      card('People', num(o.participants.people), [['active 7 days', num(o.participants.people7)], ['connections', num(o.participants.total)]]),
+      card('Connected now', num(o.participants.open), [['joined in the last 24h, not left', '']]),
+      card('Oldest record', age == null ? '—' : age + ' d', [[age != null && age > o.retention_days + 1 ? '⚠ clean-up isn’t running' : 'deleted after', age != null && age > o.retention_days + 1 ? '' : o.retention_days + ' days']])));
+  },
+
+  async sessions(v){
+    const list = await api('/api/sessions?limit=200');
+    clear(v).append(el('div', { class:'panel' }, el('h2', {}, 'Recent classes'),
+      table([['Started', r => when(r.started_at)], ['Length', r => dur(r.started_at, r.ended_at)],
+             ['Teacher (Google ID)', r => el('span', { class:'mono' }, r.teacher_id)],
+             ['Students', r => num(r.students), 'num'], ['Joins', r => num(r.joins), 'num']],
+        list, r => showTab('sessions_one', r.id))));
+  },
+
+  async sessions_one(v, id){
+    const s = await api('/api/session?id=' + encodeURIComponent(id));
+    const rows = s.participants.map(p => [p.user_id, p.role, iso(p.joined_at), iso(p.left_at)]);
+    clear(v).append(el('div', { class:'panel' }, el('h2', {}, 'Class ' + s.id.slice(0, 8)),
+      el('div', { class:'row' },
+        el('button', { onclick: () => showTab('sessions') }, '← All classes'),
+        el('span', { class:'dim' }, when(s.started_at) + ' · ' + dur(s.started_at, s.ended_at) + ' · teacher '), el('span', { class:'mono' }, s.teacher_id),
+        el('button', { onclick: () => download('class-' + s.id + '.csv', toCsv(['user_id', 'role', 'joined_utc', 'left_utc'], rows), 'text/csv') }, 'Export CSV')),
+      el('div', { style:'height:10px' }),
+      table([['Google ID', p => el('span', { class:'mono' }, p.user_id)], ['Role', p => p.role],
+             ['Joined', p => when(p.joined_at)], ['Left', p => p.left_at == null ? 'still open' : when(p.left_at)]],
+        s.participants, p => showTab('lookup', p.user_id))));
+  },
+
+  async lookup(v, preset){
+    const q = el('input', { placeholder:'Google account ID, e.g. 10769150350006150715113', style:'width:340px', value: preset || '' });
+    const out = el('div');
+    const go = async () => {
+      clear(out).append(el('div', { class:'empty' }, 'Looking…'));
+      try{
+        const r = await api('/api/lookup?id=' + encodeURIComponent(q.value.trim()));
+        const rows = [...r.taught.map(s => [s.id, r.user_id, 'teacher', iso(s.started_at), iso(s.ended_at)]),
+                      ...r.joined.filter(p => p.role !== 'teacher').map(p => [p.session_id, p.teacher_id, p.role, iso(p.joined_at), iso(p.left_at)])];
+        const stamp = new Date(r.exported_at).toISOString().slice(0, 10);
+        clear(out).append(
+          el('div', { class:'row', style:'margin:10px 0' },
+            el('span', {}, r.taught.length + ' class(es) taught, ' + r.joined.filter(p => p.role !== 'teacher').length + ' joined as a student.'),
+            el('button', { disabled: !rows.length, onclick: () => download('patchwork-' + r.user_id + '-' + stamp + '.csv',
+              toCsv(['session_id', 'teacher_id', 'role', 'joined_utc', 'left_utc'], rows), 'text/csv') }, 'Export CSV'),
+            el('button', { disabled: !rows.length, onclick: () => download('patchwork-' + r.user_id + '-' + stamp + '.json',
+              JSON.stringify(r, null, 2), 'application/json') }, 'Export JSON')),
+          table([['Class', x => el('span', { class:'mono' }, x[0].slice(0, 8))], ['Teacher', x => el('span', { class:'mono' }, x[1])],
+                 ['Role', x => x[2]], ['Joined (UTC)', x => x[3]], ['Left (UTC)', x => x[4] || 'still open']],
+            rows, x => showTab('sessions_one', x[0])));
+      }catch(e){ clear(out).append(el('div', { class:'empty bad' }, e.message)); }
+    };
+    q.addEventListener('keydown', e => { if(e.key === 'Enter') go(); });
+    clear(v).append(el('div', { class:'panel' }, el('h2', {}, 'Look up a Google account'),
+      el('div', { class:'row' }, q, el('button', { class:'primary', onclick: go }, 'Look up')),
+      el('div', { class:'dim', style:'margin-top:6px' }, 'Every class this account taught or joined in the last 90 days. Export before records expire if you receive a preservation request.'),
+      out));
+    if(preset) go();
+  },
+
+  async sql(v){
+    const box = el('textarea', {}, 'SELECT role, COUNT(*) AS n FROM participants GROUP BY role');
+    const out = el('div');
+    const run = async () => {
+      clear(out).append(el('div', { class:'empty' }, 'Running…'));
+      try{
+        const r = await api('/api/sql', { sql: box.value });
+        const cols = r.rows.length ? Object.keys(r.rows[0]) : [];
+        clear(out).append(el('div', { class:'dim', style:'margin:8px 0' }, r.count + ' row(s) · ' + r.ms + ' ms' + (r.truncated ? ' · first 1000 shown' : '')),
+          table(cols.map(c => [c, row => row[c] == null ? 'NULL' : String(row[c])]), r.rows));
+      }catch(e){ clear(out).append(el('div', { class:'empty bad' }, e.message)); }
+    };
+    box.addEventListener('keydown', e => { if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)) run(); });
+    clear(v).append(el('div', { class:'panel' }, el('h2', {}, 'Read-only SQL'), box,
+      el('div', { class:'row', style:'margin-top:8px' }, el('button', { class:'primary', onclick: run }, 'Run (Ctrl+Enter)'),
+        el('span', { class:'dim' }, 'SELECT / WITH / PRAGMA / EXPLAIN only. Times are ms since 1970 (UTC).')), out));
+  },
+
+  async settings(v){
+    const s = await api('/api/status');
+    const c = s.config;
+    const f = {};
+    const field = (k, label, help, attrs) => [el('label', {}, label),
+      f[k] = el('input', Object.assign({ value: c[k] || '' }, attrs || {})), help ? el('div', { class:'help' }, help) : ''];
+    clear(v).append(el('div', { class:'panel' }, el('h2', {}, 'Settings'),
+      el('div', { class:'form' },
+        field('cf_account_id', 'Cloudflare account ID', 'Dashboard → Workers & Pages → Account ID in the right-hand column.'),
+        field('cf_api_token', 'Cloudflare API token', (c.cf_api_token_set ? 'Saved; leave blank to keep it. ' : '') +
+          'My Profile → API Tokens → Create Token → Custom: Account › D1 › Edit and Account › Workers Scripts › Read.',
+          { type:'password', value:'', placeholder: c.cf_api_token_set ? '•••••••• (saved)' : '' }),
+        field('d1_database_id', 'D1 database ID', 'Storage & Databases → D1 → patchwork-classroom → Database ID.'),
+        field('worker_name', 'Worker name'),
+        field('relay_url', 'Relay address', 'e.g. https://patchwork-classroom.<you>.workers.dev'),
+        field('origin', 'Patchwork address', 'Sent as the Origin when checking the relay; must be in ALLOWED_ORIGINS.')),
+      el('div', { class:'row', style:'margin-top:12px' },
+        el('button', { class:'primary', disabled: DEMO, onclick: async () => {
+          const body = {}; for(const k in f) body[k] = f[k].value;
+          try{ await api('/api/settings', body); toast('Saved'); showTab('overview'); }catch(e){ toast(e.message, true); } } }, 'Save'),
+        el('span', { class:'dim' }, DEMO ? 'Not saved in demo mode.' : 'Saved to ' + s.config_path + ' (only readable by you). The token never reaches this page.'))));
+  },
+};
+
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.t)));
+if(DEMO) $('#demoBar').classList.remove('hide');
+api('/api/status').then(s => showTab(s.ready ? 'overview' : 'settings')).catch(e => toast(e.message, true));
+</script>
+</body>
+</html>

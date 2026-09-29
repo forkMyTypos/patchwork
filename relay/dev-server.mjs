@@ -19,7 +19,7 @@ const srv=http.createServer(async(req,res)=>{const h={'Access-Control-Allow-Orig
     sessions.set(code,new Session(code,await sha256(secret),Date.now(),{sessionId,teacherId:who.sub,hooks:{verify:devVerify,log}}));
     res.writeHead(200,{...h,'content-type':'application/json'});return res.end(JSON.stringify({code,secret}));}
   res.writeHead(404,h);res.end();});
-const wss=new WebSocketServer({noServer:true,maxPayload:7_200_000});
+const wss=new WebSocketServer({noServer:true,maxPayload:64_000});
 srv.on('upgrade',(req,sock,head)=>{const code=new URL(req.url,'http://x').searchParams.get('code');const s=validCode(code)&&sessions.get(code);
   if(!s||s.expired()){sock.write('HTTP/1.1 404 Not Found\r\n\r\n');sock.destroy();return;}
   wss.handleUpgrade(req,sock,head,ws=>{const so={send:x=>ws.send(x),close:(c,r)=>{try{ws.close(c,r);}catch(e){}}};s.open(so);

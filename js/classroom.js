@@ -4,7 +4,10 @@
    - Nothing connects unless you create or join a classroom, and only to the relay server you set.
    - A teacher transmits ONLY while "Broadcast" is on, and only clsSnapshot(): the open page's text, highlight
      colours and ink, built field by field. No database, other projects, folders, history or handwriting.
-   - A student connection has no way to send content: it can only say hello and ping.
+   - The classroom server only does sign-in and connection set-up (signalling). Broadcasts and hand-ins travel
+     DIRECTLY between browsers over WebRTC data channels, never through the server.
+   - A student's channel accepts only teacher broadcasts; the only thing a student can send is an explicit hand-in,
+     which the teacher's browser checks (type allow-list, size, rate) before keeping it.
    - Everything a student receives is validated (types, sizes, colours, fonts, data-image only) and rendered by the
      editor's own renderer (text as text, never HTML). Remote image URLs are never fetched. */
 const CLS={name:'',roster:[],locked:false,inbox:0,relay:'',role:null,ws:null,code:'',secret:'',status:'off',students:0,teacherOnline:false,broadcast:false,timer:null,lastHash:'',retry:0,rt:null,view:null,snap:null,follow:true};
@@ -32,11 +35,11 @@ async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Ma
     out.paras.push({a:p.align,r:runs});}
   for(const s of strokes)out.strokes.push({tool:s.tool,color:clsHex(s.color)||'#ece6da',p:s.pts.map(q=>[+q.xn.toFixed(4),+q.yn.toFixed(4),+q.wn.toFixed(5)])});
   return out;}
-async function clsTick(){if(CLS.role!=='teacher'||!CLS.broadcast||!CLS.ws||CLS.ws.readyState!==1)return;
+async function clsTick(){if(CLS.role!=='teacher'||!CLS.broadcast)return;
   let body;try{body=await clsSnapshot();}catch(e){console.error(e);return;}const json=JSON.stringify({t:'state',body});const h=contentHash(json);if(h===CLS.lastHash)return;
   if(json.length>CLS_MAX.msg){if(CLS.lastHash!=='big'){toast('This page is too large to broadcast (images?) — students keep the last version','err');CLS.lastHash='big';}return;}
-  CLS.lastHash=h;CLS.ws.send(json);}
-function clsSetBroadcast(on){CLS.broadcast=!!on;clearInterval(CLS.timer);CLS.lastHash='';if(CLS.broadcast){CLS.timer=setInterval(clsTick,700);clsTick();}else if(CLS.ws&&CLS.ws.readyState===1)CLS.ws.send('{"t":"clear"}');clsRender();}
+  CLS.lastHash=h;CLS.lastJson=json;rtcBroadcast(json);}
+function clsSetBroadcast(on){CLS.broadcast=!!on;clearInterval(CLS.timer);CLS.lastHash='';if(CLS.broadcast){CLS.timer=setInterval(clsTick,700);clsTick();}else{CLS.lastJson='{"t":"clear"}';rtcBroadcast(CLS.lastJson);}clsRender();}
 
 /* ---------- connections ---------- */
 async function clsCreate(){if(!clsRelayOk(CLS.relay)){toast('Set the classroom server first','err');return;}
@@ -52,17 +55,13 @@ function clsConnect(){clearTimeout(CLS.rt);let ws;try{ws=new WebSocket(clsWsUrl(
     if(!CLS.welcomed&&CLS.retry>=1){toast(CLS.role==='student'?'Couldn\u2019t join \u2014 check the code (the class may have ended)':'Couldn\u2019t reach the classroom server','err');clsReset(false);return;}
     clsState('retry');CLS.retry=Math.min(CLS.retry+1,5);CLS.rt=setTimeout(clsConnect,Math.min(15000,1000*2**CLS.retry));};}
 function clsOnMessage(m){if(m.t==='welcome'){CLS.retry=0;CLS.welcomed=true;clsState('on');if(CLS.role==='teacher'){CLS.lastHash='';}else{CLS.teacherOnline=!!m.teacher;if(typeof m.name==='string')CLS.name=m.name;if(typeof m.token==='string'&&/^[0-9a-f]{64}$/.test(m.token))try{localStorage.setItem(clsTokKey(),m.token);}catch(e){}}clsRender();return;}
-  if(m.t==='roster'&&CLS.role==='teacher'&&Array.isArray(m.list)){CLS.roster=m.list.slice(0,200).map(p=>({id:String(p.id).slice(0,16),name:String(p.name).slice(0,24),status:['on','retry','off'].includes(p.status)?p.status:'off'}));CLS.students=CLS.roster.filter(p=>p.status==='on').length;CLS.locked=!!m.locked;clsRender();return;}
-  if(m.t==='handin'&&CLS.role==='teacher'){clsReceive(m);return;}
-  if(m.t==='handin-result'&&CLS.role==='student'){toast(m.ok?'Handed in \u201c'+String(m.name).slice(0,60)+'\u201d':String(m.why||'Hand-in failed').slice(0,120),m.ok?'ok':'err');return;}
-  if(m.t==='kicked'){return;}
-  if(CLS.role!=='student')return;   // everything below is teacher -> student
-  if(m.t==='teacher'){CLS.teacherOnline=!!m.online;clsRender();return;}
-  if(m.t==='state'){let snap;try{snap=clsClean(m.body);}catch(e){console.warn('classroom: rejected broadcast',e.message);return;}CLS.snap=snap;CLS.teacherOnline=true;clsDrawView();clsRender();return;}
-  if(m.t==='clear'){CLS.snap=null;clsDrawView();return;}
+  if(m.t==='roster'&&CLS.role==='teacher'&&Array.isArray(m.list)){CLS.roster=m.list.slice(0,200).map(p=>({id:String(p.id).slice(0,16),name:String(p.name).slice(0,24),status:['on','retry','off'].includes(p.status)?p.status:'off'}));CLS.students=CLS.roster.filter(p=>p.status==='on').length;CLS.locked=!!m.locked;rtcSync();clsRender();return;}
+  if(m.t==='signal'&&m.data){rtcSignal(m.from,m.data);return;}
+  if(CLS.role!=='student')return;
+  if(m.t==='teacher'){CLS.teacherOnline=!!m.online;if(!m.online)rtcClose();clsRender();return;}
   if(m.t==='ended'){toast('The classroom has ended','info');}}
 function clsLeave(){if(CLS.role==='teacher'&&CLS.ws&&CLS.ws.readyState===1)CLS.ws.send('{"t":"end"}');clsReset(true);}
-function clsReset(closeView){const ws=CLS.ws;CLS.ws=null;clearTimeout(CLS.rt);clearInterval(CLS.timer);try{if(ws)ws.close(1000,'bye');}catch(e){}
+function clsReset(closeView){rtcClose();const ws=CLS.ws;CLS.ws=null;clearTimeout(CLS.rt);clearInterval(CLS.timer);try{if(ws)ws.close(1000,'bye');}catch(e){}
   Object.assign(CLS,{welcomed:false,role:null,code:'',secret:'',broadcast:false,students:0,teacherOnline:false,retry:0,lastHash:''});clsState('off');if(closeView&&CLS.view){CLS.view.remove();CLS.view=null;CLS.snap=null;}clsRender();}
 function clsState(s){CLS.status=s;clsRender();}
 
@@ -103,7 +102,7 @@ function clsScroll(){const w=CLS.view,s=CLS.snap;if(!w||!s||!CLS.follow)return;w
 /* ---------- panel ---------- */
 let clsPanel=null;
 function openClassroom(){if(!clsPanel){clsPanel=document.createElement('div');clsPanel.className='panel cls-panel';document.body.appendChild(clsPanel);}clsPanel.style.display='flex';clsPanel.style.left=Math.max(8,Math.min(360,innerWidth-380))+'px';clsPanel.style.top='70px';clsPanel.style.right='auto';clsRender(true);}
-function clsRender(full){if(CLS.view){const d=CLS.view.querySelector('.cls-dot');d.className='cls-dot '+(CLS.status==='on'&&CLS.teacherOnline?'on':CLS.status==='off'?'off':'retry');d.title=CLS.status==='on'?(CLS.teacherOnline?'Receiving the teacher':'Connected — teacher offline'):CLS.status==='off'?'Disconnected':'Reconnecting…';}
+function clsRender(full){if(CLS.view){const d=CLS.view.querySelector('.cls-dot');const direct=rtcOpen(CLS.peer);d.className='cls-dot '+(CLS.status==='on'&&direct?'on':CLS.status==='off'?'off':'retry');d.title=direct?'Connected directly to the teacher':CLS.status==='on'?(!CLS.teacherOnline?'Teacher offline':CLS.rtcFailed?'Couldn’t connect directly to the teacher (network blocks it)':'Connecting directly to the teacher…'):CLS.status==='off'?'Disconnected':'Reconnecting…';}
   if(!clsPanel||clsPanel.style.display==='none')return;const dot=t=>'<span class="cls-dot '+(CLS.status==='on'?'on':CLS.status==='off'?'off':'retry')+'"></span>'+t;
   const st=CLS.status==='on'?'Connected':CLS.status==='off'?'Disconnected':'Reconnecting…';let h='<div class="panel-h"><div class="panel-t">Classroom</div><button class="panel-x">×</button></div><div class="panel-b">';
   if(!CLS.role){h+='<div class="pf"><div class="pf-l">Classroom server</div><input class="pf-in cls-relay" placeholder="https://your-relay.workers.dev" value="'+esc(CLS.relay)+'"><div class="hw-hint">Only used when you create or join a classroom.</div></div>'+
@@ -111,13 +110,13 @@ function clsRender(full){if(CLS.view){const d=CLS.view.querySelector('.cls-dot')
       '<div class="pf"><div class="pf-l">Teach</div><button class="fx-primary cls-create">Create a classroom</button></div>'+
       '<div class="pf"><div class="pf-l">Learn</div><input class="pf-in cls-code" placeholder="Classroom code" maxlength="14" style="text-transform:uppercase;letter-spacing:.12em"><div class="hw-row" style="margin-top:6px"><button class="fx-primary cls-join">Join</button></div></div>';}
   else if(CLS.role==='teacher'){h+='<div class="pf"><div class="pf-l">Classroom code — give this to your students</div><div class="cls-code-big">'+esc(CLS.code.slice(0,5)+' '+CLS.code.slice(5))+'</div></div><div class="cls-status">'+dot(st)+' · '+CLS.students+' student'+(CLS.students!==1?'s':'')+'</div>'+
-      '<div class="cls-roster">'+(CLS.roster.length?CLS.roster.map(p=>'<div class="cls-person"><span class="cls-dot '+p.status+'"></span><span class="cls-pname">'+esc(p.name)+'</span><span class="hw-hint">'+(p.status==='retry'?'reconnecting':p.status==='off'?'disconnected':'')+'</span><button class="pr-tool cls-kick" data-id="'+esc(p.id)+'" title="Remove from the classroom">\u00d7</button></div>').join(''):'<div class="hw-hint">No students yet.</div>')+'</div>'+
+      '<div class="cls-roster">'+(CLS.roster.length?CLS.roster.map(p=>'<div class="cls-person"><span class="cls-dot '+p.status+'"></span><span class="cls-pname">'+esc(p.name)+'</span><span class="hw-hint">'+(p.status==='retry'?'reconnecting':p.status==='off'?'disconnected':rtcLabel(p.id))+'</span><button class="pr-tool cls-kick" data-id="'+esc(p.id)+'" title="Remove from the classroom">\u00d7</button></div>').join(''):'<div class="hw-hint">No students yet.</div>')+'</div>'+
       '<label class="pf-row"><input type="checkbox" class="pf-cb cls-lock"'+(CLS.locked?' checked':'')+'> Lock classroom (no new students)</label>'+
       '<button class="pbtn cls-inbox">\ud83d\udce5 Inbox'+(CLS.inbox?' ('+CLS.inbox+' new)':'')+'</button>'+
       '<label class="pf-row cls-bc"><input type="checkbox" class="pf-cb cls-bcast"'+(CLS.broadcast?' checked':'')+'> <b>Broadcast</b>&nbsp;this page'+(CLS.broadcast?' — students see “'+esc(projName(pid))+'”':' (off: nothing is sent)')+'</label>'+
       '<button class="fx-link danger cls-end">End classroom</button>';}
-  else{h+='<div class="cls-status">'+dot(st+(CLS.status==='on'?(CLS.teacherOnline?' · receiving the teacher':' · teacher offline'):''))+'</div><div class="hw-hint">You are \u201c'+esc(CLS.name)+'\u201d</div><div class="hw-row"><button class="fx-primary cls-show">Show teacher view</button><button class="pbtn cls-hand">\ud83d\udce4 Hand in a file\u2026</button><input type="file" class="cls-file" hidden accept="'+Object.keys(CLS_TYPES).map(e=>'.'+e).join(',')+'"><button class="fx-link danger cls-leave">Leave classroom</button></div>';}
-  h+='<div class="hw-hint cls-privacy">Teacher \u2192 students only. Students never send their pages; a hand-in goes only to the teacher and the server doesn\u2019t keep it. <b>Teaching mode is not anonymous:</b> signing in with Google is required, and the classroom server records your Google account ID and join/leave times for 90 days (no IP addresses, names, emails or class content).</div></div>';
+  else{h+='<div class="cls-status">'+dot(st+(CLS.status==='on'?(!CLS.teacherOnline?' · teacher offline':rtcOpen(CLS.peer)?' · connected directly to the teacher':CLS.rtcFailed?' · couldn’t connect directly (network blocks it)':' · connecting to the teacher…'):''))+'</div><div class="hw-hint">You are \u201c'+esc(CLS.name)+'\u201d</div><div class="hw-row"><button class="fx-primary cls-show">Show teacher view</button><button class="pbtn cls-hand">\ud83d\udce4 Hand in a file\u2026</button><input type="file" class="cls-file" hidden accept="'+Object.keys(CLS_TYPES).map(e=>'.'+e).join(',')+'"><button class="fx-link danger cls-leave">Leave classroom</button></div>';}
+  h+='<div class="hw-hint cls-privacy">Teacher \u2192 students only. Students never send their pages. Class content and hand-ins go directly between your browsers (WebRTC), never through the server, so participants can see each other\u2019s IP address. <b>Teaching mode is not anonymous:</b> signing in with Google is required, and the classroom server records your Google account ID and join/leave times for 90 days (no IP addresses, names, emails or class content).</div></div>';
   clsPanel.innerHTML=h;makeDraggable(clsPanel,clsPanel.querySelector('.panel-h'));const q=x=>clsPanel.querySelector(x);q('.panel-x').onclick=()=>clsPanel.style.display='none';
   if(q('.cls-relay'))q('.cls-relay').onchange=e=>{const v=e.target.value.trim();if(v&&!clsRelayOk(v)){toast('Use an https:// address','err');return;}CLS.relay=v;try{localStorage.setItem('pw-relay',v);}catch(_){}};
   if(q('.cls-create'))q('.cls-create').onclick=()=>{const r=q('.cls-relay');if(r){r.dispatchEvent(new Event('change'));}clsCreate();};
@@ -134,12 +133,12 @@ function clsRender(full){if(CLS.view){const d=CLS.view.querySelector('.cls-dot')
 /* ---------- hand-ins: student -> teacher only (a separate channel from the broadcast) ---------- */
 function clsExt(n){const m=/\.([a-z0-9]{1,5})$/i.exec(n||'');return m?m[1].toLowerCase():'';}
 function clsSize(n){return n>1e6?(n/1e6).toFixed(1)+' MB':Math.max(1,Math.round(n/1e3))+' KB';}
-async function clsHandIn(f){if(CLS.role!=='student'||!CLS.ws||CLS.ws.readyState!==1){toast('Not connected to the classroom','err');return;}
+async function clsHandIn(f){if(CLS.role!=='student'){toast('Not in a classroom','err');return;}
   const ext=clsExt(f.name);if(!CLS_TYPES[ext]){toast('That file type can\u2019t be handed in','err');return;}if(f.size>CLS_MAX.handin){toast('File too large (max 5 MB)','err');return;}
   // explicit confirmation: the student sees exactly what will be sent, and to whom
   if(!confirm('Hand in \u201c'+f.name+'\u201d ('+clsSize(f.size)+') to the teacher?\n\nOnly the teacher receives it.'))return;
-  const data=(await _blobToDataURL(f)).split(',')[1]||'';CLS.ws.send(JSON.stringify({t:'handin',file:{name:f.name.slice(0,120),type:CLS_TYPES[ext],data}}));toast('Sending\u2026','info');}
-async function clsReceive(m){const f=m.file||{},ext=clsExt(f.name);if(!CLS_TYPES[ext]||f.type!==CLS_TYPES[ext]||typeof f.data!=='string'||!/^[A-Za-z0-9+/=]+$/.test(f.data))return;
+  if(!rtcOpen(CLS.peer)){toast('Not connected directly to the teacher yet','err');return;}const data=(await _blobToDataURL(f)).split(',')[1]||'';toast('Sending\u2026','info');rtcSend(CLS.peer,JSON.stringify({t:'handin',file:{name:f.name.slice(0,120),type:CLS_TYPES[ext],data}}));}
+async function clsReceive(m,peer){const f=m.file||{},ext=clsExt(f.name);const who=CLS.roster.find(p=>p.id===peer.id);m={...m,from:{name:who?who.name:'?'}};if(!CLS_TYPES[ext]||f.type!==CLS_TYPES[ext]||typeof f.data!=='string'||!/^[A-Za-z0-9+/=]+$/.test(f.data))return;
   let blob;try{const bin=atob(f.data);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);if(u.length>CLS_MAX.handin)return;blob=new Blob([u],{type:'application/octet-stream'});}catch(e){return;}
   const rec={at:Date.now(),code:CLS.code,from:String(m.from&&m.from.name||'?').slice(0,24),name:String(f.name).replace(/[\\/:*?"<>|\u0000-\u001f]/g,'_').slice(0,120),ext,size:blob.size,blob};
   try{await db.inbox.add(rec);}catch(e){_quotaToast(e);return;}CLS.inbox++;toast('\ud83d\udce5 '+rec.from+' handed in \u201c'+rec.name+'\u201d','ok');clsRender();renderInbox();}
@@ -168,3 +167,56 @@ async function clsAuthUI(box){if(clsSignedIn()){box.innerHTML='<div class="hw-ro
   if(!cfg||!cfg.googleClientId){box.innerHTML='<div class="hw-hint">This classroom server isn’t set up for Google sign-in.</div>';return;}
   box.innerHTML='<div class="cls-gbtn"></div>';try{await clsLoadGoogle();google.accounts.id.initialize({client_id:cfg.googleClientId,callback:r=>clsSetToken(r.credential),auto_select:false,cancel_on_tap_outside:true});google.accounts.id.renderButton(box.querySelector('.cls-gbtn'),{theme:'filled_black',size:'medium',text:'signin_with'});}
   catch(e){box.innerHTML='<div class="hw-hint">'+esc(e.message)+'</div>';}}
+
+/* ---------- WebRTC: the actual classroom data goes browser to browser ---------- */
+// Only a public STUN server (to discover the route); no TURN relay, so data never passes through a server.
+const RTC_CFG={iceServers:[{urls:'stun:stun.cloudflare.com:3478'}]};
+const RTC_CHUNK=16000,RTC_MAX_IN={student:1_700_000,teacher:7_200_000};
+CLS.peers=new Map();CLS.peer=null;CLS.lastJson='';CLS.rtcFailed=false;
+function rtcOpen(p){return !!(p&&p.dc&&p.dc.readyState==='open');}
+function rtcLabel(id){const p=CLS.peers.get(id);return !p?'':rtcOpen(p)?'direct':p.failed?'can’t connect directly':'connecting…';}
+function rtcSignalOut(data,to){if(CLS.ws&&CLS.ws.readyState===1)CLS.ws.send(JSON.stringify(to?{t:'signal',to,data}:{t:'signal',data}));}
+// big messages are split into chunks; the sender waits while the channel's buffer is full (backpressure)
+async function rtcSend(p,json){if(!rtcOpen(p))return;const id=Math.random().toString(36).slice(2,10),n=Math.max(1,Math.ceil(json.length/RTC_CHUNK));
+  for(let i=0;i<n;i++){while(p.dc&&p.dc.readyState==='open'&&p.dc.bufferedAmount>1_000_000)await new Promise(r=>setTimeout(r,30));if(!rtcOpen(p))return;p.dc.send(id+'|'+i+'|'+n+'|'+json.slice(i*RTC_CHUNK,(i+1)*RTC_CHUNK));}}
+function rtcReceiver(p,max,onMsg){const parts=new Map();return ev=>{if(typeof ev.data!=='string')return;const m=/^([a-z0-9]{1,10})\|(\d{1,4})\|(\d{1,4})\|/.exec(ev.data);if(!m)return;const hd=m[0],id=m[1],i=+m[2],n=+m[3];
+  if(n<1||i>=n||(n-1)*RTC_CHUNK>max)return;let e=parts.get(id);if(!e){if(parts.size>8)parts.clear();e={n,got:0,a:new Array(n)};parts.set(id,e);}if(e.n!==n||e.a[i]!=null)return;e.a[i]=ev.data.slice(hd.length);e.got++;
+  if(e.got===n){parts.delete(id);const json=e.a.join('');if(json.length>max)return;let msg;try{msg=JSON.parse(json);}catch(err){return;}onMsg(msg);}};}
+function rtcBroadcast(json){for(const p of CLS.peers.values())if(rtcOpen(p))rtcSend(p,json);}
+function rtcNewPc(p,to){const pc=new RTCPeerConnection(RTC_CFG);p.pc=pc;
+  pc.onicecandidate=e=>rtcSignalOut({type:'candidate',candidate:e.candidate?e.candidate.toJSON():null},to);
+  pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'){p.failed=true;if(CLS.role==='student')CLS.rtcFailed=true;clsRender();if(CLS.role==='teacher')setTimeout(rtcSync,5200);}if(pc.connectionState==='connected'){p.failed=false;CLS.rtcFailed=false;clsRender();}};return pc;}
+// teacher: one direct connection per signed-in student, following the roster (removed students are cut off)
+function rtcSync(){if(CLS.role!=='teacher')return;const live=new Set(CLS.roster.filter(p=>p.status==='on').map(p=>p.id));
+  for(const [id,p] of CLS.peers)if(!live.has(id)){try{p.pc.close();}catch(e){}CLS.peers.delete(id);}
+  for(const id of live){const p=CLS.peers.get(id);if(!p||(p.failed&&p.tries<3&&Date.now()-p.at>5000))rtcOffer(id,p?p.tries+1:1);}}
+async function rtcOffer(id,tries){const old=CLS.peers.get(id);if(old)try{old.pc.close();}catch(e){}
+  const p={id,tries,at:Date.now(),failed:false,pc:null,dc:null,handins:old?old.handins:0,lastHandin:old?old.lastHandin:0};CLS.peers.set(id,p);const pc=rtcNewPc(p,id);
+  const dc=pc.createDataChannel('patchwork',{ordered:true});p.dc=dc;
+  dc.onopen=()=>{clsRender();if(CLS.lastJson)rtcSend(p,CLS.lastJson);};dc.onclose=()=>clsRender();
+  // the only thing a teacher accepts from a student is a hand-in
+  dc.onmessage=rtcReceiver(p,RTC_MAX_IN.teacher,m=>{if(m&&m.t==='handin')rtcHandIn(p,m);});
+  try{await pc.setLocalDescription(await pc.createOffer());rtcSignalOut({type:'offer',sdp:pc.localDescription.sdp},id);}catch(e){p.failed=true;}clsRender();}
+async function rtcSignal(from,d){try{
+  if(CLS.role==='teacher'){const p=CLS.peers.get(from);if(!p||!p.pc)return;if(d.type==='answer')await p.pc.setRemoteDescription({type:'answer',sdp:d.sdp});else if(d.type==='candidate')await p.pc.addIceCandidate(d.candidate||null);return;}
+  if(CLS.role!=='student')return;
+  // student: accept the teacher's offer (a new offer replaces the old connection)
+  if(d.type==='offer'){rtcClose();const p={pc:null,dc:null,failed:false};CLS.peer=p;const pc=rtcNewPc(p,null);
+    pc.ondatachannel=e=>{const dc=e.channel;p.dc=dc;dc.onopen=()=>clsRender();dc.onclose=()=>clsRender();
+      // the only things a student accepts: the teacher's broadcast, and the result of their own hand-in
+      dc.onmessage=rtcReceiver(p,RTC_MAX_IN.student,m=>{if(!m)return;
+        if(m.t==='state'){let snap;try{snap=clsClean(m.body);}catch(err){console.warn('classroom: rejected broadcast',err.message);return;}CLS.snap=snap;clsDrawView();clsRender();}
+        else if(m.t==='clear'){CLS.snap=null;clsDrawView();}
+        else if(m.t==='handin-result')toast(m.ok?'Handed in “'+String(m.name).slice(0,60)+'”':String(m.why||'Hand-in failed').slice(0,120),m.ok?'ok':'err');});};
+    await pc.setRemoteDescription({type:'offer',sdp:d.sdp});await pc.setLocalDescription(await pc.createAnswer());rtcSignalOut({type:'answer',sdp:pc.localDescription.sdp});}
+  else if(d.type==='candidate'&&CLS.peer&&CLS.peer.pc)await CLS.peer.pc.addIceCandidate(d.candidate||null);
+}catch(e){console.warn('classroom: connection set-up',e.message);}}
+function rtcClose(){if(CLS.peer){try{CLS.peer.pc.close();}catch(e){}CLS.peer=null;}for(const p of CLS.peers.values())try{p.pc.close();}catch(e){}CLS.peers.clear();}
+// hand-ins now arrive directly, so the teacher's browser enforces the rules (types, size, count, spacing)
+const HANDIN_RULES={perStudent:20,gapMs:5000};
+function rtcHandIn(p,m){const f=m.file||{},ext=clsExt(f.name),reply=(ok,why)=>rtcSend(p,JSON.stringify({t:'handin-result',ok,why,name:String(f.name||'').slice(0,120)}));
+  if(!CLS_TYPES[ext]||f.type!==CLS_TYPES[ext])return reply(false,'That file type can’t be handed in');
+  if(typeof f.data!=='string'||f.data.length*0.75>CLS_MAX.handin+3)return reply(false,'File too large (max 5 MB)');
+  if(p.handins>=HANDIN_RULES.perStudent)return reply(false,'Hand-in limit reached for this class');
+  if(Date.now()-p.lastHandin<HANDIN_RULES.gapMs)return reply(false,'Please wait a few seconds between hand-ins');
+  p.handins++;p.lastHandin=Date.now();clsReceive(m,p);reply(true);}

@@ -1,7 +1,9 @@
 # Patchwork classroom relay (teaching mode)
 
-A small Cloudflare Worker that relays a teacher's broadcast to students and hand-ins from students to the teacher.
-Classroom content is never stored. Teaching mode requires Google sign-in, and the relay keeps a minimal connection
+A small Cloudflare Worker for **sign-in and connection set-up only** (WebRTC signalling). The classroom itself (the
+teacher's broadcast and students' hand-ins) travels directly between browsers over WebRTC data channels and never passes
+through Cloudflare. There is no TURN relay: if a network blocks direct connections, that participant can't connect
+(the Classroom panel says so). Participants can see each other's IP addresses because the connection is direct. Teaching mode requires Google sign-in, and the relay keeps a minimal connection
 log in Cloudflare D1: **Google account ID + join/leave times** per teaching session (no IP addresses, names, emails
 or content). Records older than 90 days are deleted automatically every day.
 
@@ -88,8 +90,11 @@ the connection log in memory (`GET /dev/log`). The Cloudflare Worker never accep
 
 - Google sign-in (ID token verified against Google's keys, audience = your client ID) to create or join.
 - Random 10-character join codes; the teacher's role is proven by a 256-bit secret, never taken from the client.
-- Students may only join, keep alive, and hand in a file to the teacher (pdf, png/jpg/gif/webp, txt/md,
-  docx/xlsx/pptx/odt; max 5 MB, 20 per student, 5 s apart; delivered only to the teacher, never stored or broadcast).
+- Only well-formed WebRTC set-up messages (offer/answer/ICE candidate, rebuilt field by field, max 32 KB) are passed,
+  and only between the teacher and one student; students can't reach each other. Signalling is rate-limited.
+- Hand-ins go straight to the teacher's browser, which enforces the rules (pdf, png/jpg/gif/webp, txt/md,
+  docx/xlsx/pptx/odt; max 5 MB, 20 per student, 5 s apart).
+- STUN (route discovery only, no data) uses Cloudflare's public `stun:stun.cloudflare.com:3478`.
 - The teacher can remove a student (that Google account can't rejoin the class) and lock the class.
 - Limits: 100 students, teacher message rate/size caps, origin allow-list, per-IP create/join limits (in memory only,
   never stored), idle expiry.

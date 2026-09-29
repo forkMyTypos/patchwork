@@ -3,8 +3,10 @@
 - Push finished work straight to `main` (the owner's standing instruction). GitHub Pages serves `main`.
 - Plain files, no build step, no framework. Keep it local-first: no network requests, accounts or telemetry.
   The ONE exception is the opt-in classroom (`js/classroom.js` + `relay/`): it connects only when a user creates/joins
-  a classroom; broadcast is teacher -> students only; the only student -> teacher path is an explicit file hand-in
-  (allow-listed types, size/rate caps, teacher only, never stored by the relay); received data is validated before use.
+  a classroom. The relay is SIGNALLING ONLY (sign-in, roster, kick/lock, WebRTC offer/answer/ICE); classroom data
+  (teacher broadcast, student hand-ins) goes browser-to-browser over WebRTC data channels, never through the relay,
+  and no TURN server is used. Broadcast is teacher -> students only; the only student -> teacher path is an explicit
+  hand-in, checked by the teacher's browser (allow-listed types, size/rate caps). Received data is validated before use.
   Teaching mode requires Google sign-in; the relay logs only Google account ID + join/leave times (D1, deleted after
   90 days). Never store IP addresses, names, emails or classroom content.
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.

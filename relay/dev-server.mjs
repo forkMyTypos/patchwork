@@ -4,6 +4,8 @@
 // (GET /dev/log shows it). The Cloudflare Worker never accepts dev tokens.
 import http from 'node:http';import {WebSocketServer} from 'ws';
 import {Session,newCode,newSecret,sha256,validCode,Limiter,cleanName} from './relay-core.mjs';
+import {AiBoard,cleanCommand,aiCredentials,AI_LIMITS} from './ai-board.mjs';
+const aiBoards=new Map();
 const sessions=new Map(),createLimit=new Limiter(10,60_000);const port=+process.argv[2]||8787;
 const devVerify=async t=>{const m=/^dev:(\d{1,21}):(.{0,40})$/.exec(t||'');return m?{sub:m[1],name:cleanName(m[2])}:null;};
 const LOG={sessions:[],participants:[]};let rowId=0;
@@ -18,11 +20,25 @@ const srv=http.createServer(async(req,res)=>{const h={'Access-Control-Allow-Orig
     const code=newCode(),secret=newSecret(),sessionId=crypto.randomUUID();LOG.sessions.push({id:sessionId,teacher_id:who.sub,started_at:Date.now(),ended_at:null});
     sessions.set(code,new Session(code,await sha256(secret),Date.now(),{sessionId,teacherId:who.sub,hooks:{verify:devVerify,log}}));
     res.writeHead(200,{...h,'content-type':'application/json'});return res.end(JSON.stringify({code,secret}));}
+  const send=(st,o)=>{res.writeHead(st,{...h,'content-type':'application/json'});res.end(JSON.stringify(o));};
+  if(req.url==='/api/ai/link'&&req.method==='POST'){const who=await devVerify((req.headers.authorization||'').replace(/^Bearer\s+/,''));if(!who){res.writeHead(401,h);return res.end('sign in');}
+    const c=await aiCredentials(newCode,newSecret);aiBoards.set(c.boardId,new AiBoard(c.boardId,c.ownerHash,c.keyHash));return send(200,{boardId:c.boardId,secret:c.secret,key:c.key});}
+  if(req.url==='/api/ai/board'&&req.method==='POST'){let raw='';for await(const ch of req){raw+=ch;if(raw.length>AI_LIMITS.body)return send(413,{ok:false,error:'request too large'});}
+    let body;try{body=JSON.parse(raw);}catch(e){return send(400,{ok:false,error:'body must be JSON'});}
+    if(!body||!validCode(body.boardId))return send(400,{ok:false,error:'boardId is missing or malformed'});
+    const cmd=cleanCommand(body);if(cmd.error)return send(400,{ok:false,error:cmd.error});
+    const key=(req.headers.authorization||'').replace(/^Bearer\s+/,'');if(!key)return send(401,{ok:false,error:'missing Authorization: Bearer <board key>'});
+    const b=aiBoards.get(body.boardId);if(!b||b.expired())return send(404,{ok:false,error:'no such board (not open, or the link was switched off)'});
+    const r=await b.command(key,cmd);return send(r.status,r.body);}
   res.writeHead(404,h);res.end();});
 const wss=new WebSocketServer({noServer:true,maxPayload:64_000});
-srv.on('upgrade',(req,sock,head)=>{const code=new URL(req.url,'http://x').searchParams.get('code');const s=validCode(code)&&sessions.get(code);
+srv.on('upgrade',(req,sock,head)=>{const u=new URL(req.url,'http://x');
+  if(u.pathname==='/api/ai/ws'){const b=aiBoards.get(u.searchParams.get('board'));if(!b||b.expired()){sock.write('HTTP/1.1 404 Not Found\r\n\r\n');sock.destroy();return;}
+    return wss.handleUpgrade(req,sock,head,ws=>{const so={send:x=>ws.send(x),close:(c,r)=>{try{ws.close(c,r);}catch(e){}}};b.open(so);
+      ws.on('message',(d,isBin)=>b.message(so,isBin?null:d.toString()));ws.on('close',()=>b.drop(so));});}
+  const code=new URL(req.url,'http://x').searchParams.get('code');const s=validCode(code)&&sessions.get(code);
   if(!s||s.expired()){sock.write('HTTP/1.1 404 Not Found\r\n\r\n');sock.destroy();return;}
   wss.handleUpgrade(req,sock,head,ws=>{const so={send:x=>ws.send(x),close:(c,r)=>{try{ws.close(c,r);}catch(e){}}};s.open(so);
     ws.on('message',(d,isBin)=>s.message(so,isBin?null:d.toString()));ws.on('close',()=>s.drop(so));});});
-setInterval(()=>{for(const [c,s] of sessions){s.sweep();if(s.ended)sessions.delete(c);}},5000).unref();
+setInterval(()=>{for(const [c,s] of sessions){s.sweep();if(s.ended)sessions.delete(c);}for(const [id,b] of aiBoards)if(b.expired())aiBoards.delete(id);},5000).unref();
 srv.listen(port,()=>console.log('classroom relay (dev) on http://localhost:'+port));

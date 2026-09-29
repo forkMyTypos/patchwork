@@ -222,6 +222,9 @@ function makeEditor(edId,tbId,statusId,valignId){
   function hasSelection(){readSel();return !!sel;}
   function refresh(){busy=true;renderAll();requestAnimationFrame(()=>{if(document.activeElement===ed){if(sel)restoreSel();else placeCaret(cur.p,cur.offset);}busy=false;updateTb();});}
   function markEl(id){return ed.querySelector('[data-mark="'+id+'"]');}
+  // a new paragraph at the end whose text carries mark <id> (same run data applyMark produces); used by the AI board link
+  function appendMarked(text,id){pushUndo("mark");const last=doc[doc.length-1];const p=last&&!plen(last)?last:mkPara();if(p!==last)doc.push(p);
+    p.t=Date.now();p.runs=mergeRuns([mkRun(String(text),{mark:id})]);busy=true;renderAll();requestAnimationFrame(()=>{busy=false;updateTb();});if(typeof markDirty==="function")markDirty();return true;}
   // read-only helpers for history / timeline / image store
   function getDoc(){return snapState().doc;}
   function renderParas(paras,box,opts){box.innerHTML="";paras.forEach((p,i)=>box.appendChild(lineEl(p,i,Object.assign({ro:true},opts||{}))));}
@@ -229,5 +232,5 @@ function makeEditor(edId,tbId,statusId,valignId){
   function mapImageSrc(fn){let ch=false;for(const p of doc)for(const r of p.runs)if(r.type==="image"){const n=fn(r.src);if(n&&n!==r.src){r.src=n;ch=true;}}return ch;}
   function stampParas(fn){let ch=false;doc.forEach((p,i)=>{if(p.t)return;const t=fn(i,p);if(t){p.t=t;ch=true;}});if(ch){busy=true;renderAll();requestAnimationFrame(()=>{if(document.activeElement===ed)placeCaret(cur.p,cur.offset);busy=false;});if(typeof markDirty==="function")markDirty();}return ch;}
   function parasToHTML(paras){const c=document.createElement("div");paras.forEach((p,i)=>c.appendChild(lineEl(p,i,{save:true})));return c.innerHTML;}
-  return{parasToHTML,getDoc,renderParas,paraRects,mapImageSrc,stampParas,getHTML,setHTML,clear,getPlainText,insertImage,undo,redo,applyMark,clearMarkRuns,selText,hasSelection,refresh,markEl};
+  return{parasToHTML,getDoc,renderParas,paraRects,mapImageSrc,stampParas,getHTML,setHTML,clear,getPlainText,insertImage,undo,redo,applyMark,clearMarkRuns,selText,hasSelection,refresh,markEl,appendMarked};
 }

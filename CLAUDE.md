@@ -9,6 +9,9 @@
   hand-in, checked by the teacher's browser (allow-listed types, size/rate caps). Received data is validated before use.
   Teaching mode requires Google sign-in; the relay logs only Google account ID + join/leave times (D1, deleted after
   90 days). Never store IP addresses, names, emails or classroom content.
+  Second, EXPERIMENTAL exception: the opt-in AI board link (`js/ai-board.js` + `relay/ai-board.mjs`, same relay). Off unless
+  switched on (Google sign-in); an external client with the board's key may send ONLY createQuestion/createAnswer/createNote
+  with plain text, which the tab turns into highlights via addMark. The relay keeps only key hashes in memory; nothing stored.
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.
@@ -26,5 +29,6 @@
 - `js/handwriting-core.js`, `js/handwriting.js` - recogniser core; language modules + Handwriting Lab
 - `js/backup.js`, `js/about.js`, `js/menu.js` - backup/import; About panel; main menu (logo) + light mode
 - `js/classroom.js` - optional classroom: teacher broadcast, read-only Teacher View window for students
-- `relay/` - classroom relay: `relay-core.mjs` (logic), `worker.mjs` + `wrangler.toml` (Cloudflare), `schema.sql` (D1 log), `dev-server.mjs` (local, needs `ws`); setup in `relay/README.md`
+- `js/ai-board.js` - experimental AI board link: receives the 3 commands, creates highlights via addMark
+- `relay/` - classroom relay: `relay-core.mjs` (logic), `ai-board.mjs` (AI board link), `worker.mjs` + `wrangler.toml` (Cloudflare), `schema.sql` (D1 log), `dev-server.mjs` (local, needs `ws`); setup in `relay/README.md`
 - `tools/hw-eval/` - offline recogniser evaluation (test-only)

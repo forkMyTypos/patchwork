@@ -57,8 +57,38 @@ then create or join a classroom. Teacher and students all use the same server ad
 Everything above can be done in the Cloudflare dashboard: create a Worker, paste **`worker-dashboard.js`** (the relay as a
 single file) into its code editor, then add in the Worker's Settings: variables `GOOGLE_CLIENT_ID` and `ALLOWED_ORIGINS`,
 a D1 binding `DB` (run `schema.sql` in the D1 console first), a Durable Object binding `CLASSROOM` -> class `Classroom`,
-and a cron trigger `17 3 * * *`. `worker-dashboard.js` is just `relay-core.mjs` + `worker.mjs` joined; re-create it if
+and a cron trigger `17 3 * * *`. `worker-dashboard.js` is just `relay-core.mjs` + `ai-board.mjs` + `worker.mjs` joined; re-create it if
 those change.
+
+## AI board link (experimental)
+
+Lets an outside program add a **Question**, **Answer** or **Note** to one open Patchwork page. It uses the same Worker
+and Durable Object class as the classroom (as separate `ai:<boardId>` instances), so no new bindings or migrations.
+
+1. In Patchwork: logo → **AI board link** → sign in with Google → **Switch on**. The panel shows a **board ID**, a
+   **key** and a ready-made command. The link covers the page that was open when you switched it on, and ends when you
+   switch it off or close/reload the tab.
+2. Send a command (the panel's *Copy command* fills in your board ID and key):
+
+```sh
+curl -X POST https://patchwork-classroom.northstarcode.workers.dev/api/ai/board \
+  -H 'Authorization: Bearer <key>' -H 'Content-Type: application/json' \
+  -d '{"boardId":"<board ID>","action":"createQuestion","text":"Why does WebRTC need signalling?"}'
+```
+
+`action` is `createQuestion`, `createAnswer` or `createNote`; `text` is plain text, 1-2000 characters. Answers:
+`200 {"ok":true}` added · `400` bad request · `401` no key · `403` wrong key · `404` no such board · `409` board
+tab not connected · `422` the board refused (e.g. another page is open) · `429` too many (30/min per board) · `504` no
+answer from the tab.
+
+How it works: the Patchwork tab keeps a WebSocket to `/api/ai/ws` and proves it owns the board with its own secret.
+`POST /api/ai/board` checks the key (the relay keeps only SHA-256 hashes, in memory), forwards `{action, text}` to that
+tab, and waits for its answer. The tab turns it into a highlight exactly like tagging selected text (`addMark` + a
+marked text run). Nothing is stored on the server. Creating a link needs Google sign-in; links are not logged.
+
+Local test: `node dev-server.mjs 8787` also serves these routes (dev sign-in). To remove the feature: delete
+`ai-board.mjs` and `js/ai-board.js`, and the lines marked "AI" in `worker.mjs`, `dev-server.mjs`, `menu.js`,
+`index.html`.
 
 ## Responding to a lawful request
 

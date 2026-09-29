@@ -158,15 +158,15 @@ async function renderInbox(){if(!inboxEl||inboxEl.style.display==='none')return;
 /* ---------- Google sign-in (teaching mode only; Google's script loads only when this panel needs it) ---------- */
 CLS.auth=null;CLS.cfg=null;CLS.cfgFor='';
 function clsSignedIn(){return !!(CLS.auth&&CLS.auth.exp*1000>Date.now()+60_000);}
-function clsSignOut(){CLS.auth=null;try{if(window.google&&google.accounts)google.accounts.id.disableAutoSelect();}catch(e){}clsRender();}
-function clsSetToken(tok){try{const p=JSON.parse(decodeURIComponent(escape(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))));CLS.auth={token:tok,name:String(p.name||'').slice(0,40),exp:+p.exp||0};}catch(e){CLS.auth=null;}clsRender();}
+function clsSignOut(){CLS.auth=null;try{if(window.google&&google.accounts)google.accounts.id.disableAutoSelect();}catch(e){}clsRender();document.dispatchEvent(new Event('pw-auth'));}
+function clsSetToken(tok){try{const p=JSON.parse(decodeURIComponent(escape(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))));CLS.auth={token:tok,name:String(p.name||'').slice(0,40),exp:+p.exp||0};}catch(e){CLS.auth=null;}clsRender();document.dispatchEvent(new Event('pw-auth'));}
 async function clsConfig(){if(!clsRelayOk(CLS.relay))return null;if(CLS.cfg&&CLS.cfgFor===CLS.relay)return CLS.cfg;try{const r=await fetch(CLS.relay.replace(/\/$/,'')+'/api/config');CLS.cfg=r.ok?await r.json():null;CLS.cfgFor=CLS.relay;}catch(e){CLS.cfg=null;}return CLS.cfg;}
 let _gisP=null;function clsLoadGoogle(){if(!_gisP)_gisP=new Promise((res,rej)=>{const sc=document.createElement('script');sc.src='https://accounts.google.com/gsi/client';sc.async=true;sc.onload=res;sc.onerror=()=>{_gisP=null;rej(new Error('Google sign-in could not load'));};document.head.appendChild(sc);});return _gisP;}
 async function clsAuthUI(box){if(clsSignedIn()){box.innerHTML='<div class="hw-row" style="margin-top:0"><span>Signed in as <b></b></span><button class="fx-link cls-out">Sign out</button></div>';box.querySelector('b').textContent=CLS.auth.name||'Google user';box.querySelector('.cls-out').onclick=clsSignOut;return;}
   if(!clsRelayOk(CLS.relay)){box.innerHTML='<div class="hw-hint">Set the classroom server first.</div>';return;}
   box.innerHTML='<div class="hw-hint">Checking the classroom server…</div>';const cfg=await clsConfig();if(!box.isConnected)return;
   if(cfg&&cfg.devAuth){box.innerHTML='<div class="hw-row" style="margin-top:0"><input class="pf-in cls-devid" placeholder="dev user id (digits)" style="flex:1"><button class="pbtn cls-devgo">Dev sign-in</button></div><div class="hw-hint">Local test server only.</div>';
-    box.querySelector('.cls-devgo').onclick=()=>{const id=(box.querySelector('.cls-devid').value.match(/\d+/)||['1'])[0];const name='Dev '+id;CLS.auth={token:'dev:'+id+':'+name,name,exp:Math.floor(Date.now()/1000)+3600};clsRender();};return;}
+    box.querySelector('.cls-devgo').onclick=()=>{const id=(box.querySelector('.cls-devid').value.match(/\d+/)||['1'])[0];const name='Dev '+id;CLS.auth={token:'dev:'+id+':'+name,name,exp:Math.floor(Date.now()/1000)+3600};clsRender();document.dispatchEvent(new Event('pw-auth'));};return;}
   if(!cfg||!cfg.googleClientId){box.innerHTML='<div class="hw-hint">This classroom server isn’t set up for Google sign-in.</div>';return;}
   box.innerHTML='<div class="cls-gbtn"></div>';try{await clsLoadGoogle();google.accounts.id.initialize({client_id:cfg.googleClientId,callback:r=>clsSetToken(r.credential),auto_select:false,cancel_on_tap_outside:true});google.accounts.id.renderButton(box.querySelector('.cls-gbtn'),{theme:'filled_black',size:'medium',text:'signin_with'});}
   catch(e){box.innerHTML='<div class="hw-hint">'+esc(e.message)+'</div>';}}

@@ -19,7 +19,7 @@ const CLS_ADJ=['Blue','Green','Amber','Swift','Quiet','Bright','Silver','Brave',
 function clsFallbackName(){const r=n=>crypto.getRandomValues(new Uint32Array(1))[0]%n;return CLS_ADJ[r(10)]+' '+CLS_ANI[r(10)]+' '+(10+r(90));}
 function clsTokKey(){return 'pw-cls-'+CLS.code;}
 /* the owner's classroom server; when set, the address box is hidden */
-const CLS_RELAY='';
+const CLS_RELAY='https://patchwork-classroom.northstarcode.workers.dev';
 try{CLS.relay=CLS_RELAY||localStorage.getItem('pw-relay')||'';}catch(e){CLS.relay=CLS_RELAY;}
 function clsRelayOk(u){try{const x=new URL(u);return x.protocol==='https:'||(x.protocol==='http:'&&/^(localhost|127\.0\.0\.1)$/.test(x.hostname));}catch(e){return false;}}
 function clsWsUrl(code){const x=new URL(CLS.relay);x.protocol=x.protocol==='https:'?'wss:':'ws:';x.pathname=x.pathname.replace(/\/$/,'')+'/api/ws';x.search='?code='+encodeURIComponent(code);return x.toString();}

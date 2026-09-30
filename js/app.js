@@ -433,28 +433,52 @@ function moveSelect(kind,id,cur,onDone){const sel=document.createElement('select
 let _drag=null;
 function dragSource(row,kind,id){row.draggable=true;row.addEventListener('dragstart',e=>{_drag={kind,id};e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',kind+':'+id);}catch(_){}row.classList.add('dragging');});row.addEventListener('dragend',()=>{_drag=null;row.classList.remove('dragging');});}
 function dropTarget(el,folderId){el.addEventListener('dragover',e=>{if(!_drag||(_drag.kind==='folder'&&(_drag.id===folderId||(folderId!=null&&folderInside(folderId,_drag.id)))))return;e.preventDefault();el.classList.add('drop');});el.addEventListener('dragleave',()=>el.classList.remove('drop'));el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drop');const d=_drag;_drag=null;if(d)moveItem(d.kind,d.id,folderId);});}
+/* project privacy: every project is private unless its owner makes it sharable. Private projects can never be
+   broadcast to a classroom, sent over the AI board link or shared in any other way. */
+function isShared(id){const p=projects.find(x=>x.id===id);return !!(p&&p.shared===true);}
+function shareWarn(p){return new Promise(res=>{const m=document.createElement('div');m.className='cls-modal';
+  m.innerHTML='<div class="panel cls-notice" role="dialog" aria-modal="true" aria-labelledby="sh-t"><div class="panel-h"><div class="panel-t" id="sh-t"></div></div><div class="panel-b">'+
+    '<p>Private projects can never be broadcast to a classroom, sent to an AI or shared in any other way.</p>'+
+    '<p>If you make this project <b>sharable</b>, it can be broadcast to your students and used by the AI board link, but only when you switch those on. <b>Everything on it (text, drawings, images, highlights) may then be seen by others.</b></p>'+
+    '<p>You can make it private again at any time, which stops any sharing straight away.</p>'+
+    '<div class="hw-row"><button class="fx-primary sh-ok">Make sharable</button><button class="pbtn sh-no">Keep private</button></div></div></div>';
+  m.querySelector('.panel-t').textContent='Make \u201c'+p.name+'\u201d sharable?';document.body.appendChild(m);
+  const k=e=>{if(e.key==='Escape'){e.stopPropagation();done(false);}};const done=v=>{m.remove();removeEventListener('keydown',k,true);res(v);};addEventListener('keydown',k,true);
+  m.querySelector('.sh-ok').onclick=()=>done(true);m.querySelector('.sh-no').onclick=()=>done(false);m.onclick=e=>{if(e.target===m)done(false);};m.querySelector('.sh-no').focus();});}
+async function setShared(p,on){if(on&&!await shareWarn(p))return false;p.shared=!!on;await db.projects.update(p.id,{shared:!!on});syncPing('projects');
+  if(!on)document.dispatchEvent(new CustomEvent('pw-private',{detail:p.id}));document.dispatchEvent(new Event('pw-share-change'));renderProjects();toast('\u201c'+p.name+'\u201d is now '+(on?'sharable':'private'),'ok');return true;}
+// right-click (or long-press) menu for project and folder rows
+let _ctx=null;
+function ctxMenu(x,y,items){if(!_ctx){_ctx=document.createElement('div');_ctx.className='panel ctx-menu';_ctx.style.display='none';document.body.appendChild(_ctx);
+    document.addEventListener('pointerdown',e=>{if(_ctx.style.display!=='none'&&!_ctx.contains(e.target))_ctx.style.display='none';},true);
+    addEventListener('keydown',e=>{if(e.key==='Escape')_ctx.style.display='none';});}
+  _ctx.innerHTML='';items.forEach(it=>{if(!it){const h=document.createElement('div');h.className='ctx-sep';_ctx.appendChild(h);return;}
+    const b=document.createElement('button');b.className='ctx-item'+(it.danger?' danger':'');b.textContent=it.label;b.onclick=e=>{e.stopPropagation();_ctx.style.display='none';it.fn();};_ctx.appendChild(b);});
+  _ctx.style.display='flex';const w=_ctx.offsetWidth,h=_ctx.offsetHeight;_ctx.style.left=Math.max(4,Math.min(x,innerWidth-w-4))+'px';_ctx.style.top=Math.max(4,Math.min(y,innerHeight-h-4))+'px';_ctx.style.right='auto';}
+function onRowMenu(row,items){row.addEventListener('contextmenu',e=>{e.preventDefault();ctxMenu(e.clientX,e.clientY,items());});
+  let t=null;row.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch')return;const x=e.clientX,y=e.clientY;t=setTimeout(()=>{t=null;row._longPress=true;ctxMenu(x,y,items());},550);});
+  const stop=()=>{clearTimeout(t);t=null;};row.addEventListener('pointerup',stop);row.addEventListener('pointercancel',stop);row.addEventListener('pointermove',e=>{if(t&&e.pointerType==='touch')stop();});}
 function renderProjects(){
   if(!projPanel)return;const list=projPanel.querySelector('#proj-list');list.innerHTML='';
   const crumb=projPanel.querySelector('#proj-crumb');crumb.innerHTML='';const cs=[{id:null,name:'Home'},...folderPath(curFolder)];
   cs.forEach((c,i)=>{if(i){const s=document.createElement('span');s.className='pc-sep';s.textContent='/';crumb.appendChild(s);}const b=document.createElement('button');b.className='pc-item'+(i===cs.length-1?' cur':'');b.textContent=c.name;b.onclick=()=>{curFolder=c.id;renderProjects();};dropTarget(b,c.id);crumb.appendChild(b);});const nf=document.createElement('button');nf.className='pc-new';nf.title='New folder here';nf.textContent='\ud83d\udcc1+';nf.onclick=()=>{const ni=projPanel.querySelector('#proj-new-in');const v=ni.value.trim()||'New folder';ni.value='';newFolder(v);};crumb.appendChild(nf);
-  const tool=(txt,title)=>{const b=document.createElement('button');b.className='pr-tool';b.textContent=txt;b.title=title;return b;};
-  const arm=(del,fn)=>{del.onclick=e=>{e.stopPropagation();if(del.classList.contains('armed')){fn();}else{del.classList.add('armed');del.textContent='✓?';setTimeout(()=>{del.classList.remove('armed');del.textContent='🗑';},2500);}};};
   const rename=(row,nm,cur,save)=>e=>{e.stopPropagation();const inp=document.createElement('input');inp.className='pf-in';inp.value=cur;inp.style.flex='1';row.replaceChild(inp,nm);inp.focus();inp.onclick=ev=>ev.stopPropagation();inp.onblur=()=>save(inp.value.trim());inp.onkeydown=ev=>{if(ev.key==='Enter')inp.blur();};};
   const mover=(row,kind,id,cur)=>e=>{e.stopPropagation();const s=moveSelect(kind,id,cur,()=>renderProjects());row.appendChild(s);s.focus();s.onclick=ev=>ev.stopPropagation();};
   if(curFolder!=null){const up=document.createElement('div');up.className='proj-row pr-up';up.textContent='← '+(folderPath(curFolder).length>1?folderPath(curFolder).slice(-2)[0].name:'Home');up.onclick=()=>{curFolder=folderById(curFolder).parent||null;renderProjects();};dropTarget(up,folderById(curFolder).parent||null);list.appendChild(up);}
   folders.filter(f=>(f.parent||null)===curFolder).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f=>{const row=document.createElement('div');row.className='proj-row pr-folder';
     const nm=document.createElement('div');nm.className='pr-name';nm.textContent='📁 '+f.name;const cn=document.createElement('span');cn.className='pr-cnt';cn.textContent=folderCount(f.id);cn.title='items inside (folders and projects)';
-    const ren=tool('✎','Rename'),mv=tool('⇢','Move folder'),del=tool('🗑','Delete folder (its pages move up, nothing is deleted)');
-    ren.onclick=rename(row,nm,f.name,v=>{if(v)db.folders.update(f.id,{name:v.slice(0,60)}).then(loadFolders).then(()=>{syncPing('projects');renderProjects();});else renderProjects();});mv.onclick=mover(row,'folder',f.id,f.parent||null);arm(del,()=>deleteFolder(f));
-    row.onclick=()=>{curFolder=f.id;renderProjects();};dragSource(row,'folder',f.id);dropTarget(row,f.id);[nm,cn,ren,mv,del].forEach(x=>row.appendChild(x));list.appendChild(row);});
-  projects.filter(p=>(p.folder||null)===curFolder).forEach(p=>{const cnt=marks.filter(m=>m.pid===p.id&&searchable(m)).length;
+    const ren=rename(row,nm,f.name,v=>{if(v)db.folders.update(f.id,{name:v.slice(0,60)}).then(loadFolders).then(()=>{syncPing('projects');renderProjects();});else renderProjects();});
+    onRowMenu(row,()=>[{label:'Rename',fn:()=>ren(new Event('x'))},{label:'Move to…',fn:()=>mover(row,'folder',f.id,f.parent||null)(new Event('x'))},null,{label:'Delete folder (its contents move up)',danger:true,fn:()=>deleteFolder(f)}]);
+    row.onclick=()=>{if(row._longPress){row._longPress=false;return;}curFolder=f.id;renderProjects();};dragSource(row,'folder',f.id);dropTarget(row,f.id);[nm,cn].forEach(x=>row.appendChild(x));list.appendChild(row);});
+  projects.filter(p=>(p.folder||null)===curFolder).forEach(p=>{const shared=p.shared===true;
     const row=document.createElement('div');row.className='proj-row'+(p.id===pid?' cur':'');
     const nm=document.createElement('div');nm.className='pr-name';nm.textContent=p.name;
-    const cn=document.createElement('span');cn.className='pr-cnt';cn.textContent=cnt;cn.title='highlights on this page';
-    const ren=tool('✎','Rename'),mv=tool('⇢','Move to a folder'),del=tool('🗑','Delete');
-    row.onclick=e=>{if(e.target.closest('.pr-tool,select,input'))return;switchProject(p.id).then(renderProjects);projPanel.style.display='none';};
-    ren.onclick=rename(row,nm,p.name,v=>renameProject(p,v));mv.onclick=mover(row,'project',p.id,p.folder||null);arm(del,()=>deleteProject(p));
-    dragSource(row,'project',p.id);[nm,cn,ren,mv,del].forEach(x=>row.appendChild(x));list.appendChild(row);});
+    const lk=document.createElement('button');lk.className='pr-lock'+(shared?' open':'');lk.textContent=shared?'\ud83d\udd13':'\ud83d\udd12';
+    lk.title=shared?'Sharable: can be broadcast or used by the AI link. Click to make private':'Private: never shared. Click to make sharable';lk.onclick=e=>{e.stopPropagation();setShared(p,!shared);};
+    const ren=rename(row,nm,p.name,v=>renameProject(p,v));
+    row.onclick=e=>{if(row._longPress){row._longPress=false;return;}if(e.target.closest('.pr-lock,select,input'))return;switchProject(p.id).then(renderProjects);projPanel.style.display='none';};
+    onRowMenu(row,()=>[{label:shared?'\ud83d\udd12 Make private':'\ud83d\udd13 Make sharable\u2026',fn:()=>setShared(p,!shared)},null,{label:'Rename',fn:()=>ren(new Event('x'))},{label:'Move to…',fn:()=>mover(row,'project',p.id,p.folder||null)(new Event('x'))},null,{label:'Delete',danger:true,fn:()=>deleteProject(p)}]);
+    dragSource(row,'project',p.id);[nm,lk].forEach(x=>row.appendChild(x));list.appendChild(row);});
   if(!list.children.length||(curFolder!=null&&list.children.length===1)){const e=document.createElement('div');e.className='sr-empty';e.style.padding='14px';e.textContent='Empty folder — add a project or folder below, or move one here.';list.appendChild(e);}
 }
 function openProjects(){ensureProjects();renderProjects();projPanel.style.display='flex';projPanel.style.left=Math.min(70,window.innerWidth-340)+'px';projPanel.style.top='70px';projPanel.style.right='auto';}

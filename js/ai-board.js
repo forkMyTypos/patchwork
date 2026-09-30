@@ -18,6 +18,7 @@ function aiWsUrl(){const x=new URL(CLS.relay);x.protocol=x.protocol==='https:'?'
 
 async function aiStart(){if(!clsRelayOk(CLS.relay)){toast('No classroom server set','err');return;}
   if(!clsSignedIn()){toast('Sign in with Google first','err');return;}
+  if(!isShared(pid)){const p=projects.find(x=>x.id===pid);if(!p||!await setShared(p,true))return;}   // private projects are never linked
   let r;try{r=await fetch(aiUrl('/api/ai/link'),{method:'POST',headers:{Authorization:'Bearer '+CLS.auth.token}});}catch(e){toast('Can’t reach the server','err');return;}
   if(!r.ok){toast(r.status===401?'Sign in with Google again':'The server said no ('+r.status+')','err');return;}
   const j=await r.json().catch(()=>null);if(!j||!/^[A-HJ-NP-TV-Z2-9]{10}$/.test(j.boardId)||!/^[0-9a-f]{64}$/.test(j.secret)||!/^[0-9a-f]{64}$/.test(j.key)){toast('Unexpected answer from the server','err');return;}
@@ -40,6 +41,7 @@ async function aiRun(c){if(c.action==='drawStrokes')return aiDraw(c);const type=
   const text=typeof c.text==='string'?c.text.replace(/\s+/g,' ').trim():'';
   if(!text||text.length>2000)return{ok:false,error:'bad text'};
   if(pid!==AI.pid)return{ok:false,error:'this board is not the open page right now'};
+  if(!isShared(AI.pid))return{ok:false,error:'this board is private'};
   if(!editor)return{ok:false,error:'the board is not ready'};
   const snip=text.slice(0,200);
   const m=await addMark({type,name:snip.slice(0,80),snippet:snip,anchor:{kind:'text'}},false);
@@ -49,7 +51,7 @@ async function aiRun(c){if(c.action==='drawStrokes')return aiDraw(c);const type=
   AI.count++;aiRender();return{ok:true};}
 
 // a doodle: points on a 0-1000 canvas, placed half a page wide in free space below the page's text and ink
-function aiDraw(c){if(pid!==AI.pid)return{ok:false,error:'this board is not the open page right now'};
+function aiDraw(c){if(pid!==AI.pid)return{ok:false,error:'this board is not the open page right now'};if(!isShared(AI.pid))return{ok:false,error:'this board is private'};
   const L=c.strokes;if(!Array.isArray(L)||!L.length||L.length>50)return{ok:false,error:'bad strokes'};
   let total=0;const ok=n=>Number.isFinite(n)&&n>=0&&n<=1000;
   for(const st of L){if(!st||!Array.isArray(st.points)||!st.points.length||st.points.length>500)return{ok:false,error:'bad strokes'};total+=st.points.length;
@@ -69,7 +71,7 @@ function aiRender(){if(!aiPanel||aiPanel.style.display==='none')return;
   let h='<div class="panel-h"><div class="panel-t">AI board link <span class="hw-hint">experimental</span></div><button class="panel-x">×</button></div><div class="panel-b">'+
     '<div class="hw-hint">Lets an outside program add a <b>Question</b>, <b>Answer</b>, <b>Note</b> or a small <b>doodle</b> to this page while this tab is open. Nothing else: it can’t read your page or change what’s already there.</div>';
   if(!AI.on){h+='<div class="pf"><div class="pf-l">1. Sign in with Google</div><div class="ai-auth"></div></div>'+
-      (clsSignedIn()?'<div class="pf"><div class="pf-l">2. Switch on for “'+esc(projName(pid))+'”</div><button class="fx-primary ai-start">Switch on</button></div>':'');}
+      (clsSignedIn()?'<div class="pf"><div class="pf-l">2. Switch on for “'+esc(projName(pid))+'”</div><button class="fx-primary ai-start">Switch on</button>'+(isShared(pid)?'':'<div class="hw-hint">This project is private. Switching on asks you to make it sharable first.</div>')+'</div>':'');}
   else{const st=AI.status==='on'?'Listening':'Connecting…';
     const curl="curl -X POST "+aiUrl('/api/ai/board')+" \\\n  -H 'Authorization: Bearer "+AI.key+"' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"boardId\":\""+AI.boardId+"\",\"action\":\"createQuestion\",\"text\":\"Why does WebRTC need signalling?\"}'";
     h+='<div class="cls-status"><span class="cls-dot '+(AI.status==='on'?'on':'retry')+'"></span>'+st+' on “'+esc(projName(AI.pid))+'”'+(AI.count?' · '+AI.count+' added':'')+'</div>'+
@@ -85,4 +87,5 @@ function aiRender(){if(!aiPanel||aiPanel.style.display==='none')return;
   aiPanel.querySelectorAll('.ai-copy').forEach(b=>b.onclick=()=>{const v=b.dataset.v==='key'?AI.key:q('.ai-curl').value;
     (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>toast('Copied','info'),()=>{const i=b.dataset.v==='key'?q('.ai-key'):q('.ai-curl');i.select();toast('Press Ctrl+C to copy','info');});});}
 document.addEventListener('pw-auth',aiRender);
+document.addEventListener('pw-private',e=>{if(AI.on&&e.detail===AI.pid)aiStop('AI link switched off: that project is now private');});
 addEventListener('pagehide',()=>{if(AI.on)aiStop();});

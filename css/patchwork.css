@@ -461,3 +461,19 @@ body.cls-split #stage{margin-right:50%;}
 .cls-view .panel-h{cursor:default;}
 .cls-pill{position:fixed;left:14px;bottom:14px;z-index:9050;display:flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;border:1px solid var(--pborder);background:var(--panel);color:#e6e6f0;font-size:12.5px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.45);}
 .cls-pill:hover{border-color:#5a4a2b;}
+/* project privacy lock + right-click menu */
+.proj-row .pr-lock{width:26px;height:24px;border:none;background:transparent;border-radius:6px;cursor:pointer;font-size:13px;opacity:.55;flex-shrink:0;}
+.proj-row .pr-lock.open{opacity:1;}.proj-row .pr-lock:hover{background:#2a2a3a;opacity:1;}
+.panel.ctx-menu{width:auto;min-width:190px;padding:5px;z-index:9700;border-radius:10px;}
+.ctx-item{display:block;width:100%;text-align:left;border:none;background:transparent;color:#e6e6f0;font-size:13px;padding:7px 10px;border-radius:6px;cursor:pointer;}
+.ctx-item:hover{background:#22223a;}.ctx-item.danger{color:#f87171;}.ctx-item.danger:hover{background:#2a1414;}
+.ctx-sep{height:1px;background:#20202e;margin:4px 2px;}
+/* teacher: class area docked as the right half (controls on top, presented project below) */
+.cls-teach{display:flex;flex-direction:column;}
+.cls-teach .cls-board-pick{max-width:55%;}
+.cls-teach .cls-ctl{flex:0 0 auto;max-height:45%;overflow:auto;border-bottom:1px solid var(--pborder);}
+.cls-teach .panel.cls-panel.docked{position:static;width:auto;max-width:none;box-shadow:none;border:0;border-radius:0;display:flex;}
+.cls-panel.docked .panel-h{display:none;}
+.cls-teach .cls-board{flex:1;min-height:0;display:flex;position:relative;}
+.cls-teach .cls-board iframe{flex:1;width:100%;border:0;background:#111;}
+.cls-teach .cls-board .cls-wait{padding:24px;font-size:13px;line-height:1.6;color:#9898b4;}

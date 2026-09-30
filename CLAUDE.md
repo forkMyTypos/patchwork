@@ -9,6 +9,9 @@
   hand-in, checked by the teacher's browser (allow-listed types, size/rate caps). Received data is validated before use.
   Teaching mode requires Google sign-in; the relay logs only Google account ID + join/leave times (D1, deleted after
   90 days). Never store IP addresses, names, emails or classroom content.
+  Teaching Mode = two editor spaces at exactly 50:50: PRIVATE (the main window, never sent) and CLASS (`.cls-pane`: for the
+  teacher a `?mini=1&class=1` editor whose open, always-sharable project is broadcast; for a student the teacher's page plus
+  local-only pen marks). Hand-ins only while the teacher's Homework mode is on (enforced in the teacher's browser).
   Second, EXPERIMENTAL exception: the opt-in AI board link (`js/ai-board.js` + `relay/ai-board.mjs`, same relay). Off unless
   switched on (Google sign-in); an external client with the board's key may send ONLY createQuestion/createAnswer/createNote
   (plain text -> highlights via addMark) and drawStrokes (capped doodle -> pen strokes via commitStroke, below existing work). The relay keeps only key hashes in memory; nothing stored.

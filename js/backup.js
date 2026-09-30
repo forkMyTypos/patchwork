@@ -11,12 +11,14 @@ async function _impHandwriting(data){if(!Array.isArray(data.handwriting))return;
 async function _impTypes(data){for(const t of (data.htypes||[]))if(t&&t.id&&!HT.has(t.id)){HT.set(t.id,t);await db.htypes.put(t);}for(const p of (data.profiles||[]))if(p&&p.id&&!PROFILES.some(x=>x.id===p.id)){PROFILES.push(p);await db.profiles.put(p);}if(typeof typesChanged==='function')typesChanged();}
 function _mexp(m){return{oid:m.id,type:m.type,fields:m.fields||{},hover:m.hover||'',name:m.name||'',tags:m.tags||[],created:m.created,done:!!m.done,doneAt:m.doneAt||null,links:m.links||[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||''};}
 function _sexp(s){return{t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn};}
+// one project as a backup object (also what a student hands in as a page)
+async function projectExport(id){if(id===pid)await savePageNow();
+  const pg=(await db.pages.get(id))||{};
+  return{app:'patchwork',type:'patchwork-backup',version:1,scope:'project',exportedAt:new Date().toISOString(),
+    project:{name:projName(id)},page:{html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0},
+    marks:marks.filter(m=>m.pid===id).map(_mexp),htypes:_typesFor(marks.filter(m=>m.pid===id)),strokes:(await db.strokes.where('pid').equals(id).toArray()).filter(s=>!s.del).map(_sexp)};}
 async function backupProject(){
-  await savePageNow();
-  const pg=(await db.pages.get(pid))||{};
-  const data={app:'patchwork',type:'patchwork-backup',version:1,scope:'project',exportedAt:new Date().toISOString(),
-    project:{name:projName(pid)},page:{html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0},
-    marks:marks.filter(m=>m.pid===pid).map(_mexp),htypes:_typesFor(marks.filter(m=>m.pid===pid)),strokes:(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del).map(_sexp)};
+  const data=await projectExport(pid);
   _download(data,'patchwork-'+_slug(projName(pid))+'-'+_today()+'.json');
   toast('Backed up this project: \u201c'+projName(pid)+'\u201d','ok');db.info.update('info',{lastBackupAt:Date.now()}).catch(()=>{});
 }

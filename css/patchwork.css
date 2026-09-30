@@ -456,9 +456,6 @@ html.light img,html.light .fx-swb,html.light .cp-sw,html.light .cp-fav,html.ligh
 .cls-modal .panel.cls-notice{position:relative;width:min(440px,100%);}
 .cls-notice .panel-h{cursor:default;}.cls-notice .panel-b{padding:14px 16px 16px;}
 .cls-notice p{font-size:13.5px;line-height:1.55;margin:0 0 10px;color:#d6d6e4;}.cls-notice b{color:#fbbf24;}
-body.cls-split #stage{margin-right:50%;}
-.panel.mini-win.cls-view{left:50%;right:0;bottom:0;width:auto;height:auto;min-width:0;max-width:none;max-height:none;resize:none;border-radius:0;border-width:0 0 0 1px;box-shadow:none;}
-.cls-view .panel-h{cursor:default;}
 .cls-pill{position:fixed;left:14px;bottom:14px;z-index:9050;display:flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;border:1px solid var(--pborder);background:var(--panel);color:#e6e6f0;font-size:12.5px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.45);}
 .cls-pill:hover{border-color:#5a4a2b;}
 /* project privacy lock + right-click menu */
@@ -468,12 +465,26 @@ body.cls-split #stage{margin-right:50%;}
 .ctx-item{display:block;width:100%;text-align:left;border:none;background:transparent;color:#e6e6f0;font-size:13px;padding:7px 10px;border-radius:6px;cursor:pointer;}
 .ctx-item:hover{background:#22223a;}.ctx-item.danger{color:#f87171;}.ctx-item.danger:hover{background:#2a1414;}
 .ctx-sep{height:1px;background:#20202e;margin:4px 2px;}
-/* teacher: class area docked as the right half (controls on top, presented project below) */
-.cls-teach{display:flex;flex-direction:column;}
-.cls-teach .cls-board-pick{max-width:55%;}
-.cls-teach .cls-ctl{flex:0 0 auto;max-height:45%;overflow:auto;border-bottom:1px solid var(--pborder);}
-.cls-teach .panel.cls-panel.docked{position:static;width:auto;max-width:none;box-shadow:none;border:0;border-radius:0;display:flex;}
+/* Teaching Mode: PRIVATE (this window) and CLASS (the pane) side by side, exactly 50:50; swapping only moves them */
+body.cls-split{width:50%;}
+body.cls-split.cls-swap{margin-left:50%;}
+.cls-strip{flex:0 0 30px;height:30px;display:flex;align-items:center;gap:8px;padding:0 10px;background:#15151f;border-bottom:1px solid var(--pborder);font-size:12px;color:#9898b4;position:relative;}
+.cls-strip>b{letter-spacing:.16em;font-size:12px;}
+.cls-strip-private{display:none;}body.cls-split .cls-strip-private{display:flex;}
+.cls-strip-private>b{color:#a5b4fc;}.cls-strip-class>b{color:#fbbf24;}
+.cls-strip-hint{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cls-strip-btn{height:22px;padding:0 9px;border-radius:6px;border:1px solid var(--pborder);background:#1a1a26;color:#e6e6f0;font-size:12px;cursor:pointer;flex-shrink:0;}
+.cls-strip-btn:hover{border-color:#5a4a2b;}
+.cls-pane{position:fixed;top:0;bottom:0;left:50%;width:50%;z-index:8000;display:flex;flex-direction:column;background:#111;box-shadow:-1px 0 0 var(--pborder);}
+body.cls-swap .cls-pane{left:0;box-shadow:1px 0 0 var(--pborder);}
+.cls-body{flex:1;min-height:0;display:flex;flex-direction:column;}
+.cls-teach .cls-body iframe{flex:1;width:100%;border:0;background:#111;}
+.cls-menu{position:absolute;top:32px;right:6px;z-index:5;display:none;flex-direction:column;width:350px;max-width:calc(100% - 12px);max-height:calc(100vh - 44px);overflow:auto;background:var(--panel);border:1px solid var(--pborder);border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.6);color:#e6e6f0;}
+.cls-menu .panel.cls-panel.docked{position:static;width:auto;max-width:none;box-shadow:none;border:0;border-radius:0;display:flex;}
 .cls-panel.docked .panel-h{display:none;}
-.cls-teach .cls-board{flex:1;min-height:0;display:flex;position:relative;}
-.cls-teach .cls-board iframe{flex:1;width:100%;border:0;background:#111;}
-.cls-teach .cls-board .cls-wait{padding:24px;font-size:13px;line-height:1.6;color:#9898b4;}
+.cls-tools{flex:0 0 auto;box-sizing:border-box;overflow:hidden;display:flex;align-items:center;align-content:center;gap:6px;padding:4px 10px;border-bottom:1px solid var(--pborder);flex-wrap:wrap;font-size:12px;}
+.cls-tool{height:26px;padding:0 9px;border-radius:7px;border:1px solid var(--pborder);background:#16161f;color:#c8c8dc;font-size:12px;cursor:pointer;}
+.cls-tool.on{border-color:#7a5510;background:#231a08;color:#fbbf24;}
+.cls-col{width:18px;height:18px;border-radius:50%;border:2px solid #16161f;box-shadow:0 0 0 1px var(--pborder);cursor:pointer;padding:0;}
+.cls-mine{position:absolute;left:0;top:0;pointer-events:none;}
+.cls-learn.drawing .cls-mine{pointer-events:auto;touch-action:none;cursor:crosshair;}

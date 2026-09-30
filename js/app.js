@@ -2,6 +2,8 @@
 /* =================== integration: projects + page + ink + time-stamped marks =================== */
 // a pop-up editor is this same app in a frame (?mini=1&pid=N), locked out of opening further pop-ups
 const IS_MINI=new URLSearchParams(location.search).has('mini');document.documentElement.classList.toggle('mini',IS_MINI);
+// the CLASS side of Teaching Mode: a pop-up editor whose projects are always sharable (what it shows is broadcast)
+const IS_CLASS=IS_MINI&&new URLSearchParams(location.search).has('class');
 const db=new Dexie('patchwork-page');
 db.version(3).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id'});
 // v4 only ADDS tables (existing data untouched): content-addressed images + paragraphs, page history snapshots, highlight types + profiles
@@ -95,7 +97,9 @@ function clipText(txt,maxW){ctx.font='10px Arial';if(ctx.measureText(txt).width<
 function textMarkY(){const map={},wr=wrap.getBoundingClientRect();noteEd.querySelectorAll('[data-mark]').forEach(el=>{const id=+el.dataset.mark;if(map[id]==null){const r=el.getBoundingClientRect();map[id]=r.top-wr.top;}});return map;}
 // World-space (page) positions of stamped paragraphs; recomputed only after the editor re-renders or the layout changes.
 let _paraStampCache=null;
-function onEditorRender(){_paraStampCache=null;}
+function onEditorRender(){_paraStampCache=null;cancelAnimationFrame(_hintRAF);_hintRAF=requestAnimationFrame(()=>updateHint());}
+let _hintRAF=0;
+function updateHint(hasText){if(hasText===undefined)hasText=editor&&editor.getPlainText&&editor.getPlainText().trim();document.getElementById('hint').style.display=(strokes.length||hasText||pageMarks().length)?'none':'';}
 function paraStamps(){if(_paraStampCache)return _paraStampCache;const out=[];if(editor&&editor.paraRects){const wr=wrap.getBoundingClientRect(),st=scrollTop();for(const r of editor.paraRects()){if(!r.t||!r.has)continue;const b=r.el.getBoundingClientRect();out.push({t:r.t,y:(b.top-wr.top)+st+Math.min(12,b.height/2),kind:'text'});}}return (_paraStampCache=out);}
 function dayLabel(t){const d=new Date(t),n=new Date();const k=x=>x.getFullYear()+'-'+x.getMonth()+'-'+x.getDate();if(k(d)===k(n))return 'Today';const y=new Date(n);y.setDate(n.getDate()-1);if(k(d)===k(y))return 'Yesterday';return fmtDay(t);}
 // Session stamps: one per burst of work (a gap of GAP_MS or a new day starts a new stamp), for text and ink alike.
@@ -158,7 +162,7 @@ function redrawInk(){
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
   for(const s of strokes)drawStroke(s);drawGutter();if(typeof updateFilter==='function')updateFilter();if(typeof refreshSideLive==='function')refreshSideLive();if(mode==='grab'&&grabSel.size)drawGrabOverlay();
   const hasText=editor&&editor.getPlainText&&editor.getPlainText().trim();
-  document.getElementById('hint').style.display=(strokes.length||hasText||pageMarks().length)?'none':'';
+  updateHint(hasText);
 }
 function flashPin(id){_flashId=id;const start=performance.now();cancelAnimationFrame(_flashRAF);const tick=()=>{redrawInk();if(performance.now()-start<1000)_flashRAF=requestAnimationFrame(tick);else{_flashId=null;redrawInk();}};_flashRAF=requestAnimationFrame(tick);}
 
@@ -215,6 +219,7 @@ function checkText(){if(!editor)return;const html=editor.getHTML();if(html!==_la
 async function switchProject(npid){
   if(npid===pid&&editor)return;
   if(editor&&projectOpenElsewhere(npid)){toast('That project is open in another editor window \u2014 close it there first','err');return;}
+  if(IS_CLASS&&editor&&!isShared(npid)){const p=projects.find(x=>x.id===npid);if(!p||!await setShared(p,true))return;}   // the CLASS side only opens sharable projects
   if(typeof historyFlush==='function')await historyFlush();
   if(editor&&pid!=null)await savePageNow();
   pid=npid;
@@ -229,7 +234,7 @@ async function switchProject(npid){
   requestAnimationFrame(()=>{wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();});setTimeout(pruneOrphanTimestamps,500);
   setMode('text');
 }
-async function newProject(name){const id=await db.projects.add({name:(name||'Untitled').slice(0,60),created:Date.now(),folder:curFolder||null});projects=await db.projects.toArray();await switchProject(id);renderProjects();}
+async function newProject(name){const id=await db.projects.add(Object.assign({name:(name||'Untitled').slice(0,60),created:Date.now(),folder:curFolder||null},IS_CLASS?{shared:true}:{}));projects=await db.projects.toArray();await switchProject(id);renderProjects();}
 function renameProject(p,name){p.name=(name||p.name).slice(0,60);db.projects.update(p.id,{name:p.name});if(p.id===pid)document.getElementById('proj-name').textContent=p.name;renderProjects();}
 async function deleteProject(p){
   if(projects.length<=1){toast('Keep at least one project','err');return;}

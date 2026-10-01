@@ -35,7 +35,8 @@ async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Ma
     if(!r.text)continue;const x={text:r.text};if(r.bold)x.b=1;if(r.italic)x.i=1;if(r.underline)x.u=1;const c=clsHex(r.color);if(c)x.color=c;if(r.size)x.size=r.size;if(r.font&&CLS_FONTS.includes(r.font))x.font=r.font;
     if(r.mark){const ms=getMarkStyle(r.mark);if(ms){x.mk=String(r.mark);out.marks[x.mk]={c:clsHex(ms.color)||'#818cf8',fx:ms.fx||{}};}}runs.push(x);}
     out.paras.push({a:p.align,r:runs});}
-  for(const s of strokes)out.strokes.push({tool:s.tool,color:clsHex(s.color)||'#ece6da',p:s.pts.map(q=>[+q.xn.toFixed(4),+q.yn.toFixed(4),+q.wn.toFixed(5)])});
+  // sent as seen on this page (relative to its width), whatever units/anchor the stroke is stored in
+  for(const s of strokes){const U=inkU(s)/drawW,d=inkDy(s)/drawW;out.strokes.push({tool:s.tool,color:clsHex(s.color)||'#ece6da',p:s.pts.map(q=>[+(q.xn*U).toFixed(4),+(q.yn*U+d).toFixed(4),+(q.wn*U).toFixed(5)])});}
   return out;}
 async function clsTick(){if(CLS.role!=='teacher'||!CLS.broadcast)return;
   const bw=clsBoardWin(),bp=bw&&bw.currentPid(),pr=bp?await db.projects.get(bp):null;
@@ -218,7 +219,7 @@ async function clsSaveCopy(snap,mine,ask){const s=snap||CLS.snap;mine=mine||CLS.
     idMap[k]=await db.marks.add({pid:np,type:byColor[(st.color||'').toLowerCase()]||'note',name:snip.slice(0,80),snippet:snip,tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'text'}});}
   const paras=s.paras.map(p=>({align:p.align,t:null,runs:p.runs.map(r=>r.type==='text'?{...r,mark:r.mark?idMap[r.mark]||null:null}:{...r})}));
   await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0});
-  const t=Date.now(),add=async(tool,color,pts)=>{if(!pts.length)return;let lo=Infinity,hi=-Infinity;for(const q of pts){lo=Math.min(lo,q.yn);hi=Math.max(hi,q.yn);}await db.strokes.add({pid:np,kind:'stroke',tool,color,t,pts,minYn:lo,maxYn:hi});};
+  const t=Date.now(),add=async(tool,color,pts)=>{if(!pts.length)return;let lo=Infinity,hi=-Infinity;for(const q of pts){lo=Math.min(lo,q.yn);hi=Math.max(hi,q.yn);}await db.strokes.add({pid:np,kind:'stroke',tool,color,t,pts,minYn:lo,maxYn:hi,u:1});};   // the class page's width is its page units
   for(const k of s.strokes)await add(k.tool,k.color,k.pts.map(q=>({...q})));
   const G=24;for(const m of mine)await add('pen',m.color,m.pts.map(([x,y])=>({xn:(x-G)/s.w,yn:y/s.w,wn:3/s.w})));   // your marks, as ink you can edit
   projects=await db.projects.toArray();marks=await db.marks.toArray();syncPing('projects');syncPing('marks');renderProjects();

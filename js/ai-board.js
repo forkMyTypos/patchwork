@@ -61,7 +61,7 @@ function aiDraw(c){if(pid!==AI.pid)return{ok:false,error:'this board is not the 
   for(const st of L){const color=normalizeHex(st.color)||'#e0e0ea',wn=Math.min(40,Math.max(1,+st.width||4))/1000*box;
     const pts=st.points.map(p=>({xn:x0+p[0]/1000*box,yn:y0+p[1]/1000*box,wn}));
     let minYn=Infinity,maxYn=-Infinity;for(const p of pts){if(p.yn<minYn)minYn=p.yn;if(p.yn>maxYn)maxYn=p.yn;}
-    commitStroke({kind:'stroke',tool:'pen',color,t,pts,minYn,maxYn,pid});}
+    addViewStroke({kind:'stroke',tool:'pen',color,t,pts,minYn,maxYn,pid});}
   redrawInk();updatePad();wrap.scrollTo({top:Math.max(0,y0*drawW-H*0.2),behavior:'smooth'});
   AI.count++;aiRender();return{ok:true};}
 

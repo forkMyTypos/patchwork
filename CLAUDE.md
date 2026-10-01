@@ -23,6 +23,9 @@
   teacher's snapshot the same way). There a page is `PAGE_REF` (1000) sheet px wide, fit to the window, so layout is identical on
   every screen. Everywhere else text is real size (15px default) and the page fills the window. Run sizes are stored in px; on
   screen each line's font-size is its largest run (Docs-like line height) and runs are em of that. Screen x goes through `sx()`.
+- Ink: new strokes (`u:1`) are in page units (same scale as text, `inkW`); old strokes are relative to `drawW`. Strokes anchor to a
+  paragraph (`a={p:paragraph id,top}`; paragraphs have stable ids saved as `data-id`) and move with it. Always place ink via
+  `inkU(s)`/`inkDy(s)`; create strokes from screen coords with `addViewStroke()`.
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.

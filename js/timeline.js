@@ -108,10 +108,11 @@ function tlShow(force){const T=TL.T,si=tlSnapAt(T),vis=tlStrokesAt(T);const key=
   let mx=0;for(const s of vis)mx=Math.max(mx,s.maxYn*TL.drawW);TL.pad.style.minHeight=Math.ceil(Math.max(TL.ed.scrollHeight+20,mx+TL.H*.5,TL.H))+'px';
   tlInk();}
 function tlInk(){if(!TL||!TL.vis)return;const c=TL.ctx,st=TL.wrap.scrollTop,dW=TL.drawW,g=TL.gutter;c.setTransform(TL.dpr,0,0,TL.dpr,0,0);c.clearRect(0,0,TL.W,TL.H);
-  const X=xn=>g+xn*dW,Y=yn=>yn*dW-st;
-  for(const s of TL.vis){const top=s.minYn*dW-st,bot=s.maxYn*dW-st;if(bot<-14||top>TL.H+14)continue;c.lineCap='round';c.lineJoin='round';
+  // same placement as the live page: page units for new ink, and anchored ink follows its paragraph in this view
+  const tops=new Map(),er=TL.wrap.getBoundingClientRect();TL.ed.querySelectorAll(':scope > .line').forEach(l=>{if(l.dataset.id)tops.set(l.dataset.id,l.getBoundingClientRect().top-er.top+st);});
+  for(const s of TL.vis){const U=s.u?PAGE_REF:dW,t=s.a?tops.get(s.a.p):null,d=t!=null?t-s.a.top*U:0,X=xn=>g+xn*U,Y=yn=>yn*U+d-st;const top=s.minYn*U+d-st,bot=s.maxYn*U+d-st;if(bot<-14||top>TL.H+14)continue;c.lineCap='round';c.lineJoin='round';
     if(s.tool==='eraser'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';c.fillStyle='#000';c.globalAlpha=1;}else{c.globalCompositeOperation='source-over';c.strokeStyle=s.color;c.fillStyle=s.color;c.globalAlpha=s.tool==='hl'?.30:1;}
-    const p=s.pts;if(p.length===1){c.beginPath();c.arc(X(p[0].xn),Y(p[0].yn),Math.max(.5,p[0].wn*dW/2),0,7);c.fill();}else for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];c.lineWidth=Math.max(.5,(a.wn+b.wn)/2*dW);c.beginPath();c.moveTo(X(a.xn),Y(a.yn));c.lineTo(X(b.xn),Y(b.yn));c.stroke();}}
+    const p=s.pts;if(p.length===1){c.beginPath();c.arc(X(p[0].xn),Y(p[0].yn),Math.max(.5,p[0].wn*U/2),0,7);c.fill();}else for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];c.lineWidth=Math.max(.5,(a.wn+b.wn)/2*U);c.beginPath();c.moveTo(X(a.xn),Y(a.yn));c.lineTo(X(b.xn),Y(b.yn));c.stroke();}}
   c.globalCompositeOperation='source-over';c.globalAlpha=1;
   // the margin as it was: session stamps from the historical paragraphs and strokes
   c.fillStyle='rgba(16,13,22,.86)';c.fillRect(0,0,g,TL.H);c.strokeStyle='#2a2233';c.lineWidth=1;c.beginPath();c.moveTo(g+.5,0);c.lineTo(g+.5,TL.H);c.stroke();

@@ -19,10 +19,11 @@
   (plain text -> highlights via addMark) and drawStrokes (capped doodle -> pen strokes via commitStroke, below existing work). The relay keeps only key hashes in memory; nothing stored.
 - Projects are PRIVATE by default (`shared!==true`). Only sharable projects may be broadcast (teacher's class area) or used by
   the AI link; check `isShared(pid)` at every sharing point. Making a project private fires `pw-private` and stops sharing.
-- Scaling is ONLY for the class page (`pageScaled()`: the teacher's class window / `?class=1` pane; students' class view scales the
-  teacher's snapshot the same way). There a page is `PAGE_REF` (1000) sheet px wide, fit to the window, so layout is identical on
-  every screen. Everywhere else text is real size (15px default) and the page fills the window. Run sizes are stored in px; on
-  screen each line's font-size is its largest run (Docs-like line height) and runs are em of that. Screen x goes through `sx()`.
+- Page width: each page stores `ww` (px at real size, the width it was written at; older pages get it frozen on first open).
+  Layout scales `ww` to the window: down only (`k=min(1,fit/ww)`) normally, exactly to fit on the class page (`pageScaled()`);
+  wider windows shade beyond the page. `ww` travels with backups, snapshots, class snapshots/copies. `fonts/` bundles an
+  Arial-metric font (OFL) as 'Arial' so text wraps the same everywhere. Run sizes are stored in px; on screen each line's
+  font-size is its largest run (Docs-like line height) and runs are em of that. Screen x goes through `sx()`.
 - Ink: new strokes (`u:1`) are in page units (same scale as text, `inkW`); old strokes are relative to `drawW`. Strokes anchor to a
   paragraph (`a={p:paragraph id,top}`; paragraphs have stable ids saved as `data-id`) and move with it. Always place ink via
   `inkU(s)`/`inkDy(s)`; create strokes from screen coords with `addViewStroke()`.

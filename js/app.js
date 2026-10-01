@@ -41,6 +41,16 @@ let projects=[],pid=null;
 let marks=[];                 // ALL marks across projects (for cross-project links/search)
 let strokes=[],inkRedo=[];    // current project's ink
 let W=0,H=0,drawW=0,dpr=1,gutter=70,gutterW=0;
+const PAGE_REF=1000;   // the page's width in 'sheet' px: 15px text on a 1000-wide page; everything scales from there
+// zoom: 1 = the page fits the window; above 1 the page is wider than the window and scrolls sideways (same layout, bigger)
+const ZOOMS=[1,1.25,1.5,1.75,2,2.5,3];let zoom=1;try{zoom=Math.min(3,Math.max(1,+localStorage.getItem('pw-zoom')||1));}catch(e){}
+function setZoom(z){z=Math.min(3,Math.max(1,Math.round(z*100)/100));if(z===zoom)return;const yn=scrollTop()/drawW,xr=wrap.scrollLeft/Math.max(1,drawW);zoom=z;try{localStorage.setItem('pw-zoom',String(z));}catch(e){}
+  layout();wrap.scrollTop=yn*drawW;wrap.scrollLeft=xr*drawW;redrawInk();zoomLabel();}
+function zoomStep(d){const i=ZOOMS.findIndex(v=>v>=zoom-0.001);setZoom(ZOOMS[Math.min(ZOOMS.length-1,Math.max(0,(ZOOMS[i]===zoom?i:i-(d>0?1:0))+d))]);}
+document.getElementById('zoom-in').addEventListener('click',()=>zoomStep(1));document.getElementById('zoom-out').addEventListener('click',()=>zoomStep(-1));
+// Ctrl/Cmd + and - zoom the page (browser zoom can't: the page always refits the window); Ctrl/Cmd 0 = fit
+addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.altKey)return;if(e.key==='='||e.key==='+'){e.preventDefault();zoomStep(1);}else if(e.key==='-'||e.key==='_'){e.preventDefault();zoomStep(-1);}else if(e.key==='0'){e.preventDefault();setZoom(1);}},true);
+function zoomLabel(){const l=document.getElementById('zoom-val');if(l)l.textContent=zoom===1?'Fit':Math.round(zoom*100)+'%';}
 let mode='text',inkColor='#ece6da',inkSize=3;const DEFAULT_INK='#ece6da';
 let drawing=false,active=null;
 let _metaTimer=null,_flashId=null,_flashRAF=0;
@@ -67,20 +77,23 @@ function pageMarks(){return marks.filter(m=>m.pid===pid);}
 function getMarkStyle(id){const m=markById(id);if(!m)return null;if(!typeOn(m.type))return null;const t=mtype(m.type);return{color:m.done?'#5a5a72':t.c,bg:t.bg,fx:t.fx};}
 
 /* coords */
-function ptFromEvent(e){const r=wrap.getBoundingClientRect();const cx=e.clientX-r.left,cy=e.clientY-r.top;const xn=Math.min(1,Math.max(0,(cx-gutter)/drawW));const yn=(cy+scrollTop())/drawW;return{cx,cy,xn,yn};}
-function sx(xn){return gutter+xn*drawW;}
+function ptFromEvent(e){const r=wrap.getBoundingClientRect();const cx=e.clientX-r.left,cy=e.clientY-r.top;const xn=Math.min(1,Math.max(0,(cx-gutter+wrap.scrollLeft)/drawW));const yn=(cy+scrollTop())/drawW;return{cx,cy,xn,yn};}
+function sx(xn){return gutter+xn*drawW-wrap.scrollLeft;}
 function sy(yn){return yn*drawW-scrollTop();}
 
 /* layout */
 function layout(){
   W=stage.clientWidth;H=stage.clientHeight;
   gutter=gutterW>0?Math.max(40,Math.min(340,gutterW)):(W<560?62:86);_paraStampCache=null;
-  drawW=Math.max(40,W-gutter-12);
+  drawW=Math.max(40,W-gutter-12)*zoom;pad.style.width=(gutter+drawW+12)+'px';wrap.style.overflowX=zoom>1?'auto':'hidden';
   dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+'px';cv.style.height=H+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  noteEd.style.paddingLeft=(gutter+10)+'px';gut.style.width=gutter+'px';const _gt=document.getElementById('gut-tools');if(_gt&&_gt.parentNode&&_gt.parentNode.id==='bar2')_gt.style.width=gutter+'px';var _b2=document.getElementById('bar2');if(_b2)_b2.style.paddingLeft=(gutter+10)+'px';
-  updatePad();redrawInk();
+  // fixed paper width: the page is a sheet PAGE_REF units wide, scaled to fit. Text size and the text column scale with
+  // the page, so lines wrap at the same words on every screen and ink (stored relative to the page width) stays aligned.
+  const k=drawW/PAGE_REF;noteEd.style.fontSize=(15*k)+'px';noteEd.style.paddingTop=(18*k)+'px';noteEd.style.paddingRight=(12+8*k)+'px';
+  noteEd.style.paddingLeft=(gutter+10*k)+'px';gut.style.width=gutter+'px';const _gt=document.getElementById('gut-tools');if(_gt&&_gt.parentNode&&_gt.parentNode.id==='bar2')_gt.style.width=gutter+'px';var _b2=document.getElementById('bar2');if(_b2)_b2.style.paddingLeft=(gutter+10)+'px';
+  updatePad();redrawInk();zoomLabel();
 }
 function inkBottomPx(){let mx=0;for(const s of strokes){const b=s.maxYn*drawW;if(b>mx)mx=b;}return mx;}
 function updatePad(){pad.style.minHeight=Math.ceil(Math.max(noteEd.scrollHeight+20,inkBottomPx()+H*0.5,H))+'px';}

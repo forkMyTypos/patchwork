@@ -17,6 +17,9 @@
   (plain text -> highlights via addMark) and drawStrokes (capped doodle -> pen strokes via commitStroke, below existing work). The relay keeps only key hashes in memory; nothing stored.
 - Projects are PRIVATE by default (`shared!==true`). Only sharable projects may be broadcast (teacher's class area) or used by
   the AI link; check `isShared(pid)` at every sharing point. Making a project private fires `pw-private` and stops sharing.
+- Fixed paper width: a page is `PAGE_REF` (1000) sheet px wide and fits the window (`drawW`); text size, text column and ink
+  all scale with `drawW`, so layout is identical on every screen. Run sizes are stored in px, shown in em. Zoom (>1) widens the
+  page and scrolls sideways; screen x must go through `sx()` / `ptFromEvent()` (they include `wrap.scrollLeft`).
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.

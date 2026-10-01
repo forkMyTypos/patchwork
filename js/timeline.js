@@ -83,7 +83,7 @@ function tlRange(){const now=Date.now(),start=new Date();start.setHours(0,0,0,0)
   TL.el.querySelectorAll('.tl-rng .sp-f').forEach(b=>b.classList.toggle('on',b.dataset.k===TL.range));
   const lab=t=>{const d=new Date(t);return (dayLabel(t)==='Today'?'':dayLabel(t)+' ')+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});};TL.el.querySelector('.tl-a').textContent=lab(TL.t0);TL.el.querySelector('.tl-b').textContent='now';tlDensity();}
 function tlLayout(){const st=TL.el.querySelector('.tl-stage');TL.W=st.clientWidth;TL.H=st.clientHeight;TL.gutter=gutter;TL.drawW=Math.max(40,TL.W-TL.gutter-12);TL.dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
-  TL.cv.width=Math.round(TL.W*TL.dpr);TL.cv.height=Math.round(TL.H*TL.dpr);TL.cv.style.width=TL.W+'px';TL.cv.style.height=TL.H+'px';TL.ed.style.paddingLeft=(TL.gutter+10)+'px';
+  TL.cv.width=Math.round(TL.W*TL.dpr);TL.cv.height=Math.round(TL.H*TL.dpr);TL.cv.style.width=TL.W+'px';TL.cv.style.height=TL.H+'px';const tk=TL.drawW/PAGE_REF;TL.ed.style.fontSize=(15*tk)+'px';TL.ed.style.paddingTop=(18*tk)+'px';TL.ed.style.paddingRight=(TL.W-TL.gutter-TL.drawW+8*tk)+'px';TL.ed.style.paddingLeft=(TL.gutter+10*tk)+'px';
   const r=TL.track.getBoundingClientRect();TL.dens.width=Math.round(r.width*TL.dpr);TL.dens.height=Math.round(r.height*TL.dpr);tlDensity();}
 // event markers, compressed into a density strip so thousands of events stay calm
 function tlDensity(){const c=TL.dens,x=c.getContext('2d'),w=c.width,h=c.height;if(!w)return;x.clearRect(0,0,w,h);const span=TL.t1-TL.t0;if(span<=0)return;

@@ -232,7 +232,7 @@ function checkText(){if(!editor)return;const html=editor.getHTML();if(html!==_la
 async function switchProject(npid){
   if(npid===pid&&editor)return;
   if(editor&&projectOpenElsewhere(npid)){toast('That project is open in another editor window \u2014 close it there first','err');return;}
-  if(IS_CLASS&&editor&&!isShared(npid)){const p=projects.find(x=>x.id===npid);if(!p||!await setShared(p,true))return;}   // the CLASS side only opens sharable projects
+  if((IS_CLASS||(typeof clsMainIsClass==='function'&&clsMainIsClass()))&&editor&&!isShared(npid)){const p=projects.find(x=>x.id===npid);if(!p||!await setShared(p,true))return;}   // the CLASS side only opens sharable projects
   if(typeof historyFlush==='function')await historyFlush();
   if(editor&&pid!=null)await savePageNow();
   pid=npid;
@@ -247,7 +247,7 @@ async function switchProject(npid){
   requestAnimationFrame(()=>{wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();});setTimeout(pruneOrphanTimestamps,500);
   setMode('text');
 }
-async function newProject(name){const id=await db.projects.add(Object.assign({name:(name||'Untitled').slice(0,60),created:Date.now(),folder:curFolder||null},IS_CLASS?{shared:true}:{}));projects=await db.projects.toArray();await switchProject(id);renderProjects();}
+async function newProject(name){const id=await db.projects.add(Object.assign({name:(name||'Untitled').slice(0,60),created:Date.now(),folder:curFolder||null},IS_CLASS||(typeof clsMainIsClass==='function'&&clsMainIsClass())?{shared:true}:{}));projects=await db.projects.toArray();await switchProject(id);renderProjects();}
 function renameProject(p,name){p.name=(name||p.name).slice(0,60);db.projects.update(p.id,{name:p.name}).then(()=>syncPing('projects'));projNamesChanged();}
 // a project's name shows in several places (toolbar, pop-up editor titles, panels): refresh them all
 function projNamesChanged(){const pr=projects.find(x=>x.id===pid);document.getElementById('proj-name').textContent=pr?pr.name:'';renderProjects();miniTitles();if(typeof updateBackupLabels==='function')updateBackupLabels();if(typeof aiRender==='function')aiRender();if(typeof clsRender==='function')clsRender();}
@@ -626,7 +626,7 @@ const _sync=(()=>{try{return new BroadcastChannel('patchwork-sync');}catch(e){re
 function syncPing(kind){if(_sync)_sync.postMessage(kind);}
 if(_sync)_sync.onmessage=ev=>{if(ev.data==='types')_syncTypes=true;clearTimeout(_syncT);_syncT=setTimeout(async()=>{try{if(_syncTypes&&typeof loadHighlightTypes==='function'){_syncTypes=false;await loadHighlightTypes();}marks=await db.marks.toArray();projects=await db.projects.toArray();await loadFolders();
   if(typeof typesChanged==='function')typesChanged();else{if(editor)editor.refresh();redrawInk();}projNamesChanged();}catch(e){console.error(e);}},250);};
-function miniTitles(){document.querySelectorAll('.mini-win').forEach(w=>{try{const p=w.querySelector('iframe').contentWindow.currentPid();w.dataset.pid=p;w.querySelector('.panel-t').textContent=projName(p);}catch(e){}});}
+function miniTitles(){setTimeout(renderMiniTabs,0);document.querySelectorAll('.mini-win').forEach(w=>{try{const p=w.querySelector('iframe').contentWindow.currentPid();w.dataset.pid=p;w.querySelector('.panel-t').textContent=projName(p);}catch(e){}});}
 let _miniN=0,_miniZ=8100,_miniMenu=null;
 function openMiniMenu(anchor){if(IS_MINI)return;if(!_miniMenu){_miniMenu=document.createElement('div');_miniMenu.className='panel mini-menu';document.body.appendChild(_miniMenu);document.addEventListener('mousedown',e=>{if(_miniMenu.style.display!=='none'&&!_miniMenu.contains(e.target)&&!e.target.closest('#mini-btn'))_miniMenu.style.display='none';});}
   const busy=new Set(editorWindows().map(w=>{try{return w.currentPid();}catch(e){return null;}}));
@@ -636,9 +636,22 @@ function openMiniMenu(anchor){if(IS_MINI)return;if(!_miniMenu){_miniMenu=documen
   _miniMenu.querySelector('.proj-new button').onclick=go;ni.onkeydown=e=>{if(e.key==='Enter')go();};
   const r=anchor.getBoundingClientRect();_miniMenu.style.display='flex';_miniMenu.style.left=Math.min(r.left,innerWidth-280)+'px';_miniMenu.style.top=(r.bottom+6)+'px';_miniMenu.style.right='auto';}
 function openMiniEditor(p){if(IS_MINI||projectOpenElsewhere(p)||p===pid)return;const w=document.createElement('div');w.className='panel mini-win';w.dataset.pid=p;const k=_miniN++%4;
-  w.innerHTML='<div class="panel-h"><div class="panel-ic">\u29c9</div><div class="panel-t"></div><button class="panel-x" title="Close (saves first)">\u00d7</button></div><iframe></iframe>';
+  w.innerHTML='<div class="panel-h"><div class="panel-ic">\u29c9</div><div class="panel-t"></div><button class="panel-x mini-min" title="Minimise (it stays open: bring it back from its tab)">\u2013</button><button class="panel-x mini-close" title="Close (saves first)">\u00d7</button></div><iframe></iframe>';
   w.querySelector('.panel-t').textContent=projName(p);w.querySelector('iframe').src=location.pathname+'?mini=1&pid='+p;
   w.style.left=(Math.max(8,innerWidth*0.52)-k*28)+'px';w.style.top=(70+k*28)+'px';w.style.zIndex=++_miniZ;document.body.appendChild(w);makeDraggable(w,w.querySelector('.panel-h'));
   w.addEventListener('pointerdown',()=>{w.style.zIndex=++_miniZ;},true);
-  w.querySelector('.panel-x').onclick=async()=>{const cw=w.querySelector('iframe').contentWindow;try{if(cw.historyFlush)await cw.historyFlush();if(cw.savePageNow)await cw.savePageNow();}catch(e){}w.remove();};}
+  w.querySelector('.mini-close').onclick=async()=>{const cw=w.querySelector('iframe').contentWindow;try{if(cw.historyFlush)await cw.historyFlush();if(cw.savePageNow)await cw.savePageNow();}catch(e){}w.remove();renderMiniTabs();};
+  w.querySelector('.mini-min').onclick=()=>{w.style.display='none';renderMiniTabs();};
+  if(typeof onMiniOpen==='function')onMiniOpen(w);renderMiniTabs();}
+// tabs for open pop-up editors (after the timeline button): a sideways-scrolling strip; click to bring one forward
+function renderMiniTabs(){const box=document.getElementById('mini-tabs');if(!box)return;const track=box.querySelector('.mt-track');track.innerHTML='';
+  const wins=[...document.querySelectorAll('.mini-win:not(.cls-pane)')];box.style.display=wins.length?'':'none';
+  wins.forEach(w=>{const b=document.createElement('button');b.className='mt-tab'+(w.classList.contains('cls-private')?' priv':'')+(w.style.display==='none'?' min':'');
+    let name='?';try{name=projName(w.querySelector('iframe').contentWindow.currentPid());}catch(e){name=(w.querySelector('.panel-t')||{}).textContent||'?';}
+    b.innerHTML=(w.classList.contains('cls-private')?'<span class="cls-dot off"></span>\ud83d\udd12 ':'')+'<span class="mt-name"></span>';b.querySelector('.mt-name').textContent=name;b.title='Bring “'+name+'” forward';
+    b.onclick=()=>{w.style.display='flex';w.style.zIndex=++_miniZ;renderMiniTabs();};track.appendChild(b);});
+  requestAnimationFrame(()=>{const over=track.scrollWidth>track.clientWidth+1;box.classList.toggle('over',over);});}
+(function(){const box=document.getElementById('mini-tabs');if(!box)return;const track=box.querySelector('.mt-track');
+  box.querySelector('.mt-l').onclick=()=>track.scrollBy({left:-160,behavior:'smooth'});box.querySelector('.mt-r').onclick=()=>track.scrollBy({left:160,behavior:'smooth'});
+  track.addEventListener('wheel',e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){track.scrollLeft+=e.deltaY;e.preventDefault();}},{passive:false});})();
 document.getElementById('mini-btn').addEventListener('click',e=>openMiniMenu(e.currentTarget));

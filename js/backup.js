@@ -35,7 +35,7 @@ async function backupAll(){
   toast('Backed up everything ('+projects.length+' project'+(projects.length!==1?'s':'')+')','ok');db.info.update('info',{lastBackupAt:Date.now()}).catch(()=>{});
 }
 function _sani(h){try{return DOMPurify.sanitize(String(h||''));}catch(e){return '';}}
-async function importFile(file){
+async function importFile(file,opt){
   let data;try{data=JSON.parse(await file.text());}catch(e){toast('Not a valid backup file','err');return;}
   if(!data||data.type!=='patchwork-backup'){toast('That\u2019s not a Patchwork backup','err');return;}
   try{
@@ -44,9 +44,9 @@ async function importFile(file){
     if(data.scope==='all'){goTo=await _impAll(data);summary=(data.projects?data.projects.length:0)+' projects';}
     else{goTo=await _impProject(data);summary='project \u201c'+((data.project&&data.project.name)||'Imported')+'\u201d';}
     projects=await db.projects.toArray();marks=await db.marks.toArray();await loadFolders();
-    if(goTo)await switchProject(goTo);
+    if(goTo&&!(opt&&opt.noSwitch))await switchProject(goTo);
     renderProjects();updateBackupLabels();
-    toast('Imported '+summary,'ok');
+    toast('Imported '+summary,'ok');return goTo;
   }catch(e){console.error(e);toast('Import failed: '+(e.message||'error'),'err');}
 }
 async function _impProject(data){

@@ -78,8 +78,13 @@ function clsOnMessage(m){if(m.t==='welcome'){CLS.retry=0;CLS.welcomed=true;clsSt
   if(CLS.role!=='student')return;
   if(m.t==='teacher'){CLS.teacherOnline=!!m.online;if(!m.online)rtcClose();clsRender();return;}
   if(m.t==='ended'){toast('The classroom has ended','info');}}
-function clsLeave(){if(CLS.role==='teacher'&&CLS.ws&&CLS.ws.readyState===1)CLS.ws.send('{"t":"end"}');clsReset(true);}
-function clsReset(closeView){rtcClose();const ws=CLS.ws;CLS.ws=null;clearTimeout(CLS.rt);clearInterval(CLS.timer);try{if(ws)ws.close(1000,'bye');}catch(e){}
+async function clsLeave(){if(CLS.role==='student'&&(CLS.snap||(CLS.mine&&CLS.mine.length))){const c=await clsAsk('Leave the classroom?','<p>The class page and your marks on it disappear when you leave.</p><p>You can keep a <b>private copy</b> of them in your projects first. Nothing is sent to anyone.</p>',[['save','Save a copy, then leave','fx-primary'],['leave','Leave without saving','pbtn'],['','Stay','pbtn']]);
+    if(!c)return;if(c==='save'&&!await clsSaveCopy(null,null,false))return;}
+  CLS.leaving=true;if(CLS.role==='teacher'&&CLS.ws&&CLS.ws.readyState===1)CLS.ws.send('{"t":"end"}');clsReset(true);CLS.leaving=false;}
+function clsReset(closeView){
+  // the class ended (or you were removed) while you had the page: offer to keep a copy of it
+  if(CLS.role==='student'&&!CLS.leaving&&(CLS.snap||(CLS.mine&&CLS.mine.length))){const sn=CLS.snap,mi=CLS.mine;setTimeout(()=>toast('The class page has closed. Keep a private copy of it?','info',{label:'Save a copy',fn:()=>clsSaveCopy(sn,mi,false)}),700);}
+  rtcClose();const ws=CLS.ws;CLS.ws=null;clearTimeout(CLS.rt);clearInterval(CLS.timer);try{if(ws)ws.close(1000,'bye');}catch(e){}
   Object.assign(CLS,{welcomed:false,role:null,code:'',secret:'',broadcast:false,students:0,teacherOnline:false,retry:0,lastHash:''});clsState('off');clsViewEnd();CLS.homework=false;clsRender();}
 function clsState(s){CLS.status=s;clsRender();}
 
@@ -184,15 +189,41 @@ async function clsPaneOpen(){const teacher=CLS.role==='teacher';
   else{w.querySelector('.cls-strip-hint').textContent='waiting for your teacher…';
     body.innerHTML='<div class="cls-tools"><button class="cls-tool on" data-t="" title="Scroll the page">✋ Scroll</button><button class="cls-tool" data-t="pen" title="Draw on the class page (only on this device)">✏️ Pen</button>'+
       ['#f87171','#fbbf24','#60a5fa'].map(c=>'<button class="cls-col" data-c="'+c+'" style="background:'+c+'" title="Pen colour"></button>').join('')+
-      '<button class="cls-tool" data-t="erase" title="Erase your own marks">Eraser</button><button class="cls-tool cls-clear-mine" title="Remove all your marks">Clear mine</button>'+
+      '<button class="cls-tool" data-t="erase" title="Erase your own marks">Eraser</button><button class="cls-tool cls-clear-mine" title="Remove all your marks">Clear mine</button><button class="cls-tool cls-save-copy" title="Keep this page and your marks as a private project you can edit">\ud83d\udcbe Save a copy</button>'+
       '<label class="cls-follow" title="Keep your view on the teacher’s place"><input type="checkbox" checked> autofocus</label><button class="cls-tool cls-focus" title="Jump to the teacher’s place now" style="display:none">Focus</button></div>'+
       '<div class="cls-scroll"><div class="cls-page"><div class="editor cls-ed"></div><canvas class="cls-ink"></canvas><canvas class="cls-mine"></canvas></div><div class="cls-wait">Waiting for the teacher to broadcast…<br><span class="hw-hint">Anything you draw on this side stays on this device.</span></div></div>';
-    CLS.view=w;CLS.mine=[];CLS.tool='';CLS.penColor='#f87171';clsMineWire(w);
+    CLS.view=w;CLS.mine=[];CLS.tool='';CLS.penColor='#f87171';clsMineWire(w);w.querySelector('.cls-save-copy').onclick=()=>clsSaveCopy();
     const fl=w.querySelector('.cls-follow input'),fb=w.querySelector('.cls-focus');const setF=on=>{CLS.follow=on;fl.checked=on;fb.style.display=on?'none':'';if(on)clsScroll();};
     fl.onchange=()=>setF(fl.checked);fb.onclick=()=>clsScroll(true);
     const sc=w.querySelector('.cls-scroll');sc.addEventListener('wheel',()=>setF(false),{passive:true});sc.addEventListener('touchmove',()=>{if(!CLS.tool)setF(false);},{passive:true});
     new ResizeObserver(()=>clsFit()).observe(sc);clsDrawView();}
   clsLayout();clsRender();}
+// a small question dialog: resolves with the chosen button's value ('' = cancel)
+function clsAsk(title,html,buttons){return new Promise(res=>{const m=document.createElement('div');m.className='cls-modal';
+  m.innerHTML='<div class="panel cls-notice" role="dialog" aria-modal="true"><div class="panel-h"><div class="panel-t"></div></div><div class="panel-b">'+html+'<div class="hw-row"></div></div></div>';
+  m.querySelector('.panel-t').textContent=title;const row=m.querySelector('.hw-row');
+  const k=e=>{if(e.key==='Escape'){e.stopPropagation();done('');}};const done=v=>{m.remove();removeEventListener('keydown',k,true);res(v);};addEventListener('keydown',k,true);
+  buttons.forEach(([v,l,c])=>{const b=document.createElement('button');b.className=c;b.textContent=l;b.onclick=()=>done(v);row.appendChild(b);});
+  m.onclick=e=>{if(e.target===m)done('');};document.body.appendChild(m);row.querySelector('button').focus();});}
+// student: keep the class page as it is now + your own marks, as a NEW PRIVATE project in this browser.
+// The teacher's original is not changed and nothing is sent. Highlights come back as real highlights (type matched by colour).
+async function clsSaveCopy(snap,mine,ask){const s=snap||CLS.snap;mine=mine||CLS.mine||[];
+  if(!s){toast('Nothing from your teacher to copy yet','err');return null;}
+  if(ask!==false&&await clsAsk('Save a copy of the class page','<p>This saves the teacher\u2019s page <b>as it is right now</b>, together with <b>your own marks</b>, as a new <b>private</b> project in this browser.</p><p>The teacher\u2019s original is not changed, and nothing is sent to anyone. Your copy is yours to edit: type answers, draw, highlight.</p><p>To give it to your teacher, use <b>Hand in a page</b> when they open homework.</p>',[['ok','Save a copy','fx-primary'],['','Cancel','pbtn']])!=='ok')return null;
+  const when=new Date(),name=('Class copy \u2013 '+(s.title||'page')+' \u2013 '+when.toLocaleDateString()).slice(0,60);
+  const np=await db.projects.add({name,created:Date.now(),folder:null});
+  const byColor={};for(const t of HT.values()){const c=(normalizeHex(t.color)||'').toLowerCase();if(c&&!byColor[c])byColor[c]=t.id;}
+  const text={};for(const p of s.paras)for(const r of p.runs)if(r.mark&&r.type==='text')text[r.mark]=(text[r.mark]||'')+r.text;
+  const idMap={};for(const k of Object.keys(text)){const st=s.marks[k]||{},snip=text[k].trim().slice(0,200);
+    idMap[k]=await db.marks.add({pid:np,type:byColor[(st.color||'').toLowerCase()]||'note',name:snip.slice(0,80),snippet:snip,tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'text'}});}
+  const paras=s.paras.map(p=>({align:p.align,t:null,runs:p.runs.map(r=>r.type==='text'?{...r,mark:r.mark?idMap[r.mark]||null:null}:{...r})}));
+  await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0});
+  const t=Date.now(),add=async(tool,color,pts)=>{if(!pts.length)return;let lo=Infinity,hi=-Infinity;for(const q of pts){lo=Math.min(lo,q.yn);hi=Math.max(hi,q.yn);}await db.strokes.add({pid:np,kind:'stroke',tool,color,t,pts,minYn:lo,maxYn:hi});};
+  for(const k of s.strokes)await add(k.tool,k.color,k.pts.map(q=>({...q})));
+  const G=24;for(const m of mine)await add('pen',m.color,m.pts.map(([x,y])=>({xn:(x-G)/s.w,yn:y/s.w,wn:3/s.w})));   // your marks, as ink you can edit
+  projects=await db.projects.toArray();marks=await db.marks.toArray();syncPing('projects');syncPing('marks');renderProjects();
+  if(CLS.role&&CLS.mode==='default')openMiniEditor(np);else if(!projectOpenElsewhere(np))await switchProject(np);
+  toast('Saved \u201c'+name+'\u201d to your projects (private, only on this device)','ok');return np;}
 async function clsPaneClose(keepRole){const w=CLS.pane;if(!w)return;CLS.pane=null;await clsSaveMini(w);
   w.remove();CLS.view=null;CLS.snap=null;CLS.mine=[];if(!keepRole)CLS.boardPid=null;clsLayout();}
 // choose a viewing mode when creating or joining
@@ -308,7 +339,7 @@ async function renderInbox(){if(!inboxEl||inboxEl.style.display==='none')return;
   rows.forEach(r=>{const d=document.createElement('div');d.className='inbox-row';d.innerHTML='<div class="inbox-main"><b></b><span class="inbox-file"></span><span class="hw-hint"></span></div><button class="pbtn inbox-dl">Download</button><button class="pr-tool inbox-rm" title="Delete">\ud83d\uddd1</button>';
     d.querySelector('b').textContent=r.from;d.querySelector('.inbox-file').textContent=r.name;d.querySelector('.hw-hint').textContent=clsSize(r.size)+' \u00b7 '+fmtAbs(r.at);
     d.querySelector('.inbox-dl').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(r.blob);a.download=r.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);};
-    if(r.ext==='json'){const b=document.createElement('button');b.className='pbtn';b.textContent='Open as page';b.title='Adds it as a new private project (nothing you have is changed)';b.onclick=()=>importFile(new File([r.blob],r.name,{type:'application/json'}));d.insertBefore(b,d.querySelector('.inbox-dl'));}
+    if(r.ext==='json'){const b=document.createElement('button');b.className='pbtn';b.textContent='Open as page';b.title='Adds it as a new private project (nothing you have is changed)';b.onclick=async()=>{let txt='';try{const d=JSON.parse(await r.blob.text());if(d&&d.project)d.project.name=(r.from+' \u2013 '+(d.project.name||'page')).slice(0,60);txt=JSON.stringify(d);}catch(e){txt=await r.blob.text();}const inClass=clsMainIsClass();const id=await importFile(new File([txt],r.name,{type:'application/json'}),{noSwitch:inClass});if(id&&inClass)openMiniEditor(id);};d.insertBefore(b,d.querySelector('.inbox-dl'));}
     const rm=d.querySelector('.inbox-rm');rm.onclick=async()=>{if(!rm.classList.contains('armed')){rm.classList.add('armed');rm.textContent='\u2713?';return;}await db.inbox.delete(r.id);renderInbox();};list.appendChild(d);});}
 
 /* ---------- Google sign-in (teaching mode only; Google's script loads only when this panel needs it) ---------- */

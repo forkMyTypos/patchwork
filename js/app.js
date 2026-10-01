@@ -40,11 +40,18 @@ let editor=null;
 let projects=[],pid=null;
 let marks=[];                 // ALL marks across projects (for cross-project links/search)
 let strokes=[],inkRedo=[];    // current project's ink
-let W=0,H=0,drawW=0,dpr=1,gutter=70,gutterW=0;
+let W=0,H=0,drawW=0,dpr=1,gutter=70,gutterW=0,pageWW=0;
 const PAGE_REF=1000;   // the page's width in 'sheet' px: 15px text on a 1000-wide page; everything scales from there
 // Scaling is only for the class page (the teacher's broadcast window), so teacher and students see the same layout on
 // any screen. Everywhere else text is real size and the page fills the window, as usual.
 function pageScaled(){return IS_CLASS||(typeof CLS!=='undefined'&&CLS.role==='teacher'&&CLS.mode==='default');}
+// Each page keeps the width it was written at (page.ww, px at real size): its document width. Lines wrap at that width
+// everywhere; a narrower window shows the page scaled down, a wider one shows it at real size with the rest shaded
+// (the class page always fits the window). New pages take the main window's width, remembered per browser.
+function cleanWW(v){v=+v;return Number.isFinite(v)&&v>=200&&v<=6000?Math.round(v):0;}
+function wsW(){let v=0;try{v=cleanWW(localStorage.getItem('pw-ww'));}catch(e){}return v||cleanWW(innerWidth-98)||800;}
+// the page width for a page record: its own, or (first open of an older page / a new page) the workspace width, saved
+function pageWidthFor(pg,id){const v=cleanWW(pg&&pg.ww);if(v)return v;const w=wsW();if(pg&&pg.pid!=null)db.pages.update(id,{ww:w}).catch(()=>{});return w;}
 let mode='text',inkColor='#ece6da',inkSize=3;const DEFAULT_INK='#ece6da';
 let drawing=false,active=null;
 let _metaTimer=null,_flashId=null,_flashRAF=0;
@@ -79,13 +86,14 @@ function sy(yn){return yn*drawW-scrollTop();}
 function layout(){
   W=stage.clientWidth;H=stage.clientHeight;
   gutter=gutterW>0?Math.max(40,Math.min(340,gutterW)):(W<560?62:86);_paraStampCache=null;
-  drawW=Math.max(40,W-gutter-12);
+  const fitW=Math.max(40,W-gutter-12);
+  if(!IS_MINI&&!(typeof CLS!=='undefined'&&CLS.role)){try{localStorage.setItem('pw-ww',String(Math.round(fitW)));}catch(e){}}
+  const ww=pageWW||fitW,sc=pageScaled(),k=sc?fitW/ww:Math.min(1,fitW/ww);drawW=ww*k;pad.style.width=(gutter+drawW+12)+'px';
   dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+'px';cv.style.height=H+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  // fixed paper width: the page is a sheet PAGE_REF units wide, scaled to fit. Text size and the text column scale with
-  // the page, so lines wrap at the same words on every screen and ink (stored relative to the page width) stays aligned.
-  const sc=pageScaled(),k=sc?drawW/PAGE_REF:1;inkW=PAGE_REF*k;_paraTops=null;noteEd.style.fontSize=sc?(15*k)+'px':'';noteEd.style.paddingTop=sc?(18*k)+'px':'';noteEd.style.paddingRight=sc?(12+8*k)+'px':'';
+  // text size, padding and ink scale with the page (k = 1 at real size), so lines wrap at the same words on every screen
+  inkW=PAGE_REF*k;_paraTops=null;noteEd.style.fontSize=(15*k)+'px';noteEd.style.paddingTop=(18*k)+'px';noteEd.style.paddingRight=(12+8*k)+'px';
   noteEd.style.paddingLeft=(gutter+10*k)+'px';gut.style.width=gutter+'px';const _gt=document.getElementById('gut-tools');if(_gt&&_gt.parentNode&&_gt.parentNode.id==='bar2')_gt.style.width=gutter+'px';var _b2=document.getElementById('bar2');if(_b2)_b2.style.paddingLeft=(gutter+10)+'px';
   updatePad();redrawInk();
 }
@@ -120,6 +128,7 @@ function textMarkY(){const map={},wr=wrap.getBoundingClientRect();noteEd.querySe
 // World-space (page) positions of stamped paragraphs; recomputed only after the editor re-renders or the layout changes.
 let _paraStampCache=null;
 new ResizeObserver(()=>{_paraTops=null;if(typeof redrawInk==='function'&&editor)redrawInk();}).observe(noteEd);
+if(document.fonts)document.fonts.addEventListener('loadingdone',()=>{_paraTops=null;_paraStampCache=null;if(editor)layout();});   // the bundled font arrived: re-measure
 function onEditorRender(){_paraStampCache=null;_paraTops=null;cancelAnimationFrame(_hintRAF);_hintRAF=requestAnimationFrame(()=>redrawInk());}   // ink anchored to paragraphs follows the text (redrawInk also updates the hint)
 let _hintRAF=0;
 function updateHint(hasText){if(hasText===undefined)hasText=editor&&editor.getPlainText&&editor.getPlainText().trim();document.getElementById('hint').style.display=(strokes.length||hasText||pageMarks().length)?'none':'';}
@@ -130,6 +139,8 @@ function sessionStamps(){const raw=paraStamps().slice();for(const s of strokes)r
 function isLegacyAutoStamp(m){return m.anchor&&m.anchor.kind==='time'&&m.auto&&!searchable(m);}
 function drawGutter(){
   ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
+  // the page is narrower than the window: shade what lies beyond its right edge
+  const pe=sx(1)+12;if(pe<W-1){ctx.fillStyle='rgba(0,0,0,.32)';ctx.fillRect(pe,0,W-pe,H);ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(pe)+.5,0);ctx.lineTo(Math.round(pe)+.5,H);ctx.stroke();}
   ctx.fillStyle='rgba(16,13,22,.86)';ctx.fillRect(0,0,gutter,H);
   ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gutter-.5,0);ctx.lineTo(gutter-.5,H);ctx.stroke();
   const st=scrollTop(),tY=textMarkY(),labels=[];pinHits=[];
@@ -222,8 +233,8 @@ async function deleteMark(m){return hardDeleteMark(m);}
 
 /* projects core */
 function _quotaToast(e){if(e&&(e.name==='QuotaExceededError'||/quota/i.test((e.name||'')+(e.message||'')))){toast('Storage is full — back up, then remove some images so saving can continue','err');}else if(e){console.error(e);}}
-async function savePageNow(){if(!editor||pid==null)return;try{if(typeof internImages==='function')await internImages();await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});}catch(e){_quotaToast(e);}}
-function saveMeta(){clearTimeout(_metaTimer);_metaTimer=setTimeout(async()=>{try{if(editor&&pid!=null&&typeof internImages==='function')await internImages();if(editor&&pid!=null)await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});if(!IS_MINI)await db.meta.put({id:'meta',activePid:pid});}catch(e){_quotaToast(e);}},500);}
+async function savePageNow(){if(!editor||pid==null)return;try{if(typeof internImages==='function')await internImages();await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW,ww:pageWW||undefined});}catch(e){_quotaToast(e);}}
+function saveMeta(){clearTimeout(_metaTimer);_metaTimer=setTimeout(async()=>{try{if(editor&&pid!=null&&typeof internImages==='function')await internImages();if(editor&&pid!=null)await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW,ww:pageWW||undefined});if(!IS_MINI)await db.meta.put({id:'meta',activePid:pid});}catch(e){_quotaToast(e);}},500);}
 function markDirty(){saveMeta();if(typeof historyNote==='function')historyNote();}
 function contentBottomPx(){let mx=0;const wr=wrap.getBoundingClientRect();const er=noteEd.getBoundingClientRect();mx=Math.max(mx,(er.bottom-wr.top)+scrollTop());for(const s of strokes)mx=Math.max(mx,s.maxYn*inkU(s)+inkDy(s));for(const m of pageMarks())if(m.anchor&&m.anchor.kind==='time')mx=Math.max(mx,m.anchor.yn*drawW);return mx;}
 function lineRanges(){const wr=wrap.getBoundingClientRect();const out=[];noteEd.querySelectorAll(':scope > *').forEach(el=>{const txt=(el.textContent||'').trim();const hasImg=el.querySelector&&el.querySelector('img');if(!txt&&!hasImg)return;const r=el.getBoundingClientRect();out.push([(r.top-wr.top)+scrollTop(),(r.bottom-wr.top)+scrollTop()]);});return out;}
@@ -248,7 +259,7 @@ async function switchProject(npid){
   pid=npid;
   const pg=(await db.pages.get(pid))||{};
   strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);inkRedo=[];
-  gutterW=pg.gutterW||0;
+  gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   if(editor){editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();}
   layout();if(typeof extAfterPageLoad==='function')extAfterPageLoad();
@@ -602,7 +613,7 @@ addEventListener('DOMContentLoaded',async function(){
   editor=makeEditor('note-ed','note-tb','note-status','note-valign');
   pid=active;const pg=(await db.pages.get(pid))||{};
   strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);
-  gutterW=pg.gutterW||0;
+  gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();
   document.getElementById('proj-name').textContent=projName(pid);
@@ -610,7 +621,7 @@ addEventListener('DOMContentLoaded',async function(){
   requestAnimationFrame(()=>{wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();});
   setInterval(checkText,1500);
   noteEd.addEventListener('blur',()=>{checkText();saveMeta();schedulePrune();});
-  addEventListener('beforeunload',()=>{checkText();if(typeof historyFlush==='function')historyFlush();if(editor&&pid!=null)db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW});if(!IS_MINI)db.meta.put({id:'meta',activePid:pid});});
+  addEventListener('beforeunload',()=>{checkText();if(typeof historyFlush==='function')historyFlush();if(editor&&pid!=null)db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW,ww:pageWW||undefined});if(!IS_MINI)db.meta.put({id:'meta',activePid:pid});});
 });
 /* ===== extension lifecycle (called from the main script) ===== */
 async function extBoot(){const gt=document.getElementById('gut-tools'),b2=document.getElementById('bar2');if(gt&&b2)b2.appendChild(gt);await loadHighlightTypes();}

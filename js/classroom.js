@@ -29,7 +29,7 @@ function clsHex(c){if(!c)return null;const h=normalizeHex(c);if(h)return h;const
 const _clsImgCache=new Map();
 async function clsImage(src){const h=imgHashOf(src);if(!h)return /^data:image\/(png|jpeg|gif|webp);base64,/.test(src)?src:null;   // hotlinked URLs are never shared
   if(_clsImgCache.has(h))return _clsImgCache.get(h);const r=await db.images.get(h);const u=r&&r.blob?await _blobToDataURL(r.blob):null;_clsImgCache.set(h,u);return u;}
-async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Math.round(drawW),scroll:+(scrollTop()/drawW).toFixed(4),paras:[],marks:{},strokes:[]};let imgBytes=0;
+async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Math.round(drawW),ww:Math.round(pageWW||drawW),scroll:+(scrollTop()/drawW).toFixed(4),paras:[],marks:{},strokes:[]};let imgBytes=0;
   for(const p of editor.getDoc()){const runs=[];for(const r of p.runs){
     if(r.type==='image'){const u=await clsImage(r.src);if(u&&u.length<=CLS_MAX.img&&imgBytes+u.length<=CLS_MAX.imgs){imgBytes+=u.length;runs.push({img:u,w:r.width||100,bg:clsHex(r.bg)});}else runs.push({text:'[image not shared]',color:'#7a7a92',i:1});continue;}
     if(!r.text)continue;const x={text:r.text};if(r.bold)x.b=1;if(r.italic)x.i=1;if(r.underline)x.u=1;const c=clsHex(r.color);if(c)x.color=c;if(r.size)x.size=r.size;if(r.font&&CLS_FONTS.includes(r.font))x.font=r.font;
@@ -92,7 +92,7 @@ function clsState(s){CLS.status=s;clsRender();}
 /* ---------- student: validate everything received ---------- */
 function clsClean(b){const fail=w=>{throw new Error(w);};if(!b||typeof b!=='object'||b.v!==1)fail('version');
   const str=(x,n)=>typeof x==='string'?x.slice(0,n):'',num=(x,lo,hi,d)=>(typeof x==='number'&&isFinite(x))?Math.min(hi,Math.max(lo,x)):d,hex=x=>(typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x))?x.toLowerCase():null;
-  const out={title:str(b.title,80),w:num(b.w,200,4000,800),scroll:num(b.scroll,0,1e4,0),paras:[],marks:{},strokes:[]};let text=0,imgs=0,points=0;
+  const out={title:str(b.title,80),w:num(b.w,200,4000,800),ww:Math.round(num(b.ww,200,6000,PAGE_REF)),scroll:num(b.scroll,0,1e4,0),paras:[],marks:{},strokes:[]};let text=0,imgs=0,points=0;
   if(b.marks&&typeof b.marks==='object')for(const k of Object.keys(b.marks).slice(0,3000)){if(!/^\d{1,12}$/.test(k))continue;const m=b.marks[k]||{},c=hex(m.c)||'#818cf8',fx={};for(const f of ['bg','ul','b','i','s','tc'])if(m.fx&&m.fx[f]===true)fx[f]=true;out.marks[k]={color:c,bg:hexA(c,.16),fx};}
   for(const p of (Array.isArray(b.paras)?b.paras:[]).slice(0,5000)){const runs=[];for(const r of (Array.isArray(p&&p.r)?p.r:[]).slice(0,500)){if(!r||typeof r!=='object')continue;
       if(typeof r.img==='string'){if(r.img.length<=CLS_MAX.img&&imgs+r.img.length<=CLS_MAX.imgs&&/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(r.img)){imgs+=r.img.length;runs.push({type:'image',src:r.img,width:Math.round(num(r.w,10,100,100)),bg:hex(r.bg)});}continue;}
@@ -218,10 +218,10 @@ async function clsSaveCopy(snap,mine,ask){const s=snap||CLS.snap;mine=mine||CLS.
   const idMap={};for(const k of Object.keys(text)){const st=s.marks[k]||{},snip=text[k].trim().slice(0,200);
     idMap[k]=await db.marks.add({pid:np,type:byColor[(st.color||'').toLowerCase()]||'note',name:snip.slice(0,80),snippet:snip,tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'text'}});}
   const paras=s.paras.map(p=>({align:p.align,t:null,runs:p.runs.map(r=>r.type==='text'?{...r,mark:r.mark?idMap[r.mark]||null:null}:{...r})}));
-  await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0});
-  const t=Date.now(),add=async(tool,color,pts)=>{if(!pts.length)return;let lo=Infinity,hi=-Infinity;for(const q of pts){lo=Math.min(lo,q.yn);hi=Math.max(hi,q.yn);}await db.strokes.add({pid:np,kind:'stroke',tool,color,t,pts,minYn:lo,maxYn:hi,u:1});};   // the class page's width is its page units
-  for(const k of s.strokes)await add(k.tool,k.color,k.pts.map(q=>({...q})));
-  const G=24;for(const m of mine)await add('pen',m.color,m.pts.map(([x,y])=>({xn:(x-G)/s.w,yn:y/s.w,wn:3/s.w})));   // your marks, as ink you can edit
+  await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0,ww:s.ww});
+  const f=s.ww/PAGE_REF,t=Date.now(),add=async(tool,color,pts)=>{if(!pts.length)return;let lo=Infinity,hi=-Infinity;for(const q of pts){lo=Math.min(lo,q.yn);hi=Math.max(hi,q.yn);}await db.strokes.add({pid:np,kind:'stroke',tool,color,t,pts,minYn:lo,maxYn:hi,u:1});};   // view-relative -> page units (the page's own width)
+  for(const k of s.strokes)await add(k.tool,k.color,k.pts.map(q=>({xn:q.xn*f,yn:q.yn*f,wn:q.wn*f})));
+  const G=24;for(const m of mine)await add('pen',m.color,m.pts.map(([x,y])=>({xn:(x-G)/s.w*f,yn:y/s.w*f,wn:3/s.w*f})));   // your marks, as ink you can edit
   projects=await db.projects.toArray();marks=await db.marks.toArray();syncPing('projects');syncPing('marks');renderProjects();
   if(CLS.role&&CLS.mode==='default')openMiniEditor(np);else if(!projectOpenElsewhere(np))await switchProject(np);
   toast('Saved \u201c'+name+'\u201d to your projects (private, only on this device)','ok');return np;}
@@ -259,7 +259,7 @@ function clsDrawMine(){const w=CLS.view;if(!w)return;const ink=w.querySelector('
     if(P.length===1){c.beginPath();c.arc(P[0][0],P[0][1],1.6,0,7);c.fill();continue;}c.beginPath();c.moveTo(P[0][0],P[0][1]);for(let i=1;i<P.length;i++)c.lineTo(P[i][0],P[i][1]);c.stroke();}}
 // render at the teacher's page width, then scale to fit: text and ink line up exactly as on the teacher's screen
 function clsDrawView(){const w=CLS.view;if(!w)return;const s=CLS.snap,ed=w.querySelector('.cls-ed'),cv=w.querySelector('.cls-ink'),page=w.querySelector('.cls-page');w.querySelector('.cls-wait').style.display=s?'none':'';page.style.display=s?'':'none';if(!s){ed.textContent='';cv.width=cv.width;w.querySelector('.cls-strip-hint').textContent='waiting for your teacher…';return;}
-  w.querySelector('.cls-strip-hint').textContent='from your teacher · '+(s.title||'page');const G=24,kt=s.w/PAGE_REF;page.style.width=(s.w+G+12)+'px';ed.style.fontSize=(15*kt)+'px';ed.style.paddingLeft=(G+10*kt)+'px';ed.style.paddingRight=(12+8*kt)+'px';ed.style.paddingTop=(18*kt)+'px';
+  w.querySelector('.cls-strip-hint').textContent='from your teacher · '+(s.title||'page');const G=24,kt=s.w/s.ww;page.style.width=(s.w+G+12)+'px';ed.style.fontSize=(15*kt)+'px';ed.style.paddingLeft=(G+10*kt)+'px';ed.style.paddingRight=(12+8*kt)+'px';ed.style.paddingTop=(18*kt)+'px';
   editor.renderParas(s.paras,ed,{markStyle:id=>s.marks[id]||null});ed.querySelectorAll('img').forEach(i=>{i.referrerPolicy='no-referrer';});
   let bottom=ed.offsetHeight;for(const k of s.strokes)for(const q of k.pts)bottom=Math.max(bottom,q.yn*s.w+40);for(const m of CLS.mine||[])for(const q of m.pts)bottom=Math.max(bottom,q[1]+400);const H=Math.min(30000,Math.max(bottom,s.w*1.4));page.style.height=H+'px';
   const dpr=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round((s.w+G+12)*dpr);cv.height=Math.round(H*dpr);cv.style.width=(s.w+G+12)+'px';cv.style.height=H+'px';const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,s.w+G+12,H);

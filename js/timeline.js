@@ -30,7 +30,7 @@ async function takeSnapshot(opts){_histT=null;_histFirst=0;if(!editor||pid==null
     if(!prev&&!docPlain(doc).trim()&&!docImgs(doc))return;
     const fresh=[];doc.forEach((p,i)=>{if(!_parasKnown.has(keys[i])){fresh.push({h:keys[i],p});_parasKnown.add(keys[i]);}});if(fresh.length)await db.paras.bulkPut(fresh);
     const text=docPlain(doc),imgs=docImgs(doc);const sum=(prev||!(opts&&opts.label))?describeChange(prev?prev.text:'',text,prev?prev.imgs:0,imgs,keys.length-(prev?prev.paras.length:0)):{label:opts.label,add:clip(text,160),del:'',nAdd:text.replace(/\s/g,'').length,nDel:0,img:imgs};
-    const t=Math.max((prev&&prev.t||0)+1,Math.min(Date.now(),_histEditT||Date.now()));await db.snaps.add({pid:p0,t,paras:keys,sum});_histLast.set(p0,{paras:keys,text,imgs,t});
+    const t=Math.max((prev&&prev.t||0)+1,Math.min(Date.now(),_histEditT||Date.now()));await db.snaps.add({pid:p0,t,paras:keys,sum,ww:pageWW||undefined});_histLast.set(p0,{paras:keys,text,imgs,t});
   }catch(e){_quotaToast(e);}})();try{await _histBusy;}finally{_histBusy=null;}}
 // On opening a page: record its current state if history doesn't have it yet (first run, or edits made before v4).
 function historyStart(){lastSnapshotOf(pid).then(prev=>takeSnapshot({label:prev?'Changed outside history':'History begins'}));}
@@ -66,7 +66,7 @@ function ensureTimeline(){if(TL)return TL;const el=document.createElement('div')
 function tlOpen(){return TL&&TL.el.style.display!=='none';}
 function fmtFull(t){return new Date(t).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit'});}
 async function openTimeline(){ensureTimeline();await historyFlush();await savePageNow();hideTagbar();closePopup();
-  const p0=pid;TL.pid=p0;TL.el.querySelector('.tl-proj').textContent=projName(p0);
+  const p0=pid;TL.pid=p0;TL.ww=pageWW;TL.el.querySelector('.tl-proj').textContent=projName(p0);
   TL.snaps=await db.snaps.where('pid').equals(p0).sortBy('t');
   const need=new Set();TL.snaps.forEach(s=>s.paras.forEach(h=>{if(!TL.paras.has(h))need.add(h);}));
   if(need.size){const ks=[...need];const rows=await db.paras.bulkGet(ks);rows.forEach((r,i)=>{if(r)TL.paras.set(ks[i],r.p);});}
@@ -82,8 +82,8 @@ function tlRange(){const now=Date.now(),start=new Date();start.setHours(0,0,0,0)
   TL.t1=now;TL.t0=Math.min(Math.max(r,TL.first-60e3),now-60e3);if(TL.T<TL.t0)TL.T=TL.t0;if(TL.T>TL.t1)TL.T=TL.t1;
   TL.el.querySelectorAll('.tl-rng .sp-f').forEach(b=>b.classList.toggle('on',b.dataset.k===TL.range));
   const lab=t=>{const d=new Date(t);return (dayLabel(t)==='Today'?'':dayLabel(t)+' ')+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});};TL.el.querySelector('.tl-a').textContent=lab(TL.t0);TL.el.querySelector('.tl-b').textContent='now';tlDensity();}
-function tlLayout(){const st=TL.el.querySelector('.tl-stage');TL.W=st.clientWidth;TL.H=st.clientHeight;TL.gutter=gutter;TL.drawW=Math.max(40,TL.W-TL.gutter-12);TL.dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
-  TL.cv.width=Math.round(TL.W*TL.dpr);TL.cv.height=Math.round(TL.H*TL.dpr);TL.cv.style.width=TL.W+'px';TL.cv.style.height=TL.H+'px';TL.ed.style.paddingLeft=(TL.gutter+10)+'px';
+function tlLayout(){const st=TL.el.querySelector('.tl-stage');TL.W=st.clientWidth;TL.H=st.clientHeight;TL.gutter=gutter;const fitW=Math.max(40,TL.W-TL.gutter-12),ww=TL.ww||fitW,k=Math.min(1,fitW/ww);TL.k=k;TL.drawW=ww*k;TL.pad.style.width=(TL.gutter+TL.drawW+12)+'px';TL.dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
+  TL.cv.width=Math.round(TL.W*TL.dpr);TL.cv.height=Math.round(TL.H*TL.dpr);TL.cv.style.width=TL.W+'px';TL.cv.style.height=TL.H+'px';TL.ed.style.paddingLeft=(TL.gutter+10*k)+'px';TL.ed.style.fontSize=(15*k)+'px';TL.ed.style.paddingTop=(18*k)+'px';TL.ed.style.paddingRight=(12+8*k)+'px';
   const r=TL.track.getBoundingClientRect();TL.dens.width=Math.round(r.width*TL.dpr);TL.dens.height=Math.round(r.height*TL.dpr);tlDensity();}
 // event markers, compressed into a density strip so thousands of events stay calm
 function tlDensity(){const c=TL.dens,x=c.getContext('2d'),w=c.width,h=c.height;if(!w)return;x.clearRect(0,0,w,h);const span=TL.t1-TL.t0;if(span<=0)return;
@@ -105,12 +105,12 @@ function tlShow(force){const T=TL.T,si=tlSnapAt(T),vis=tlStrokesAt(T);const key=
   const paras=si>=0?TL.snaps[si].paras.map(h=>TL.paras.get(h)||{align:'left',runs:[{type:'text',text:''}]}):[];
   editor.renderParas(paras,TL.ed);TL.vis=vis;
   const emp=TL.el.querySelector('.tl-empty');emp.style.display=(!paras.some(p=>p.runs.some(r=>r.type==='image'||(r.text&&r.text.trim())))&&!vis.length)?'':'none';emp.textContent=TL.snaps.length<=1&&TL.strokes.length===0?'History starts now — keep working and come back here to travel through it.':'The page was empty at this moment.';
-  let mx=0;for(const s of vis)mx=Math.max(mx,s.maxYn*TL.drawW);TL.pad.style.minHeight=Math.ceil(Math.max(TL.ed.scrollHeight+20,mx+TL.H*.5,TL.H))+'px';
+  let mx=0;for(const s of vis)mx=Math.max(mx,s.maxYn*(s.u?PAGE_REF*TL.k:TL.drawW));TL.pad.style.minHeight=Math.ceil(Math.max(TL.ed.scrollHeight+20,mx+TL.H*.5,TL.H))+'px';
   tlInk();}
 function tlInk(){if(!TL||!TL.vis)return;const c=TL.ctx,st=TL.wrap.scrollTop,dW=TL.drawW,g=TL.gutter;c.setTransform(TL.dpr,0,0,TL.dpr,0,0);c.clearRect(0,0,TL.W,TL.H);
   // same placement as the live page: page units for new ink, and anchored ink follows its paragraph in this view
   const tops=new Map(),er=TL.wrap.getBoundingClientRect();TL.ed.querySelectorAll(':scope > .line').forEach(l=>{if(l.dataset.id)tops.set(l.dataset.id,l.getBoundingClientRect().top-er.top+st);});
-  for(const s of TL.vis){const U=s.u?PAGE_REF:dW,t=s.a?tops.get(s.a.p):null,d=t!=null?t-s.a.top*U:0,X=xn=>g+xn*U,Y=yn=>yn*U+d-st;const top=s.minYn*U+d-st,bot=s.maxYn*U+d-st;if(bot<-14||top>TL.H+14)continue;c.lineCap='round';c.lineJoin='round';
+  for(const s of TL.vis){const U=s.u?PAGE_REF*TL.k:dW,t=s.a?tops.get(s.a.p):null,d=t!=null?t-s.a.top*U:0,X=xn=>g+xn*U,Y=yn=>yn*U+d-st;const top=s.minYn*U+d-st,bot=s.maxYn*U+d-st;if(bot<-14||top>TL.H+14)continue;c.lineCap='round';c.lineJoin='round';
     if(s.tool==='eraser'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';c.fillStyle='#000';c.globalAlpha=1;}else{c.globalCompositeOperation='source-over';c.strokeStyle=s.color;c.fillStyle=s.color;c.globalAlpha=s.tool==='hl'?.30:1;}
     const p=s.pts;if(p.length===1){c.beginPath();c.arc(X(p[0].xn),Y(p[0].yn),Math.max(.5,p[0].wn*U/2),0,7);c.fill();}else for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];c.lineWidth=Math.max(.5,(a.wn+b.wn)/2*U);c.beginPath();c.moveTo(X(a.xn),Y(a.yn));c.lineTo(X(b.xn),Y(b.yn));c.stroke();}}
   c.globalCompositeOperation='source-over';c.globalAlpha=1;
@@ -126,8 +126,8 @@ function tlStep(d){const ts=[...new Set(TL.events.map(e=>e.t))];if(!ts.length)re
 async function tlOpenAsNew(){const T=TL.T,si=tlSnapAt(T);const paras=si>=0?TL.snaps[si].paras.map(h=>JSON.parse(JSON.stringify(TL.paras.get(h)||{align:'left',runs:[]}))):[];
   paras.forEach(p=>p.runs.forEach(r=>{if(r.mark)r.mark=null;}));   // highlights belong to the original page
   const name=(projName(TL.pid)+' · '+new Date(T).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})).slice(0,60);
-  const np=await db.projects.add({name,created:Date.now()});await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0});
-  for(const s of tlStrokesAt(T))await db.strokes.add({pid:np,t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn});
+  const np=await db.projects.add({name,created:Date.now()});await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0,ww:TL.ww||undefined});
+  for(const s of tlStrokesAt(T))await db.strokes.add(Object.assign({pid:np,t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn},s.u?{u:1}:{},s.a?{a:s.a}:{}));
   projects=await db.projects.toArray();closeTimeline();await switchProject(np);renderProjects();toast('Opened “'+name+'” — the original is untouched','ok');}
 document.getElementById('timeline-btn').addEventListener('click',()=>{if(tlOpen())closeTimeline();else openTimeline();});
 addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='h'){e.preventDefault();if(tlOpen())closeTimeline();else openTimeline();}},true);

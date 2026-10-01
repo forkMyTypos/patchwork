@@ -1,3 +1,6 @@
+/* Arial-metric font bundled with the app (fonts/OFL.txt), so text measures and wraps the same on every computer */
+@font-face{font-family:'Arial';font-weight:400;font-style:normal;src:url(../fonts/PatchworkSans-Regular.woff2) format('woff2');unicode-range:U+0000-024F,U+0300-036F,U+1E00-1EFF,U+2000-206F,U+20A0-20CF,U+2100-215F,U+2190-21FF,U+2200-22FF,U+25A0-25FF;}
+@font-face{font-family:'Arial';font-weight:700;font-style:normal;src:url(../fonts/PatchworkSans-Bold.woff2) format('woff2');unicode-range:U+0000-024F,U+0300-036F,U+1E00-1EFF,U+2000-206F,U+20A0-20CF,U+2100-215F,U+2190-21FF,U+2200-22FF,U+25A0-25FF;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;height:calc(var(--vh,1vh)*100);}
 body{font-family:Arial,Helvetica,sans-serif;background:#111;color:#e0e0e0;overflow:hidden;display:flex;flex-direction:column;

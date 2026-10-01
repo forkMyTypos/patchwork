@@ -42,15 +42,19 @@ let marks=[];                 // ALL marks across projects (for cross-project li
 let strokes=[],inkRedo=[];    // current project's ink
 let W=0,H=0,drawW=0,dpr=1,gutter=70,gutterW=0;
 const PAGE_REF=1000;   // the page's width in 'sheet' px: 15px text on a 1000-wide page; everything scales from there
-// zoom: 1 = the page fits the window; above 1 the page is wider than the window and scrolls sideways (same layout, bigger)
-const ZOOMS=[1,1.25,1.5,1.75,2,2.5,3];let zoom=1;try{zoom=Math.min(3,Math.max(1,+localStorage.getItem('pw-zoom')||1));}catch(e){}
-function setZoom(z){z=Math.min(3,Math.max(1,Math.round(z*100)/100));if(z===zoom)return;const yn=scrollTop()/drawW,xr=wrap.scrollLeft/Math.max(1,drawW);zoom=z;try{localStorage.setItem('pw-zoom',String(z));}catch(e){}
+// zoom = the real on-screen scale of the page (1 = 100%: a 10px font is 10 screen px, like Google Docs at 100%),
+// or 'fit' = whatever scale makes the page fill the window. Narrower than the window: the page ends and the rest is
+// shaded; wider: it scrolls sideways. The layout (line breaks, ink) is the same at every zoom.
+const ZOOMS=[.5,.67,.75,.9,1,1.1,1.25,1.5,1.75,2,2.5,3];let zoom='fit';try{const z=localStorage.getItem('pw-zoom2');zoom=z&&z!=='fit'&&+z>=.25&&+z<=4?+z:'fit';}catch(e){}
+function pageScale(){return drawW/PAGE_REF;}
+function setZoom(z){if(z!=='fit')z=Math.min(3,Math.max(.5,Math.round(z*100)/100));if(z===zoom)return;const yn=scrollTop()/drawW,xr=wrap.scrollLeft/Math.max(1,drawW);zoom=z;try{localStorage.setItem('pw-zoom2',String(z));}catch(e){}
   layout();wrap.scrollTop=yn*drawW;wrap.scrollLeft=xr*drawW;redrawInk();zoomLabel();}
-function zoomStep(d){const i=ZOOMS.findIndex(v=>v>=zoom-0.001);setZoom(ZOOMS[Math.min(ZOOMS.length-1,Math.max(0,(ZOOMS[i]===zoom?i:i-(d>0?1:0))+d))]);}
+function zoomStep(d){const s=pageScale();const next=d>0?ZOOMS.find(v=>v>s+0.005):[...ZOOMS].reverse().find(v=>v<s-0.005);if(next)setZoom(next);}
 document.getElementById('zoom-in').addEventListener('click',()=>zoomStep(1));document.getElementById('zoom-out').addEventListener('click',()=>zoomStep(-1));
-// Ctrl/Cmd + and - zoom the page (browser zoom can't: the page always refits the window); Ctrl/Cmd 0 = fit
+document.getElementById('zoom-val').addEventListener('click',()=>setZoom(zoom==='fit'?1:'fit'));
+// Ctrl/Cmd + and - zoom the page (browser zoom can't: in Fit the page refits the window); Ctrl/Cmd 0 = 100%
 addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.altKey)return;if(e.key==='='||e.key==='+'){e.preventDefault();zoomStep(1);}else if(e.key==='-'||e.key==='_'){e.preventDefault();zoomStep(-1);}else if(e.key==='0'){e.preventDefault();setZoom(1);}},true);
-function zoomLabel(){const l=document.getElementById('zoom-val');if(l)l.textContent=zoom===1?'Fit':Math.round(zoom*100)+'%';}
+function zoomLabel(){const l=document.getElementById('zoom-val');if(!l)return;const pc=Math.round(pageScale()*100)+'%';l.textContent=zoom==='fit'?'Fit '+pc:pc;l.title=zoom==='fit'?'The page fits the window ('+pc+' of real size). Click for 100%':'Click to fit the page to the window';}
 let mode='text',inkColor='#ece6da',inkSize=3;const DEFAULT_INK='#ece6da';
 let drawing=false,active=null;
 let _metaTimer=null,_flashId=null,_flashRAF=0;
@@ -85,7 +89,7 @@ function sy(yn){return yn*drawW-scrollTop();}
 function layout(){
   W=stage.clientWidth;H=stage.clientHeight;
   gutter=gutterW>0?Math.max(40,Math.min(340,gutterW)):(W<560?62:86);_paraStampCache=null;
-  drawW=Math.max(40,W-gutter-12)*zoom;pad.style.width=(gutter+drawW+12)+'px';wrap.style.overflowX=zoom>1?'auto':'hidden';
+  const fitW=Math.max(40,W-gutter-12);drawW=zoom==='fit'?fitW:PAGE_REF*zoom;pad.style.width=(gutter+drawW+12)+'px';wrap.style.overflowX=drawW>fitW+1?'auto':'hidden';
   dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+'px';cv.style.height=H+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -120,6 +124,8 @@ function sessionStamps(){const raw=paraStamps().slice();for(const s of strokes)r
 function isLegacyAutoStamp(m){return m.anchor&&m.anchor.kind==='time'&&m.auto&&!searchable(m);}
 function drawGutter(){
   ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
+  // below Fit the page is narrower than the window: shade what lies beyond its right edge
+  const pe=sx(1)+12;if(pe<W-1){ctx.fillStyle='rgba(0,0,0,.32)';ctx.fillRect(pe,0,W-pe,H);ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(pe)+.5,0);ctx.lineTo(Math.round(pe)+.5,H);ctx.stroke();}
   ctx.fillStyle='rgba(16,13,22,.86)';ctx.fillRect(0,0,gutter,H);
   ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gutter-.5,0);ctx.lineTo(gutter-.5,H);ctx.stroke();
   const st=scrollTop(),tY=textMarkY(),labels=[];pinHits=[];

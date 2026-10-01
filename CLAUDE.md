@@ -19,10 +19,10 @@
   (plain text -> highlights via addMark) and drawStrokes (capped doodle -> pen strokes via commitStroke, below existing work). The relay keeps only key hashes in memory; nothing stored.
 - Projects are PRIVATE by default (`shared!==true`). Only sharable projects may be broadcast (teacher's class area) or used by
   the AI link; check `isShared(pid)` at every sharing point. Making a project private fires `pw-private` and stops sharing.
-- Fixed paper width: a page is `PAGE_REF` (1000) sheet px wide and fits the window (`drawW`); text size, text column and ink
-  all scale with `drawW`, so layout is identical on every screen. Run sizes are stored in px; on screen each line's font-size is
-  its largest run (Docs-like line height) and runs are em of that. `zoom` = real scale (1 = 100%: 10px shows as 10px) or 'fit';
-  screen x must go through `sx()` / `ptFromEvent()` (they include `wrap.scrollLeft`).
+- Scaling is ONLY for the class page (`pageScaled()`: the teacher's class window / `?class=1` pane; students' class view scales the
+  teacher's snapshot the same way). There a page is `PAGE_REF` (1000) sheet px wide, fit to the window, so layout is identical on
+  every screen. Everywhere else text is real size (15px default) and the page fills the window. Run sizes are stored in px; on
+  screen each line's font-size is its largest run (Docs-like line height) and runs are em of that. Screen x goes through `sx()`.
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.

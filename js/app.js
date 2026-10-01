@@ -42,19 +42,9 @@ let marks=[];                 // ALL marks across projects (for cross-project li
 let strokes=[],inkRedo=[];    // current project's ink
 let W=0,H=0,drawW=0,dpr=1,gutter=70,gutterW=0;
 const PAGE_REF=1000;   // the page's width in 'sheet' px: 15px text on a 1000-wide page; everything scales from there
-// zoom = the real on-screen scale of the page (1 = 100%: a 10px font is 10 screen px, like Google Docs at 100%),
-// or 'fit' = whatever scale makes the page fill the window. Narrower than the window: the page ends and the rest is
-// shaded; wider: it scrolls sideways. The layout (line breaks, ink) is the same at every zoom.
-const ZOOMS=[.5,.67,.75,.9,1,1.1,1.25,1.5,1.75,2,2.5,3];let zoom='fit';try{const z=localStorage.getItem('pw-zoom2');zoom=z&&z!=='fit'&&+z>=.25&&+z<=4?+z:'fit';}catch(e){}
-function pageScale(){return drawW/PAGE_REF;}
-function setZoom(z){if(z!=='fit')z=Math.min(3,Math.max(.5,Math.round(z*100)/100));if(z===zoom)return;const yn=scrollTop()/drawW,xr=wrap.scrollLeft/Math.max(1,drawW);zoom=z;try{localStorage.setItem('pw-zoom2',String(z));}catch(e){}
-  layout();wrap.scrollTop=yn*drawW;wrap.scrollLeft=xr*drawW;redrawInk();zoomLabel();}
-function zoomStep(d){const s=pageScale();const next=d>0?ZOOMS.find(v=>v>s+0.005):[...ZOOMS].reverse().find(v=>v<s-0.005);if(next)setZoom(next);}
-document.getElementById('zoom-in').addEventListener('click',()=>zoomStep(1));document.getElementById('zoom-out').addEventListener('click',()=>zoomStep(-1));
-document.getElementById('zoom-val').addEventListener('click',()=>setZoom(zoom==='fit'?1:'fit'));
-// Ctrl/Cmd + and - zoom the page (browser zoom can't: in Fit the page refits the window); Ctrl/Cmd 0 = 100%
-addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.altKey)return;if(e.key==='='||e.key==='+'){e.preventDefault();zoomStep(1);}else if(e.key==='-'||e.key==='_'){e.preventDefault();zoomStep(-1);}else if(e.key==='0'){e.preventDefault();setZoom(1);}},true);
-function zoomLabel(){const l=document.getElementById('zoom-val');if(!l)return;const pc=Math.round(pageScale()*100)+'%';l.textContent=zoom==='fit'?'Fit '+pc:pc;l.title=zoom==='fit'?'The page fits the window ('+pc+' of real size). Click for 100%':'Click to fit the page to the window';}
+// Scaling is only for the class page (the teacher's broadcast window), so teacher and students see the same layout on
+// any screen. Everywhere else text is real size and the page fills the window, as usual.
+function pageScaled(){return IS_CLASS||(typeof CLS!=='undefined'&&CLS.role==='teacher'&&CLS.mode==='default');}
 let mode='text',inkColor='#ece6da',inkSize=3;const DEFAULT_INK='#ece6da';
 let drawing=false,active=null;
 let _metaTimer=null,_flashId=null,_flashRAF=0;
@@ -89,15 +79,15 @@ function sy(yn){return yn*drawW-scrollTop();}
 function layout(){
   W=stage.clientWidth;H=stage.clientHeight;
   gutter=gutterW>0?Math.max(40,Math.min(340,gutterW)):(W<560?62:86);_paraStampCache=null;
-  const fitW=Math.max(40,W-gutter-12);drawW=zoom==='fit'?fitW:PAGE_REF*zoom;pad.style.width=(gutter+drawW+12)+'px';wrap.style.overflowX=drawW>fitW+1?'auto':'hidden';
+  drawW=Math.max(40,W-gutter-12);
   dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+'px';cv.style.height=H+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);
   // fixed paper width: the page is a sheet PAGE_REF units wide, scaled to fit. Text size and the text column scale with
   // the page, so lines wrap at the same words on every screen and ink (stored relative to the page width) stays aligned.
-  const k=drawW/PAGE_REF;noteEd.style.fontSize=(15*k)+'px';noteEd.style.paddingTop=(18*k)+'px';noteEd.style.paddingRight=(12+8*k)+'px';
+  const sc=pageScaled(),k=sc?drawW/PAGE_REF:1;noteEd.style.fontSize=sc?(15*k)+'px':'';noteEd.style.paddingTop=sc?(18*k)+'px':'';noteEd.style.paddingRight=sc?(12+8*k)+'px':'';
   noteEd.style.paddingLeft=(gutter+10*k)+'px';gut.style.width=gutter+'px';const _gt=document.getElementById('gut-tools');if(_gt&&_gt.parentNode&&_gt.parentNode.id==='bar2')_gt.style.width=gutter+'px';var _b2=document.getElementById('bar2');if(_b2)_b2.style.paddingLeft=(gutter+10)+'px';
-  updatePad();redrawInk();zoomLabel();
+  updatePad();redrawInk();
 }
 function inkBottomPx(){let mx=0;for(const s of strokes){const b=s.maxYn*drawW;if(b>mx)mx=b;}return mx;}
 function updatePad(){pad.style.minHeight=Math.ceil(Math.max(noteEd.scrollHeight+20,inkBottomPx()+H*0.5,H))+'px';}
@@ -124,8 +114,6 @@ function sessionStamps(){const raw=paraStamps().slice();for(const s of strokes)r
 function isLegacyAutoStamp(m){return m.anchor&&m.anchor.kind==='time'&&m.auto&&!searchable(m);}
 function drawGutter(){
   ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
-  // below Fit the page is narrower than the window: shade what lies beyond its right edge
-  const pe=sx(1)+12;if(pe<W-1){ctx.fillStyle='rgba(0,0,0,.32)';ctx.fillRect(pe,0,W-pe,H);ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(pe)+.5,0);ctx.lineTo(Math.round(pe)+.5,H);ctx.stroke();}
   ctx.fillStyle='rgba(16,13,22,.86)';ctx.fillRect(0,0,gutter,H);
   ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gutter-.5,0);ctx.lineTo(gutter-.5,H);ctx.stroke();
   const st=scrollTop(),tY=textMarkY(),labels=[];pinHits=[];

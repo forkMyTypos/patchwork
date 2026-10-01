@@ -82,7 +82,7 @@ function tlRange(){const now=Date.now(),start=new Date();start.setHours(0,0,0,0)
   TL.t1=now;TL.t0=Math.min(Math.max(r,TL.first-60e3),now-60e3);if(TL.T<TL.t0)TL.T=TL.t0;if(TL.T>TL.t1)TL.T=TL.t1;
   TL.el.querySelectorAll('.tl-rng .sp-f').forEach(b=>b.classList.toggle('on',b.dataset.k===TL.range));
   const lab=t=>{const d=new Date(t);return (dayLabel(t)==='Today'?'':dayLabel(t)+' ')+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});};TL.el.querySelector('.tl-a').textContent=lab(TL.t0);TL.el.querySelector('.tl-b').textContent='now';tlDensity();}
-function tlLayout(){const st=TL.el.querySelector('.tl-stage');TL.W=st.clientWidth;TL.H=st.clientHeight;TL.gutter=gutter;const fitW=Math.max(40,TL.W-TL.gutter-12),ww=TL.ww||fitW,k=Math.min(1,fitW/ww);TL.k=k;TL.drawW=ww*k;TL.pad.style.width=(TL.gutter+TL.drawW+12)+'px';TL.dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
+function tlLayout(){const st=TL.el.querySelector('.tl-stage');TL.W=st.clientWidth;TL.H=st.clientHeight;TL.gutter=gutter;const fitW=Math.max(40,TL.W-TL.gutter-12),ww=TL.ww||fitW,k=1;TL.wrap.style.overflowX=ww>fitW+1?'auto':'hidden';TL.k=k;TL.drawW=ww*k;TL.pad.style.width=(TL.gutter+TL.drawW+12)+'px';TL.dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
   TL.cv.width=Math.round(TL.W*TL.dpr);TL.cv.height=Math.round(TL.H*TL.dpr);TL.cv.style.width=TL.W+'px';TL.cv.style.height=TL.H+'px';TL.ed.style.paddingLeft=(TL.gutter+10*k)+'px';TL.ed.style.fontSize=(15*k)+'px';TL.ed.style.paddingTop=(18*k)+'px';TL.ed.style.paddingRight=(12+8*k)+'px';
   const r=TL.track.getBoundingClientRect();TL.dens.width=Math.round(r.width*TL.dpr);TL.dens.height=Math.round(r.height*TL.dpr);tlDensity();}
 // event markers, compressed into a density strip so thousands of events stay calm

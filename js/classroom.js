@@ -29,7 +29,11 @@ function clsHex(c){if(!c)return null;const h=normalizeHex(c);if(h)return h;const
 const _clsImgCache=new Map();
 async function clsImage(src){const h=imgHashOf(src);if(!h)return /^data:image\/(png|jpeg|gif|webp);base64,/.test(src)?src:null;   // hotlinked URLs are never shared
   if(_clsImgCache.has(h))return _clsImgCache.get(h);const r=await db.images.get(h);const u=r&&r.blob?await _blobToDataURL(r.blob):null;_clsImgCache.set(h,u);return u;}
-async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Math.round(drawW),ww:Math.round(pageWW||drawW),scroll:+(scrollTop()/drawW).toFixed(4),paras:[],marks:{},strokes:[]};let imgBytes=0;
+// where the teacher is working, across the page (0-1): the caret if it's on the page, else the middle of what they see
+function clsFocusX(){const s=getSelection(),wr=wrap.getBoundingClientRect();let x=null;
+  if(s&&s.rangeCount&&noteEd.contains(s.anchorNode)){const r=s.getRangeAt(0).getClientRects()[0]||(s.anchorNode.nodeType===1?s.anchorNode:s.anchorNode.parentElement).getBoundingClientRect();x=r.left-wr.left+wrap.scrollLeft-gutter;}
+  if(x==null)x=wrap.scrollLeft+(wr.width-gutter)/2;return +Math.min(1,Math.max(0,x/drawW)).toFixed(4);}
+async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Math.round(drawW),ww:Math.round(pageWW||drawW),scroll:+(scrollTop()/drawW).toFixed(4),fx:clsFocusX(),paras:[],marks:{},strokes:[]};let imgBytes=0;
   for(const p of editor.getDoc()){const runs=[];for(const r of p.runs){
     if(r.type==='image'){const u=await clsImage(r.src);if(u&&u.length<=CLS_MAX.img&&imgBytes+u.length<=CLS_MAX.imgs){imgBytes+=u.length;runs.push({img:u,w:r.width||100,bg:clsHex(r.bg)});}else runs.push({text:'[image not shared]',color:'#7a7a92',i:1});continue;}
     if(!r.text)continue;const x={text:r.text};if(r.bold)x.b=1;if(r.italic)x.i=1;if(r.underline)x.u=1;const c=clsHex(r.color);if(c)x.color=c;if(r.size)x.size=r.size;if(r.font&&CLS_FONTS.includes(r.font))x.font=r.font;
@@ -92,7 +96,7 @@ function clsState(s){CLS.status=s;clsRender();}
 /* ---------- student: validate everything received ---------- */
 function clsClean(b){const fail=w=>{throw new Error(w);};if(!b||typeof b!=='object'||b.v!==1)fail('version');
   const str=(x,n)=>typeof x==='string'?x.slice(0,n):'',num=(x,lo,hi,d)=>(typeof x==='number'&&isFinite(x))?Math.min(hi,Math.max(lo,x)):d,hex=x=>(typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x))?x.toLowerCase():null;
-  const out={title:str(b.title,80),w:num(b.w,200,4000,800),ww:Math.round(num(b.ww,200,6000,PAGE_REF)),scroll:num(b.scroll,0,1e4,0),paras:[],marks:{},strokes:[]};let text=0,imgs=0,points=0;
+  const out={title:str(b.title,80),w:num(b.w,200,4000,800),ww:Math.round(num(b.ww,200,6000,PAGE_REF)),scroll:num(b.scroll,0,1e4,0),fx:num(b.fx,0,1,0),paras:[],marks:{},strokes:[]};let text=0,imgs=0,points=0;
   if(b.marks&&typeof b.marks==='object')for(const k of Object.keys(b.marks).slice(0,3000)){if(!/^\d{1,12}$/.test(k))continue;const m=b.marks[k]||{},c=hex(m.c)||'#818cf8',fx={};for(const f of ['bg','ul','b','i','s','tc'])if(m.fx&&m.fx[f]===true)fx[f]=true;out.marks[k]={color:c,bg:hexA(c,.16),fx};}
   for(const p of (Array.isArray(b.paras)?b.paras:[]).slice(0,5000)){const runs=[];for(const r of (Array.isArray(p&&p.r)?p.r:[]).slice(0,500)){if(!r||typeof r!=='object')continue;
       if(typeof r.img==='string'){if(r.img.length<=CLS_MAX.img&&imgs+r.img.length<=CLS_MAX.imgs&&/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(r.img)){imgs+=r.img.length;runs.push({type:'image',src:r.img,width:Math.round(num(r.w,10,100,100)),bg:hex(r.bg)});}continue;}
@@ -266,8 +270,10 @@ function clsDrawView(){const w=CLS.view;if(!w)return;const s=CLS.snap,ed=w.query
   for(const k of s.strokes){c.lineCap='round';c.lineJoin='round';if(k.tool==='eraser'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';c.fillStyle='#000';c.globalAlpha=1;}else{c.globalCompositeOperation='source-over';c.strokeStyle=k.color;c.fillStyle=k.color;c.globalAlpha=k.tool==='hl'?.3:1;}
     const P=k.pts,X=q=>G+q.xn*s.w,Y=q=>q.yn*s.w;if(P.length===1){c.beginPath();c.arc(X(P[0]),Y(P[0]),Math.max(.5,P[0].wn*s.w/2),0,7);c.fill();}else for(let i=1;i<P.length;i++){c.lineWidth=Math.max(.5,(P[i-1].wn+P[i].wn)/2*s.w);c.beginPath();c.moveTo(X(P[i-1]),Y(P[i-1]));c.lineTo(X(P[i]),Y(P[i]));c.stroke();}}
   c.globalCompositeOperation='source-over';c.globalAlpha=1;clsDrawMine();clsFit();}
-function clsFit(){const w=CLS.view,s=CLS.snap;if(!w||!s)return;const sc=w.querySelector('.cls-scroll'),page=w.querySelector('.cls-page');const k=Math.min(1,(sc.clientWidth-4)/(s.w+36));page.style.transform='scale('+k+')';page.style.marginBottom=(-(1-k)*page.offsetHeight)+'px';CLS.k=k;clsScroll();}
-function clsScroll(force){const w=CLS.view,s=CLS.snap;if(!w||!s||(!CLS.follow&&!force))return;w.querySelector('.cls-scroll').scrollTop=s.scroll*s.w*(CLS.k||1);}
+function clsFit(){const w=CLS.view,s=CLS.snap;if(!w||!s)return;const sc=w.querySelector('.cls-scroll'),page=w.querySelector('.cls-page');const k=1;   // real size on every screen: a page wider than this window scrolls sideways
+  page.style.transform='scale('+k+')';page.style.marginBottom=(-(1-k)*page.offsetHeight)+'px';CLS.k=k;clsScroll();}
+function clsScroll(force){const w=CLS.view,s=CLS.snap;if(!w||!s||(!CLS.follow&&!force))return;const sc=w.querySelector('.cls-scroll');sc.scrollTop=s.scroll*s.w*(CLS.k||1);
+  const x=24+s.fx*s.w;if(x<sc.scrollLeft+40||x>sc.scrollLeft+sc.clientWidth-40)sc.scrollLeft=Math.max(0,x-sc.clientWidth/2);}   // keep where the teacher is working in view
 
 /* ---------- panel ---------- */
 let clsPanel=null;

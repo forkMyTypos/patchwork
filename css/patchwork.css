@@ -36,7 +36,7 @@ button{font-family:inherit;}
 
 /* ===== stage / layers ===== */
 #stage{flex:1;min-height:0;position:relative;}
-#wrap{position:absolute;inset:0;overflow-y:scroll;overflow-x:hidden;touch-action:pan-y;z-index:1;}
+#wrap{position:absolute;inset:0;overflow-y:scroll;overflow-x:hidden;touch-action:pan-x pan-y;z-index:1;}
 #wrap::-webkit-scrollbar{width:10px;}
 #wrap::-webkit-scrollbar-thumb{background:#2a2330;border-radius:6px;border:2px solid #0e0e15;}
 #wrap::-webkit-scrollbar-track{background:transparent;}

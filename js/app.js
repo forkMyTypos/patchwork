@@ -42,12 +42,9 @@ let marks=[];                 // ALL marks across projects (for cross-project li
 let strokes=[],inkRedo=[];    // current project's ink
 let W=0,H=0,drawW=0,dpr=1,gutter=70,gutterW=0,pageWW=0;
 const PAGE_REF=1000;   // the page's width in 'sheet' px: 15px text on a 1000-wide page; everything scales from there
-// Scaling is only for the class page (the teacher's broadcast window), so teacher and students see the same layout on
-// any screen. Everywhere else text is real size and the page fills the window, as usual.
-function pageScaled(){return IS_CLASS||(typeof CLS!=='undefined'&&CLS.role==='teacher'&&CLS.mode==='default');}
-// Each page keeps the width it was written at (page.ww, px at real size): its document width. Lines wrap at that width
-// everywhere; a narrower window shows the page scaled down, a wider one shows it at real size with the rest shaded
-// (the class page always fits the window). New pages take the main window's width, remembered per browser.
+// Each page keeps the width it was written at (page.ww, px at real size): its document width. It is ALWAYS shown at real
+// size (15px is 15px on every screen): lines wrap at that width everywhere, a narrower window scrolls sideways, a wider one
+// shades beyond the page. Nothing is scaled. New pages take the main window's width, remembered per browser.
 function cleanWW(v){v=+v;return Number.isFinite(v)&&v>=200&&v<=6000?Math.round(v):0;}
 function wsW(){let v=0;try{v=cleanWW(localStorage.getItem('pw-ww'));}catch(e){}return v||cleanWW(innerWidth-98)||800;}
 // the page width for a page record: its own, or (first open of an older page / a new page) the workspace width, saved
@@ -88,7 +85,7 @@ function layout(){
   gutter=gutterW>0?Math.max(40,Math.min(340,gutterW)):(W<560?62:86);_paraStampCache=null;
   const fitW=Math.max(40,W-gutter-12);
   if(!IS_MINI&&!(typeof CLS!=='undefined'&&CLS.role)){try{localStorage.setItem('pw-ww',String(Math.round(fitW)));}catch(e){}}
-  const ww=pageWW||fitW,sc=pageScaled(),k=sc?fitW/ww:Math.min(1,fitW/ww);drawW=ww*k;pad.style.width=(gutter+drawW+12)+'px';
+  const k=1;drawW=pageWW||fitW;pad.style.width=(gutter+drawW+12)+'px';wrap.style.overflowX=drawW>fitW+1?'auto':'hidden';
   dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+'px';cv.style.height=H+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);

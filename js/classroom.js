@@ -130,11 +130,12 @@ async function clsPaneOpen(){if(CLS.pane)return;const teacher=CLS.role==='teache
     body.innerHTML='<div class="cls-tools"><button class="cls-tool on" data-t="" title="Scroll the page">✋ Scroll</button><button class="cls-tool" data-t="pen" title="Draw on the class page (only on this device)">✏️ Pen</button>'+
       ['#f87171','#fbbf24','#60a5fa'].map(c=>'<button class="cls-col" data-c="'+c+'" style="background:'+c+'" title="Pen colour"></button>').join('')+
       '<button class="cls-tool" data-t="erase" title="Erase your own marks">Eraser</button><button class="cls-tool cls-clear-mine" title="Remove all your marks">Clear mine</button>'+
-      '<label class="cls-follow" title="Scroll with the teacher"><input type="checkbox" checked> follow</label></div>'+
+      '<label class="cls-follow" title="Keep your view on the teacher\u2019s place"><input type="checkbox" checked> autofocus</label><button class="cls-tool cls-focus" title="Jump to the teacher\u2019s place now" style="display:none">Focus</button></div>'+
       '<div class="cls-scroll"><div class="cls-page"><div class="editor cls-ed"></div><canvas class="cls-ink"></canvas><canvas class="cls-mine"></canvas></div><div class="cls-wait">Waiting for the teacher to broadcast…<br><span class="hw-hint">Anything you draw on this side stays on this device.</span></div></div>';
     CLS.view=w;CLS.mine=[];CLS.tool='';CLS.penColor='#f87171';clsMineWire(w);
-    const fl=w.querySelector('.cls-follow input');fl.onchange=()=>{CLS.follow=fl.checked;clsScroll();};
-    const sc=w.querySelector('.cls-scroll');sc.addEventListener('wheel',()=>{CLS.follow=false;fl.checked=false;},{passive:true});sc.addEventListener('touchmove',()=>{if(!CLS.tool){CLS.follow=false;fl.checked=false;}},{passive:true});
+    const fl=w.querySelector('.cls-follow input'),fb=w.querySelector('.cls-focus');const setF=on=>{CLS.follow=on;fl.checked=on;fb.style.display=on?'none':'';if(on)clsScroll();};
+    fl.onchange=()=>setF(fl.checked);fb.onclick=()=>clsScroll(true);
+    const sc=w.querySelector('.cls-scroll');sc.addEventListener('wheel',()=>setF(false),{passive:true});sc.addEventListener('touchmove',()=>{if(!CLS.tool)setF(false);},{passive:true});
     new ResizeObserver(()=>clsFit()).observe(sc);clsDrawView();}
   clsLayout(true);clsRender();}
 async function clsPaneClose(){const w=CLS.pane;if(!w)return;CLS.pane=null;const f=w.querySelector('iframe');
@@ -168,7 +169,7 @@ function clsDrawView(){const w=CLS.view;if(!w)return;const s=CLS.snap,ed=w.query
     const P=k.pts,X=q=>G+q.xn*s.w,Y=q=>q.yn*s.w;if(P.length===1){c.beginPath();c.arc(X(P[0]),Y(P[0]),Math.max(.5,P[0].wn*s.w/2),0,7);c.fill();}else for(let i=1;i<P.length;i++){c.lineWidth=Math.max(.5,(P[i-1].wn+P[i].wn)/2*s.w);c.beginPath();c.moveTo(X(P[i-1]),Y(P[i-1]));c.lineTo(X(P[i]),Y(P[i]));c.stroke();}}
   c.globalCompositeOperation='source-over';c.globalAlpha=1;clsDrawMine();clsFit();}
 function clsFit(){const w=CLS.view,s=CLS.snap;if(!w||!s)return;const sc=w.querySelector('.cls-scroll'),page=w.querySelector('.cls-page');const k=Math.min(1,(sc.clientWidth-4)/(s.w+36));page.style.transform='scale('+k+')';page.style.marginBottom=(-(1-k)*page.offsetHeight)+'px';CLS.k=k;clsScroll();}
-function clsScroll(){const w=CLS.view,s=CLS.snap;if(!w||!s||!CLS.follow)return;w.querySelector('.cls-scroll').scrollTop=s.scroll*s.w*(CLS.k||1);}
+function clsScroll(force){const w=CLS.view,s=CLS.snap;if(!w||!s||(!CLS.follow&&!force))return;w.querySelector('.cls-scroll').scrollTop=s.scroll*s.w*(CLS.k||1);}
 
 /* ---------- panel ---------- */
 let clsPanel=null;
@@ -183,10 +184,10 @@ function clsRender(full){clsPillSync();if(CLS.pane&&CLS.role==='teacher'){const 
   if(!clsPanel||clsPanel.style.display==='none')return;const dot=t=>'<span class="cls-dot '+(CLS.status==='on'?'on':CLS.status==='off'?'off':'retry')+'"></span>'+t;
   const st=CLS.status==='on'?'Connected':CLS.status==='off'?'Disconnected':'Reconnecting…';let h='<div class="panel-h"><div class="panel-t">Classroom</div>'+(CLS.role?'<button class="panel-x cls-min" title="Minimise (you stay in the classroom)">\u2013</button>':'<button class="panel-x">×</button>')+'</div><div class="panel-b">';
   if(!CLS.role){h+=(CLS_RELAY?'':'<div class="pf"><div class="pf-l">Classroom server</div><input class="pf-in cls-relay" placeholder="https://your-relay.workers.dev" value="'+esc(CLS.relay)+'"><div class="hw-hint">Only used when you create or join a classroom.</div></div>')+
-      '<div class="pf"><div class="pf-l">1. Sign in with Google</div><div class="cls-auth"></div></div>'+
+      '<div class="pf cls-sec"><div class="pf-l">1. Sign in with Google</div><div class="cls-ic-row"><svg class="cls-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><div class="cls-auth"></div></div></div>'+
       (!clsSignedIn()?'<div class="hw-hint">2. Then create a classroom (teacher) or join one with a code (student).</div>':
-      '<div class="pf"><div class="pf-l">Teach</div><button class="fx-primary cls-create">Create a classroom</button></div>'+
-      '<div class="pf"><div class="pf-l">Learn</div><input class="pf-in cls-code" placeholder="Classroom code" maxlength="14" style="text-transform:uppercase;letter-spacing:.12em"><div class="hw-row" style="margin-top:6px"><button class="fx-primary cls-join">Join</button></div></div>');}
+      '<div class="pf cls-sec"><div class="pf-l">Teach</div><div class="cls-ic-row"><svg class="cls-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="13" height="9" rx="1"/><path d="M12 8h6"/><circle cx="5" cy="9" r="2.5"/><path d="M1.5 21v-3.5a3.5 3.5 0 0 1 7 0V21"/><path d="M8 14l3-2"/></svg><div><button class="fx-primary cls-create">Create a classroom</button><div class="hw-hint">You get a code to give your students.</div></div></div></div>'+
+      '<div class="pf cls-sec"><div class="pf-l">Learn</div><div class="cls-ic-row"><svg class="cls-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg><div style="flex:1"><input class="pf-in cls-code" placeholder="Classroom code" maxlength="14" style="text-transform:uppercase;letter-spacing:.12em;width:100%"><div class="hw-row" style="margin-top:6px"><button class="fx-primary cls-join">Join</button></div></div></div></div>');}
   else if(CLS.role==='teacher'){h+='<div class="pf"><div class="pf-l">Classroom code — give this to your students</div><div class="cls-code-big">'+esc(CLS.code.slice(0,5)+' '+CLS.code.slice(5))+'</div></div><div class="cls-status">'+dot(st)+' · '+CLS.students+' student'+(CLS.students!==1?'s':'')+'</div>'+
       '<div class="cls-roster">'+(CLS.roster.length?CLS.roster.map(p=>'<div class="cls-person"><span class="cls-dot '+p.status+'"></span><span class="cls-pname">'+esc(p.name)+'</span><span class="hw-hint">'+(p.status==='retry'?'reconnecting':p.status==='off'?'disconnected':rtcLabel(p.id))+'</span><button class="pr-tool cls-kick" data-id="'+esc(p.id)+'" title="Remove from the classroom">\u00d7</button></div>').join(''):'<div class="hw-hint">No students yet.</div>')+'</div>'+
       '<label class="pf-row"><input type="checkbox" class="pf-cb cls-lock"'+(CLS.locked?' checked':'')+'> Lock classroom (no new students)</label>'+

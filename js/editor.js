@@ -112,7 +112,7 @@ function makeEditor(edId,tbId,statusId,valignId){
   function restoreState(s){doc=s.doc.map(p=>({align:p.align,t:p.t||null,runs:p.runs.map(r=>({...r}))}));cur={...s.cur};sel=s.sel?{...s.sel}:null;currentValign=s.valign;valignEl.className="editor-valign-wrap valign-"+currentValign;selectedImage=null;busy=true;renderAll();requestAnimationFrame(()=>{if(sel)restoreSel();else placeCaret(cur.p,cur.offset);busy=false;updateTb();});if(typeof markDirty==="function")markDirty();}
   function undo(){if(!histUndo.length)return;histRedo.push(snapState());restoreState(histUndo.pop());}
   function redo(){if(!histRedo.length)return;histUndo.push(snapState());restoreState(histRedo.pop());}
-  function syncFmt(){if(fmtLocked){fmtLocked=false;return;}const p=doc[cur.p];if(!p)return;const st=getStyleAt(p,cur.offset);fmt={...st};if(st.color){pickerColor=st.color;if(colorBarEl)colorBarEl.style.background=pickerColor;if(colorInputEl)colorInputEl.value=pickerColor;if(colorSwatchEl)colorSwatchEl.style.background=pickerColor;}}
+  function syncFmt(){if(fmtLocked){fmtLocked=false;return;}const p=doc[cur.p];if(!p)return;const st=getStyleAt(p,sel&&cur.offset<plen(p)?cur.offset+1:cur.offset);fmt={...st};if(st.color){pickerColor=st.color;if(colorBarEl)colorBarEl.style.background=pickerColor;if(colorInputEl)colorInputEl.value=pickerColor;if(colorSwatchEl)colorSwatchEl.style.background=pickerColor;}}
   function updateImgSel(){const h=getImgAt(cur.p,cur.offset);selectedImage=h?{p:cur.p,runIndex:h.runIndex}:null;}
   function delSel(){if(!sel)return;const{sp,so,ep,eo}=sel;if(sp===ep){doc[sp].runs=mergeRuns([...rfr(doc[sp],0,so),...rfr(doc[sp],eo,plen(doc[sp]))]);}else{doc[sp].runs=mergeRuns([...rfr(doc[sp],0,so),...rfr(doc[ep],eo,plen(doc[ep]))]);doc.splice(sp+1,ep-sp);}cur={p:sp,offset:so};sel=null;}
   function insText(t){if(sel)delSel();const p=doc[cur.p];if(!p.t)p.t=Date.now();const l=rfr(p,0,cur.offset),r=rfr(p,cur.offset,plen(p));p.runs=mergeRuns([...l,{...fmt,type:"text",text:t},...r]);cur.offset+=t.length;}
@@ -155,8 +155,9 @@ function makeEditor(edId,tbId,statusId,valignId){
     tb.appendChild(colorBtn);tb.appendChild(sep());
     const szW=document.createElement("div");szW.style.cssText="display:flex;align-items:center;gap:2px";
     const si=document.createElement("input");si.type="number";si.value=15;si.min=8;si.max=96;
-    si.onmousedown=e=>{readSel();e.stopPropagation();};
-    si.onblur=()=>{const v=Math.max(8,Math.min(96,Number(si.value)||15));si.value=v;if(sel)pushUndo("fmt");applyFmt("size",v);fmt.size=v;if(sel){renderAll();requestAnimationFrame(()=>{restoreSel();busy=false;updateTb();});}else{ed.focus();updateTb();}};
+    let szSel=null;   // the selection when the size box was clicked; focus moving to the box can clear the live one
+    si.onmousedown=e=>{readSel();szSel=sel?{...sel}:null;e.stopPropagation();};si.onfocus=()=>{if(!szSel&&sel)szSel={...sel};};
+    si.onblur=()=>{const v=Math.max(8,Math.min(96,Number(si.value)||15));si.value=v;if(szSel){sel=szSel;szSel=null;}if(sel)pushUndo("fmt");applyFmt("size",v);fmt.size=v;if(sel){renderAll();requestAnimationFrame(()=>{restoreSel();busy=false;updateTb();});}else{ed.focus();updateTb();}};
     si.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();si.blur();}};
     const mkSz=(lb,d)=>{const b=document.createElement("div");b.className="tbtn";b.textContent=lb;b.tabIndex=-1;b.style.cssText="font-weight:400;font-size:13px";b.onmousedown=e=>e.preventDefault();b.onclick=()=>{readSel();const v=Math.max(8,Math.min(96,(Number(si.value)||15)+d));si.value=v;applyFmt("size",v);fmt.size=v;if(sel){renderAll();requestAnimationFrame(()=>{restoreSel();busy=false;});}};return b;};
     szW.appendChild(mkSz("\u2212",-1));szW.appendChild(si);szW.appendChild(mkSz("+",1));

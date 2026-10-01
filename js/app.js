@@ -235,7 +235,9 @@ async function switchProject(npid){
   setMode('text');
 }
 async function newProject(name){const id=await db.projects.add(Object.assign({name:(name||'Untitled').slice(0,60),created:Date.now(),folder:curFolder||null},IS_CLASS?{shared:true}:{}));projects=await db.projects.toArray();await switchProject(id);renderProjects();}
-function renameProject(p,name){p.name=(name||p.name).slice(0,60);db.projects.update(p.id,{name:p.name});if(p.id===pid)document.getElementById('proj-name').textContent=p.name;renderProjects();}
+function renameProject(p,name){p.name=(name||p.name).slice(0,60);db.projects.update(p.id,{name:p.name}).then(()=>syncPing('projects'));projNamesChanged();}
+// a project's name shows in several places (toolbar, pop-up editor titles, panels): refresh them all
+function projNamesChanged(){const pr=projects.find(x=>x.id===pid);document.getElementById('proj-name').textContent=pr?pr.name:'';renderProjects();miniTitles();if(typeof updateBackupLabels==='function')updateBackupLabels();if(typeof aiRender==='function')aiRender();if(typeof clsRender==='function')clsRender();}
 async function deleteProject(p){
   if(projects.length<=1){toast('Keep at least one project','err');return;}
   const others=projects.filter(x=>x.id!==p.id);
@@ -385,7 +387,8 @@ function updateTagbar(){
   const rect=r.getBoundingClientRect();if(!rect||(!rect.width&&!rect.height)){hideTagbar();return;}
   tagbar.classList.add('show');const tw=tagbar.offsetWidth||300;
   tagbar.style.left=Math.max(6,Math.min(rect.left,window.innerWidth-tw-6))+'px';
-  tagbar.style.top=Math.max(6,rect.top-tagbar.offsetHeight-8)+'px';
+  // above the selection, unless that would cover the toolbars (then just below it)
+  const _top=stage.getBoundingClientRect().top,_above=rect.top-tagbar.offsetHeight-8;tagbar.style.top=(_above>=_top+4?_above:rect.bottom+8)+'px';
 }
 async function tagSelection(type){
   if(!editor.hasSelection()){toast('Select some text first','info');return;}
@@ -609,7 +612,7 @@ function projectOpenElsewhere(n){try{return editorWindows().some(w=>w!==window&&
 const _sync=(()=>{try{return new BroadcastChannel('patchwork-sync');}catch(e){return null;}})();let _syncT=null,_syncTypes=false;
 function syncPing(kind){if(_sync)_sync.postMessage(kind);}
 if(_sync)_sync.onmessage=ev=>{if(ev.data==='types')_syncTypes=true;clearTimeout(_syncT);_syncT=setTimeout(async()=>{try{if(_syncTypes&&typeof loadHighlightTypes==='function'){_syncTypes=false;await loadHighlightTypes();}marks=await db.marks.toArray();projects=await db.projects.toArray();await loadFolders();
-  if(typeof typesChanged==='function')typesChanged();else{if(editor)editor.refresh();redrawInk();}renderProjects();miniTitles();}catch(e){console.error(e);}},250);};
+  if(typeof typesChanged==='function')typesChanged();else{if(editor)editor.refresh();redrawInk();}projNamesChanged();}catch(e){console.error(e);}},250);};
 function miniTitles(){document.querySelectorAll('.mini-win').forEach(w=>{try{const p=w.querySelector('iframe').contentWindow.currentPid();w.dataset.pid=p;w.querySelector('.panel-t').textContent=projName(p);}catch(e){}});}
 let _miniN=0,_miniZ=8100,_miniMenu=null;
 function openMiniMenu(anchor){if(IS_MINI)return;if(!_miniMenu){_miniMenu=document.createElement('div');_miniMenu.className='panel mini-menu';document.body.appendChild(_miniMenu);document.addEventListener('mousedown',e=>{if(_miniMenu.style.display!=='none'&&!_miniMenu.contains(e.target)&&!e.target.closest('#mini-btn'))_miniMenu.style.display='none';});}

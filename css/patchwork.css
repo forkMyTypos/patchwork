@@ -580,3 +580,4 @@ body.pic-through #pics,body.pic-through #pics *{pointer-events:none!important;}
 .line.li-ul::before{content:"\2022";}.line.li-ul[data-lv="1"]::before,.line.li-ul[data-lv="3"]::before{content:"\25E6";}
 .line.li-ol::before{content:attr(data-n) ".";font-variant-numeric:tabular-nums;}
 .ps-sel{height:26px;background:#0f0f18;border:1px solid #26263a;border-radius:6px;color:#c8c8dc;font-size:11.5px;padding:0 4px;max-width:104px;}
+.lnk{color:#7aa7ff;text-decoration:underline;text-decoration-color:rgba(122,167,255,.5);text-underline-offset:2px;}

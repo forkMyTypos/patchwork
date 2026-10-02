@@ -621,3 +621,9 @@ body.pic-through #pics,body.pic-through #pics *{pointer-events:none!important;}
 .sc-r{display:flex;gap:10px;align-items:baseline;padding:2px 0;}.sc-r kbd{min-width:150px;font:11px ui-monospace,Menlo,Consolas,monospace;color:#fbbf24;}
 .wl{padding-left:18px;line-height:1.6;font-size:13px;}.wl li{margin-bottom:6px;}
 @media (max-width:900px){#hl-btn .mb-lab,#hl-btn .mb-car{display:none;}}
+
+/* project search (Projects panel) */
+.proj-search{position:relative;margin-bottom:8px;}.proj-search .pf-in{width:100%;padding-right:28px;box-sizing:border-box;}
+#proj-q-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:20px;height:20px;border:0;border-radius:50%;background:#20202e;color:#9a9ab4;cursor:pointer;line-height:1;visibility:hidden;}
+.proj-hit{align-items:flex-start;}.ph-main{min-width:0;flex:1;}.proj-hit b{color:#fbbf24;font-weight:600;}
+.ph-path{font-size:10.5px;color:#7a7a92;margin-top:2px;}.ph-snip{font-size:11.5px;color:#a8a8c0;margin-top:3px;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}

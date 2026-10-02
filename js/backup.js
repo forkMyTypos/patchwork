@@ -29,7 +29,7 @@ async function backupProject(){
   _download(data,'patchwork-'+_slug(projName(pid))+'-'+_today()+'.json');
   toast('Backed up this project: \u201c'+projName(pid)+'\u201d','ok');db.info.update('info',{lastBackupAt:Date.now()}).then(()=>{if(typeof updateBkStatus==='function')updateBkStatus();}).catch(()=>{});
 }
-async function backupAll(){
+async function allBackupData(){
   await savePageNow();
   const pgs=await db.pages.toArray();const allS=(await db.strokes.toArray()).filter(s=>!s.del);
   const data={app:'patchwork',type:'patchwork-backup',version:1,scope:'all',exportedAt:new Date().toISOString(),
@@ -39,6 +39,9 @@ async function backupAll(){
     strokes:allS.map(s=>{const oo=_sexp(s);oo.poid=s.pid;return oo;}),
     pics:await Promise.all((await db.pics.toArray()).filter(p=>!p.del).map(async p=>{const oo=await _pexp(p);oo.poid=p.pid;return oo;})),
     colors:{favorites:COLOR_FAVORITES,recents:COLOR_RECENTS},htypes:[...HT.values()],profiles:PROFILES,handwriting:(await db.hw.toArray()).map(({id,...r})=>r)};
+  return data;}
+async function backupAll(){
+  const data=await allBackupData();
   _download(data,'patchwork-all-'+_today()+'.json');
   toast('Backed up everything ('+projects.length+' project'+(projects.length!==1?'s':'')+')','ok');db.info.update('info',{lastBackupAt:Date.now()}).then(()=>{if(typeof updateBkStatus==='function')updateBkStatus();}).catch(()=>{});
 }
@@ -106,3 +109,26 @@ async function importPdf(file,opt){opt=opt||{};
   toast('Imported \u201c'+name+'\u201d: '+n+' page'+(n>1?'s':'')+(pdf.numPages>n?' (the first '+n+' of '+pdf.numPages+')':''),'ok');return np;}
 // Insert ▸ PDF: pick a PDF file and import it as a new page
 function openPdfPicker(){const i=document.createElement('input');i.type='file';i.accept='.pdf,application/pdf';i.onchange=()=>{if(i.files[0])importPdf(i.files[0]);};i.click();}
+
+/* automatic daily backup to a folder you choose (Chrome / Edge: File System Access). The folder handle stays in this
+   browser; once a day the full backup is written there as patchwork-all-<date>.json (same day = same file). The browser
+   may ask again for permission after a restart: the backup chip then says so, and one click resumes. */
+const AUTO_BK_OK='showDirectoryPicker' in window;
+async function autoBkDir(){try{const i=await db.info.get('info');return (i&&i.bkDir)||null;}catch(e){return null;}}
+async function autoBkChoose(){if(!AUTO_BK_OK)return;let d;try{d=await showDirectoryPicker({id:'patchwork-backups',mode:'readwrite'});}catch(e){return;}
+  await db.info.update('info',{bkDir:d});await autoBkRun(true);renderAutoBk();}
+async function autoBkStop(){await db.info.update('info',{bkDir:null,lastAutoAt:0});renderAutoBk();if(typeof updateBkStatus==='function')updateBkStatus();toast('Automatic backup switched off','info');}
+// state: 'off' | 'ok' | 'paused' (needs a click to allow the folder again)
+async function autoBkState(){const d=await autoBkDir();if(!d)return'off';try{return (await d.queryPermission({mode:'readwrite'}))==='granted'?'ok':'paused';}catch(e){return'paused';}}
+async function autoBkRun(force){if(IS_MINI)return false;const d=await autoBkDir();if(!d)return false;
+  try{let perm=await d.queryPermission({mode:'readwrite'});if(perm!=='granted'&&force)perm=await d.requestPermission({mode:'readwrite'});if(perm!=='granted'){if(typeof updateBkStatus==='function')updateBkStatus();return false;}
+    const i=await db.info.get('info');if(!force&&i&&i.lastAutoAt&&new Date(i.lastAutoAt).toDateString()===new Date().toDateString())return true;
+    const fh=await d.getFileHandle('patchwork-all-'+_today()+'.json',{create:true}),w=await fh.createWritable();await w.write(JSON.stringify(await allBackupData()));await w.close();
+    const now=Date.now();await db.info.update('info',{lastAutoAt:now,lastBackupAt:now});if(typeof updateBkStatus==='function')updateBkStatus();return true;}
+  catch(e){console.error('auto backup',e);toast('Automatic backup failed: '+(e&&e.message||e),'err');return false;}}
+async function renderAutoBk(){const el=document.getElementById('bk-auto');if(!el)return;if(!AUTO_BK_OK){el.innerHTML='<span class="pf-time">Automatic backup to a folder works in Chrome and Edge.</span>';return;}
+  const d=await autoBkDir(),st=await autoBkState();
+  el.innerHTML=d?'<span class="pf-time">'+(st==='ok'?'Backs up automatically every day to the folder \u201c':'Automatic backup is paused \u2014 the browser needs your OK for the folder \u201c')+esc(d.name)+'\u201d.</span> '+(st==='ok'?'':'<button class="pbtn bk-resume">Allow</button> ')+'<button class="fx-link bk-stop">Stop</button>'
+    :'<button class="pbtn bk-choose">\u23f2 Back up automatically to a folder\u2026</button>';
+  const q=x=>el.querySelector(x);if(q('.bk-choose'))q('.bk-choose').onclick=autoBkChoose;if(q('.bk-stop'))q('.bk-stop').onclick=autoBkStop;if(q('.bk-resume'))q('.bk-resume').onclick=async()=>{await autoBkRun(true);renderAutoBk();};}
+if(!IS_MINI){setTimeout(()=>autoBkRun(false),6000);setInterval(()=>autoBkRun(false),30*60e3);}

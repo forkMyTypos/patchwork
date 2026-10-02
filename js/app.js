@@ -43,6 +43,9 @@ let projects=[],pid=null;
 let marks=[];                 // ALL marks across projects (for cross-project links/search)
 let strokes=[],inkRedo=[];    // current project's ink
 let W=0,H=0,drawW=0,dpr=1,gutter=70,gutterW=0,pageWW=0;
+// page background behind the text: '' plain, 'lined', 'grid', 'dots' (saved with the page)
+const PAGE_BGS=['lined','grid','dots'];let pageBg='';const pageBgEl=document.createElement('div');pageBgEl.id='pagebg';
+function setPageBg(v){pageBg=PAGE_BGS.includes(v)?v:'';layout();saveMeta();}
 // the timestamp margin is never narrower than its tools
 const GUT_MIN=76;
 const PAGE_REF=1000;   // the page's width in 'sheet' px: 15px text on a 1000-wide page; everything scales from there
@@ -91,7 +94,7 @@ function layout(){
   gutter=gutterW>0?Math.max(GUT_MIN,Math.min(340,gutterW)):(W<560?GUT_MIN:86);_paraStampCache=null;
   const fitW=Math.max(40,W-gutter-12);
   if(!IS_MINI&&!(typeof CLS!=='undefined'&&CLS.role)){try{localStorage.setItem('pw-ww',String(Math.round(fitW)));}catch(e){}}
-  const k=1;drawW=pageWW||fitW;pad.style.width=(gutter+drawW+12)+'px';wrap.style.overflowX=drawW>fitW+1?'auto':'hidden';
+  const k=1;drawW=pageWW||fitW;pad.style.width=(gutter+drawW+12)+'px';if(pageBgEl.parentNode!==pad)pad.prepend(pageBgEl);pageBgEl.className=pageBg?'bg-'+pageBg:'';pageBgEl.style.left=gutter+'px';pageBgEl.style.width=(drawW+12)+'px';wrap.style.overflowX=drawW>fitW+1?'auto':'hidden';
   dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+'px';cv.style.height=H+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -241,8 +244,8 @@ async function deleteMark(m){return hardDeleteMark(m);}
 
 /* projects core */
 function _quotaToast(e){if(e&&(e.name==='QuotaExceededError'||/quota/i.test((e.name||'')+(e.message||'')))){toast('Storage is full — back up, then remove some images so saving can continue','err');}else if(e){console.error(e);}}
-async function savePageNow(){if(!editor||pid==null)return;try{if(typeof internImages==='function')await internImages();await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW,ww:pageWW||undefined});}catch(e){_quotaToast(e);}}
-function saveMeta(){clearTimeout(_metaTimer);_metaTimer=setTimeout(async()=>{try{if(editor&&pid!=null&&typeof internImages==='function')await internImages();if(editor&&pid!=null)await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW,ww:pageWW||undefined});if(!IS_MINI)await db.meta.put({id:'meta',activePid:pid});}catch(e){_quotaToast(e);}},500);}
+async function savePageNow(){if(!editor||pid==null)return;try{if(typeof internImages==='function')await internImages();await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW,ww:pageWW||undefined,bg:pageBg||undefined});}catch(e){_quotaToast(e);}}
+function saveMeta(){clearTimeout(_metaTimer);_metaTimer=setTimeout(async()=>{try{if(editor&&pid!=null&&typeof internImages==='function')await internImages();if(editor&&pid!=null)await db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW,ww:pageWW||undefined,bg:pageBg||undefined});if(!IS_MINI)await db.meta.put({id:'meta',activePid:pid});}catch(e){_quotaToast(e);}},500);}
 function markDirty(){saveMeta();if(typeof historyNote==='function')historyNote();}
 function contentBottomPx(){let mx=0;const wr=wrap.getBoundingClientRect();const er=noteEd.getBoundingClientRect();mx=Math.max(mx,(er.bottom-wr.top)+scrollTop());for(const s of strokes)mx=Math.max(mx,s.maxYn*inkU(s)+inkDy(s));for(const m of pageMarks())if(m.anchor&&m.anchor.kind==='time')mx=Math.max(mx,m.anchor.yn*drawW);return mx;}
 function lineRanges(){const wr=wrap.getBoundingClientRect();const out=[];noteEd.querySelectorAll(':scope > *').forEach(el=>{const txt=(el.textContent||'').trim();const hasImg=el.querySelector&&el.querySelector('img');if(!txt&&!hasImg)return;const r=el.getBoundingClientRect();out.push([(r.top-wr.top)+scrollTop(),(r.bottom-wr.top)+scrollTop()]);});return out;}
@@ -272,7 +275,7 @@ async function switchProject(npid){
   const pg=(await db.pages.get(pid))||{};
   strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);inkRedo=[];
   if(typeof picsLoad==='function')await picsLoad();
-  gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);
+  gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);pageBg=PAGE_BGS.includes(pg.bg)?pg.bg:'';
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   if(editor){editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();}
   layout();if(typeof extAfterPageLoad==='function')extAfterPageLoad();
@@ -629,7 +632,7 @@ addEventListener('DOMContentLoaded',async function(){
   pid=active;const pg=(await db.pages.get(pid))||{};
   strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);
   if(typeof picsLoad==='function')await picsLoad();
-  gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);
+  gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);pageBg=PAGE_BGS.includes(pg.bg)?pg.bg:'';
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();
   document.getElementById('proj-name').textContent=projName(pid);
@@ -637,7 +640,7 @@ addEventListener('DOMContentLoaded',async function(){
   requestAnimationFrame(()=>{wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();});
   setInterval(checkText,1500);
   noteEd.addEventListener('blur',()=>{checkText();saveMeta();schedulePrune();});
-  addEventListener('beforeunload',()=>{checkText();if(typeof historyFlush==='function')historyFlush();if(editor&&pid!=null)db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW,ww:pageWW||undefined});if(!IS_MINI)db.meta.put({id:'meta',activePid:pid});});
+  addEventListener('beforeunload',()=>{checkText();if(typeof historyFlush==='function')historyFlush();if(editor&&pid!=null)db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW,ww:pageWW||undefined,bg:pageBg||undefined});if(!IS_MINI)db.meta.put({id:'meta',activePid:pid});});
 });
 /* ===== extension lifecycle (called from the main script) ===== */
 async function extBoot(){const gt=document.getElementById('gut-tools'),b2=document.getElementById('bar2');if(gt&&b2)b2.appendChild(gt);await loadHighlightTypes();}

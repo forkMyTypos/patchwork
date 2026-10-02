@@ -581,3 +581,12 @@ body.pic-through #pics,body.pic-through #pics *{pointer-events:none!important;}
 .line.li-ol::before{content:attr(data-n) ".";font-variant-numeric:tabular-nums;}
 .ps-sel{height:26px;background:#0f0f18;border:1px solid #26263a;border-radius:6px;color:#c8c8dc;font-size:11.5px;padding:0 4px;max-width:104px;}
 .lnk{color:#7aa7ff;text-decoration:underline;text-decoration-color:rgba(122,167,255,.5);text-underline-offset:2px;}
+
+/* page backgrounds (behind the text; lines follow the 15px text's line height) */
+#pagebg,.cls-bg{position:absolute;top:0;bottom:0;z-index:-1;pointer-events:none;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.bg-lined{background:repeating-linear-gradient(to bottom,transparent 0,transparent 25.25px,rgba(170,170,210,.16) 25.25px,rgba(170,170,210,.16) 26.25px) 0 16px/100% 26.25px;}
+.bg-grid{background:linear-gradient(to right,rgba(170,170,210,.11) 1px,transparent 1px) 0 0/24px 24px,linear-gradient(to bottom,rgba(170,170,210,.11) 1px,transparent 1px) 0 0/24px 24px;}
+.bg-dots{background:radial-gradient(circle,rgba(170,170,210,.28) 1.2px,transparent 1.6px) 0 0/24px 24px;}
+.mm-bgrow{flex-wrap:wrap;gap:8px;cursor:default;}.mm-bgs{display:flex;gap:4px;}
+.mm-bg{height:26px;padding:0 9px;border-radius:6px;border:1px solid #2a2a3a;background:#15151f;color:#b8b8cc;font-size:11.5px;cursor:pointer;}
+.mm-bg.on{border-color:#5a4a2b;color:#fbbf24;background:#1f1a10;}

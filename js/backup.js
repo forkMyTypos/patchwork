@@ -21,7 +21,7 @@ function _simp(s){const o={t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.min
 async function projectExport(id){if(id===pid)await savePageNow();
   const pg=(await db.pages.get(id))||{};
   return{app:'patchwork',type:'patchwork-backup',version:1,scope:'project',exportedAt:new Date().toISOString(),
-    project:{name:projName(id)},page:{html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined},
+    project:{name:projName(id)},page:{html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined,bg:PAGE_BGS.includes(pg.bg)?pg.bg:undefined},
     marks:marks.filter(m=>m.pid===id).map(_mexp),htypes:_typesFor(marks.filter(m=>m.pid===id)),strokes:(await db.strokes.where('pid').equals(id).toArray()).filter(s=>!s.del).map(_sexp),
     pics:await Promise.all((await db.pics.where('pid').equals(id).toArray()).filter(p=>!p.del).map(_pexp))};}
 async function backupProject(){
@@ -34,7 +34,7 @@ async function backupAll(){
   const pgs=await db.pages.toArray();const allS=(await db.strokes.toArray()).filter(s=>!s.del);
   const data={app:'patchwork',type:'patchwork-backup',version:1,scope:'all',exportedAt:new Date().toISOString(),
     projects:projects.map(p=>({oid:p.id,name:p.name,created:p.created,folder:p.folder||null})),folders:folders.map(f=>({oid:f.id,name:f.name,parent:f.parent||null})),
-    pages:await Promise.all(pgs.map(async pg=>({poid:pg.pid,html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined}))),
+    pages:await Promise.all(pgs.map(async pg=>({poid:pg.pid,html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined,bg:PAGE_BGS.includes(pg.bg)?pg.bg:undefined}))),
     marks:marks.map(m=>{const oo=_mexp(m);oo.poid=m.pid;return oo;}),
     strokes:allS.map(s=>{const oo=_sexp(s);oo.poid=s.pid;return oo;}),
     pics:await Promise.all((await db.pics.toArray()).filter(p=>!p.del).map(async p=>{const oo=await _pexp(p);oo.poid=p.pid;return oo;})),
@@ -63,7 +63,7 @@ async function _impProject(data){
   const map={};
   for(const m of (data.marks||[])){const nid=await db.marks.add({pid:np,type:m.type||'note',name:m.name||'',tags:m.tags||[],created:m.created||Date.now(),done:!!m.done,doneAt:m.doneAt||null,links:[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',fields:m.fields||{},hover:m.hover||''});map[m.oid]=nid;}
   for(const m of (data.marks||[]))if(m.links&&m.links.length&&map[m.oid]){const mm=m.links.map(x=>map[x]).filter(Boolean);if(mm.length)await db.marks.update(map[m.oid],{links:mm});}
-  if(data.page){const h=_remapMarkIds(_sani(data.page.html),map);if(h.length<=MAX_CARD_FIELD)await db.pages.put({pid:np,html:h,scrollYn:data.page.scrollYn||0,gutterW:data.page.gutterW||0,ww:cleanWW(data.page.ww)||undefined});}
+  if(data.page){const h=_remapMarkIds(_sani(data.page.html),map);if(h.length<=MAX_CARD_FIELD)await db.pages.put({pid:np,html:h,scrollYn:data.page.scrollYn||0,gutterW:data.page.gutterW||0,ww:cleanWW(data.page.ww)||undefined,bg:PAGE_BGS.includes(data.page.bg)?data.page.bg:undefined});}
   for(const s of (data.strokes||[]))await db.strokes.add({pid:np,..._simp(s)});
   for(const o of (Array.isArray(data.pics)?data.pics:[]).slice(0,500))await _pimp(o,np);
   return np;
@@ -75,7 +75,7 @@ async function _impAll(data){
   const map={};
   for(const m of (data.marks||[])){const np=pmap[m.poid];if(np==null)continue;const nid=await db.marks.add({pid:np,type:m.type||'note',name:m.name||'',tags:m.tags||[],created:m.created||Date.now(),done:!!m.done,doneAt:m.doneAt||null,links:[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',fields:m.fields||{},hover:m.hover||''});map[m.oid]=nid;}
   for(const m of (data.marks||[]))if(m.links&&m.links.length&&map[m.oid]){const mm=m.links.map(x=>map[x]).filter(Boolean);if(mm.length)await db.marks.update(map[m.oid],{links:mm});}
-  for(const pg of (data.pages||[]))if(pmap[pg.poid]!=null){const h=_remapMarkIds(_sani(pg.html),map);if(h.length<=MAX_CARD_FIELD)await db.pages.put({pid:pmap[pg.poid],html:h,scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined});}
+  for(const pg of (data.pages||[]))if(pmap[pg.poid]!=null){const h=_remapMarkIds(_sani(pg.html),map);if(h.length<=MAX_CARD_FIELD)await db.pages.put({pid:pmap[pg.poid],html:h,scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined,bg:PAGE_BGS.includes(pg.bg)?pg.bg:undefined});}
   for(const s of (data.strokes||[])){const np=pmap[s.poid];if(np!=null)await db.strokes.add({pid:np,..._simp(s)});}
   for(const o of (Array.isArray(data.pics)?data.pics:[]).slice(0,5000)){const np=o&&pmap[o.poid];if(np!=null)await _pimp(o,np);}
   if(data.colors){if(Array.isArray(data.colors.favorites))COLOR_FAVORITES=Array.from(new Set([...COLOR_FAVORITES,...data.colors.favorites])).slice(0,18);if(Array.isArray(data.colors.recents))COLOR_RECENTS=(data.colors.recents||COLOR_RECENTS).slice(0,8);DB_saveColors();}

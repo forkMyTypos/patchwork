@@ -33,7 +33,7 @@ async function clsImage(src){const h=imgHashOf(src);if(!h)return /^data:image\/(
 function clsFocusX(){const s=getSelection(),wr=wrap.getBoundingClientRect();let x=null;
   if(s&&s.rangeCount&&noteEd.contains(s.anchorNode)){const r=s.getRangeAt(0).getClientRects()[0]||(s.anchorNode.nodeType===1?s.anchorNode:s.anchorNode.parentElement).getBoundingClientRect();x=r.left-wr.left+wrap.scrollLeft-gutter;}
   if(x==null)x=wrap.scrollLeft+(wr.width-gutter)/2;return +Math.min(1,Math.max(0,x/drawW)).toFixed(4);}
-async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Math.round(drawW),ww:Math.round(pageWW||drawW),scroll:+(scrollTop()/drawW).toFixed(4),fx:clsFocusX(),paras:[],marks:{},strokes:[]};let imgBytes=0;
+async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Math.round(drawW),ww:Math.round(pageWW||drawW),scroll:+(scrollTop()/drawW).toFixed(4),fx:clsFocusX(),bg:pageBg||undefined,paras:[],marks:{},strokes:[]};let imgBytes=0;
   for(const p of editor.getDoc()){const runs=[];for(const r of p.runs){
     if(r.type==='image'){const u=await clsImage(r.src);if(u&&u.length<=CLS_MAX.img&&imgBytes+u.length<=CLS_MAX.imgs){imgBytes+=u.length;runs.push({img:u,w:r.width||100,bg:clsHex(r.bg)});}else runs.push({text:'[image not shared]',color:'#7a7a92',i:1});continue;}
     if(!r.text)continue;const x={text:r.text};if(r.bold)x.b=1;if(r.italic)x.i=1;if(r.underline)x.u=1;const c=clsHex(r.color);if(c)x.color=c;if(r.size)x.size=r.size;if(r.font&&CLS_FONTS.includes(r.font))x.font=r.font;if(r.link)x.href=r.link;
@@ -98,7 +98,7 @@ function clsState(s){CLS.status=s;clsRender();}
 /* ---------- student: validate everything received ---------- */
 function clsClean(b){const fail=w=>{throw new Error(w);};if(!b||typeof b!=='object'||b.v!==1)fail('version');
   const str=(x,n)=>typeof x==='string'?x.slice(0,n):'',num=(x,lo,hi,d)=>(typeof x==='number'&&isFinite(x))?Math.min(hi,Math.max(lo,x)):d,hex=x=>(typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x))?x.toLowerCase():null;
-  const out={title:str(b.title,80),w:num(b.w,200,4000,800),ww:Math.round(num(b.ww,200,6000,PAGE_REF)),scroll:num(b.scroll,0,1e4,0),fx:num(b.fx,0,1,0),paras:[],marks:{},strokes:[]};let text=0,imgs=0,points=0;
+  const out={title:str(b.title,80),w:num(b.w,200,4000,800),ww:Math.round(num(b.ww,200,6000,PAGE_REF)),scroll:num(b.scroll,0,1e4,0),fx:num(b.fx,0,1,0),bg:PAGE_BGS.includes(b.bg)?b.bg:'',paras:[],marks:{},strokes:[]};let text=0,imgs=0,points=0;
   if(b.marks&&typeof b.marks==='object')for(const k of Object.keys(b.marks).slice(0,3000)){if(!/^\d{1,12}$/.test(k))continue;const m=b.marks[k]||{},c=hex(m.c)||'#818cf8',fx={};for(const f of ['bg','ul','b','i','s','tc'])if(m.fx&&m.fx[f]===true)fx[f]=true;out.marks[k]={color:c,bg:hexA(c,.16),fx};}
   for(const p of (Array.isArray(b.paras)?b.paras:[]).slice(0,5000)){const runs=[];for(const r of (Array.isArray(p&&p.r)?p.r:[]).slice(0,500)){if(!r||typeof r!=='object')continue;
       if(typeof r.img==='string'){if(r.img.length<=CLS_MAX.img&&imgs+r.img.length<=CLS_MAX.imgs&&/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(r.img)){imgs+=r.img.length;runs.push({type:'image',src:r.img,width:Math.round(num(r.w,10,100,100)),bg:hex(r.bg)});}continue;}
@@ -226,7 +226,7 @@ async function clsSaveCopy(snap,mine,ask){const s=snap||CLS.snap;mine=mine||CLS.
   const idMap={};for(const k of Object.keys(text)){const st=s.marks[k]||{},snip=text[k].trim().slice(0,200);
     idMap[k]=await db.marks.add({pid:np,type:byColor[(st.color||'').toLowerCase()]||'note',name:snip.slice(0,80),snippet:snip,tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'text'}});}
   const paras=s.paras.map(p=>({ls:p.ls,lv:p.lv,hd:p.hd,align:p.align,t:null,runs:p.runs.map(r=>r.type==='text'?{...r,mark:r.mark?idMap[r.mark]||null:null}:{...r})}));
-  await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0,ww:s.ww});
+  await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0,ww:s.ww,bg:s.bg||undefined});
   const f=s.ww/PAGE_REF,t=Date.now(),add=async(tool,color,pts)=>{if(!pts.length)return;let lo=Infinity,hi=-Infinity;for(const q of pts){lo=Math.min(lo,q.yn);hi=Math.max(hi,q.yn);}await db.strokes.add({pid:np,kind:'stroke',tool,color,t,pts,minYn:lo,maxYn:hi,u:1});};   // view-relative -> page units (the page's own width)
   for(const k of s.strokes)await add(k.tool,k.color,k.pts.map(q=>({xn:q.xn*f,yn:q.yn*f,wn:q.wn*f})));
   for(const q of s.pics||[]){const src=await storeDataURL(q.src);await db.pics.add({pid:np,kind:'pic',src,u:1,x:q.x*f,y:q.y*f,w:q.w*f,h:q.h*f,minYn:q.y*f,maxYn:(q.y+q.h)*f,t});}
@@ -270,6 +270,7 @@ function clsDrawMine(){const w=CLS.view;if(!w)return;const ink=w.querySelector('
 function clsDrawView(){const w=CLS.view;if(!w)return;const s=CLS.snap,ed=w.querySelector('.cls-ed'),cv=w.querySelector('.cls-ink'),page=w.querySelector('.cls-page');w.querySelector('.cls-wait').style.display=s?'none':'';page.style.display=s?'':'none';if(!s){ed.textContent='';cv.width=cv.width;w.querySelector('.cls-strip-hint').textContent='waiting for your teacher…';return;}
   w.querySelector('.cls-strip-hint').textContent='from your teacher · '+(s.title||'page');const G=24,kt=s.w/s.ww;page.style.width=(s.w+G+12)+'px';ed.style.fontSize=(15*kt)+'px';ed.style.paddingLeft=(G+10*kt)+'px';ed.style.paddingRight=(12+8*kt)+'px';ed.style.paddingTop=(18*kt)+'px';
   editor.renderParas(s.paras,ed,{markStyle:id=>s.marks[id]||null});ed.querySelectorAll('img').forEach(i=>{i.referrerPolicy='no-referrer';});
+  let bgl=page.querySelector('.cls-bg');if(!bgl){bgl=document.createElement('div');page.prepend(bgl);}bgl.className='cls-bg'+(s.bg?' bg-'+s.bg:'');bgl.style.left=G+'px';bgl.style.width=(s.w+12)+'px';
   let pl=page.querySelector('.cls-pics');if(!pl){pl=document.createElement('div');pl.className='cls-pics';ed.after(pl);}pl.textContent='';
   for(const q of s.pics||[]){const i=document.createElement('img');i.alt='';i.src=q.src;i.style.cssText='position:absolute;left:'+(G+q.x*s.w)+'px;top:'+(q.y*s.w)+'px;width:'+(q.w*s.w)+'px;height:'+(q.h*s.w)+'px;pointer-events:none;';pl.appendChild(i);}
   let bottom=ed.offsetHeight;for(const q of s.pics||[])bottom=Math.max(bottom,(q.y+q.h)*s.w+40);for(const k of s.strokes)for(const q of k.pts)bottom=Math.max(bottom,q.yn*s.w+40);for(const m of CLS.mine||[])for(const q of m.pts)bottom=Math.max(bottom,q[1]+400);const H=Math.min(30000,Math.max(bottom,s.w*1.4));page.style.height=H+'px';

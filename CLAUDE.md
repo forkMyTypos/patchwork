@@ -25,6 +25,10 @@
 - Ink: new strokes (`u:1`) are in page units (same scale as text, `inkW`); old strokes are relative to `drawW`. Strokes anchor to a
   paragraph (`a={p:paragraph id,top}`; paragraphs have stable ids saved as `data-id`) and move with it. Always place ink via
   `inkU(s)`/`inkDy(s)`; create strokes from screen coords with `addViewStroke()`.
+- Free pictures (`js/pics.js`, db.pics since v8): pictures placed anywhere like ink, above the text and below the ink, in page
+  units (`u:1`) and paragraph-anchored like strokes (`kind:'pic'`, so `reanchor` writes db.pics). Pasted / dropped / inserted pictures
+  are free by default; PDF pages stay in-line. Undo token 'pic' in hostUndo. They travel with backups (`pics`, image inlined),
+  Timeline, class snapshots (`pics`, validated in clsClean, same image caps), class copies and hand-ins. No text wrap around them.
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.
@@ -72,6 +76,7 @@
 - `js/editor.js` - rich-text editor (`makeEditor`) and the draw-an-image modal
 - `js/app.js` - database schema, projects, page, ink, marks, margin, panels, keyboard, boot (on DOMContentLoaded)
 - `js/images.js` - image store (pw-img:<hash> blobs)
+- `js/pics.js` - free pictures: render, pick/move/resize/delete, undo, In line <-> Free
 - `js/highlights.js` - highlight types, profiles, Highlight Factory
 - `js/explorer.js` - highlight Explorer
 - `js/timeline.js` - history snapshots + Timeline view

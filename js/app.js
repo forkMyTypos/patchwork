@@ -14,6 +14,8 @@ db.version(5).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',m
 db.version(6).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id',hw:'++id,lang,ch,src',folders:'++id,parent'});
 // v7 adds the classroom inbox (hand-ins received by a teacher; local only)
 db.version(7).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id',hw:'++id,lang,ch,src',folders:'++id,parent',inbox:'++id,at'});
+// v8 adds free pictures (pics.js): placed anywhere on the page like ink
+db.version(8).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id',images:'h',paras:'h',snaps:'++id,pid,t',htypes:'id',profiles:'id',hw:'++id,lang,ch,src',folders:'++id,parent',inbox:'++id,at',pics:'++id,pid'});
 
 const GAP_MS=4*60*1000;
 const PALETTE=['#ece6da','#f87171','#fb923c','#fbbf24','#4ade80','#22d3ee','#60a5fa','#a78bfa','#f472b6','#1c1c24'];
@@ -107,11 +109,11 @@ function inkDy(s){if(!s.a){reanchor(s);if(!s.a)return 0;}const t=paraTops().get(
 // attach a stroke to the paragraph beside its middle, without moving it on screen
 function reanchor(s){const tops=paraTops();if(!tops.size||!editor||s.pid!==pid)return;const U=inkU(s),d=s._dy||0,mid=(s.minYn+s.maxYn)/2*U+d;let best=null,bt=-Infinity,first=null,ft=Infinity;
   for(const [id,t] of tops){if(t<=mid+2&&t>bt){bt=t;best=id;}if(t<ft){ft=t;first=id;}}if(best==null){best=first;bt=ft;}
-  s.a={p:best,top:(bt-d)/U};s._dy=d;if(s.id!=null&&!s.del)db.strokes.update(s.id,{a:s.a}).catch(()=>{});}
+  s.a={p:best,top:(bt-d)/U};s._dy=d;if(s.id!=null&&!s.del)(s.kind==='pic'?db.pics:db.strokes).update(s.id,{a:s.a}).catch(()=>{});}
 // a stroke made in screen terms (relative to drawW, as drawn) -> page units, anchored, saved
 function inkToUnits(s){const f=drawW/inkW;for(const q of s.pts){q.xn*=f;q.yn*=f;q.wn*=f;}s.minYn*=f;s.maxYn*=f;s.u=1;s._dy=0;}
 function addViewStroke(s){inkToUnits(s);reanchor(s);commitStroke(s);saveMeta();}
-function inkBottomPx(){let mx=0;for(const s of strokes){const b=s.maxYn*inkU(s)+inkDy(s);if(b>mx)mx=b;}return mx;}
+function inkBottomPx(){let mx=typeof picsBottomPx==='function'?picsBottomPx():0;for(const s of strokes){const b=s.maxYn*inkU(s)+inkDy(s);if(b>mx)mx=b;}return mx;}
 function updatePad(){pad.style.minHeight=Math.ceil(Math.max(noteEd.scrollHeight+20,inkBottomPx()+H*0.5,H))+'px';}
 
 /* ink */
@@ -130,7 +132,7 @@ new ResizeObserver(()=>{_paraTops=null;if(typeof redrawInk==='function'&&editor)
 if(document.fonts)document.fonts.addEventListener('loadingdone',()=>{_paraTops=null;_paraStampCache=null;if(editor)layout();});   // the bundled font arrived: re-measure
 function onEditorRender(){_paraStampCache=null;_paraTops=null;cancelAnimationFrame(_hintRAF);_hintRAF=requestAnimationFrame(()=>redrawInk());}   // ink anchored to paragraphs follows the text (redrawInk also updates the hint)
 let _hintRAF=0;
-function updateHint(hasText){if(hasText===undefined)hasText=editor&&editor.getPlainText&&editor.getPlainText().trim();document.getElementById('hint').style.display=(strokes.length||hasText||pageMarks().length||noteEd.querySelector('.img-run'))?'none':'';}
+function updateHint(hasText){if(hasText===undefined)hasText=editor&&editor.getPlainText&&editor.getPlainText().trim();document.getElementById('hint').style.display=(strokes.length||hasText||pageMarks().length||noteEd.querySelector('.img-run')||(typeof pics!=='undefined'&&pics.length))?'none':'';}
 function paraStamps(){if(_paraStampCache)return _paraStampCache;const out=[];if(editor&&editor.paraRects){const wr=wrap.getBoundingClientRect(),st=scrollTop();for(const r of editor.paraRects()){if(!r.t||!r.has)continue;const b=r.el.getBoundingClientRect();out.push({t:r.t,y:(b.top-wr.top)+st+Math.min(12,b.height/2),kind:'text'});}}return (_paraStampCache=out);}
 function dayLabel(t){const d=new Date(t),n=new Date();const k=x=>x.getFullYear()+'-'+x.getMonth()+'-'+x.getDate();if(k(d)===k(n))return 'Today';const y=new Date(n);y.setDate(n.getDate()-1);if(k(d)===k(y))return 'Yesterday';return fmtDay(t);}
 // Session stamps: one per burst of work (a gap of GAP_MS or a new day starts a new stamp), for text and ink alike.
@@ -193,7 +195,7 @@ function applyFilter(){if(editor)editor.refresh();redrawInk();}
 function updateFilter(){const fb=document.getElementById('filterbar');if(!fb||!fb.children.length)return;const counts={};let total=0;for(const m of pageMarks())if(searchable(m)){counts[m.type]=(counts[m.type]||0)+1;total++;}const ae=fb.querySelector('[data-c="all"]');if(ae)ae.textContent=total;fb.querySelectorAll('.fcnt').forEach(e=>{if(e.dataset.c!=='all')e.textContent=counts[e.dataset.c]||0;});fb.querySelectorAll('.fchip').forEach(c=>{const t=c.dataset.t;if(t==='all'){c.classList.toggle('on',typeOff.size===0);c.classList.remove('off');}else{const on=typeOn(t);c.classList.toggle('on',on);c.classList.toggle('off',!on);}});}
 function redrawInk(){
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
-  for(const s of strokes)drawStroke(s);drawGutter();if(typeof updateFilter==='function')updateFilter();if(typeof refreshSideLive==='function')refreshSideLive();if(mode==='grab'&&grabSel.size)drawGrabOverlay();
+  for(const s of strokes)drawStroke(s);drawGutter();if(typeof renderPics==='function')renderPics();if(typeof updateFilter==='function')updateFilter();if(typeof refreshSideLive==='function')refreshSideLive();if(mode==='grab'&&grabSel.size)drawGrabOverlay();
   const hasText=editor&&editor.getPlainText&&editor.getPlainText().trim();
   updateHint(hasText);
 }
@@ -206,8 +208,8 @@ function retireStroke(s,t){if(s.id!=null)db.strokes.update(s.id,{del:t||Date.now
 function commitStroke(s){inkRedo=[];_uTokens.push('ink');_rTokens=[];strokes.push(s);persistStroke(s);updatePad();}
 let _uTokens=[],_rTokens=[];
 function onEditStep(){_uTokens.push('text');_rTokens=[];if(typeof schedulePrune==='function')schedulePrune();}
-function hostUndo(){if(!_uTokens.length)return;const tk=_uTokens.pop();_rTokens.push(tk);if(tk==='ink')inkUndo();else if(editor)editor.undo();}
-function hostRedo(){if(!_rTokens.length)return;const tk=_rTokens.pop();_uTokens.push(tk);if(tk==='ink')inkRedoFn();else if(editor)editor.redo();}
+function hostUndo(){if(!_uTokens.length)return;const tk=_uTokens.pop();_rTokens.push(tk);if(tk==='ink')inkUndo();else if(tk==='pic')picUndo();else if(editor)editor.undo();}
+function hostRedo(){if(!_rTokens.length)return;const tk=_rTokens.pop();_uTokens.push(tk);if(tk==='ink')inkRedoFn();else if(tk==='pic')picRedo();else if(editor)editor.redo();}
 function inkUndo(){if(!strokes.length)return;const s=strokes.pop();inkRedo.push(s);retireStroke(s);redrawInk();updatePad();}
 function inkRedoFn(){if(!inkRedo.length)return;const s=inkRedo.pop();s.born=Date.now();strokes.push(s);persistStroke(s);redrawInk();updatePad();}
 
@@ -248,7 +250,8 @@ function distToSeg(px,py,x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1,l2=dx*dx+dy*dy;if(
 function strokeHit(s,px,py){const p=s.pts,U=inkU(s),d=inkDy(s),st=scrollTop(),sl=wrap.scrollLeft;for(let i=0;i<p.length;i++){const w=(p[i].wn||0.005)*U/2+8;const ax=gutter+p[i].xn*U-sl,ay=p[i].yn*U+d-st;if(i===0){if(Math.hypot(ax-px,ay-py)<=w)return true;continue;}const bx=gutter+p[i-1].xn*U-sl,by=p[i-1].yn*U+d-st;if(distToSeg(px,py,bx,by,ax,ay)<=w)return true;}return false;}
 function strokeBBox(s){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const U=inkU(s),d=inkDy(s),st=scrollTop(),sl=wrap.scrollLeft;for(const pt of s.pts){const X=gutter+pt.xn*U-sl,Y=pt.yn*U+d-st;if(X<x0)x0=X;if(X>x1)x1=X;if(Y<y0)y0=Y;if(Y>y1)y1=Y;}return{x0,y0,x1,y1};}
 function drawGrabOverlay(){ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';for(const s of grabSel){const bb=strokeBBox(s);ctx.strokeStyle='#818cf8';ctx.lineWidth=1.2;ctx.setLineDash([4,3]);ctx.strokeRect(bb.x0-3,bb.y0-3,(bb.x1-bb.x0)+6,(bb.y1-bb.y0)+6);}if(grabMode==='box'&&grabBox){const x0=Math.min(grabBox.x0,grabBox.x1),y0=Math.min(grabBox.y0,grabBox.y1),w=Math.abs(grabBox.x1-grabBox.x0),h=Math.abs(grabBox.y1-grabBox.y0);ctx.fillStyle='rgba(129,140,248,.12)';ctx.fillRect(x0,y0,w,h);ctx.strokeStyle='#818cf8';ctx.setLineDash([4,3]);ctx.lineWidth=1.2;ctx.strokeRect(x0,y0,w,h);}ctx.setLineDash([]);ctx.restore();}
-function grabDown(e){if(e.button!==undefined&&e.button!==0)return;e.preventDefault();if(editor&&editor.hasPickedImage())editor.unpickImage();try{cv.setPointerCapture(e.pointerId);}catch(_){}const p=ptFromEvent(e),px=p.cx,py=p.cy;grabActive=true;grabMoved=false;grabStart={px,py};if(grabSel.size){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const s of grabSel){const bb=strokeBBox(s);if(bb.x0<x0)x0=bb.x0;if(bb.y0<y0)y0=bb.y0;if(bb.x1>x1)x1=bb.x1;if(bb.y1>y1)y1=bb.y1;}if(px>=x0-8&&px<=x1+8&&py>=y0-8&&py<=y1+8){grabMode='move';redrawInk();drawGrabOverlay();return;}}let hit=null;for(let i=strokes.length-1;i>=0;i--){if(strokeHit(strokes[i],px,py)){hit=strokes[i];break;}}if(hit){if(!grabSel.has(hit)){if(!e.shiftKey)grabSel.clear();grabSel.add(hit);}grabMode='move';}else{const im=imageAt(e.clientX,e.clientY);if(im){grabActive=false;grabSel.clear();try{cv.releasePointerCapture(e.pointerId);}catch(_){}redrawInk();editor.pickImage(im,e.clientX,e.clientY);return;}   // no ink here, but a picture: pick it (menu + drag)
+function grabDown(e){if(e.button!==undefined&&e.button!==0)return;e.preventDefault();if(editor&&editor.hasPickedImage())editor.unpickImage();try{cv.setPointerCapture(e.pointerId);}catch(_){}const p=ptFromEvent(e),px=p.cx,py=p.cy;grabActive=true;grabMoved=false;grabStart={px,py};if(grabSel.size){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const s of grabSel){const bb=strokeBBox(s);if(bb.x0<x0)x0=bb.x0;if(bb.y0<y0)y0=bb.y0;if(bb.x1>x1)x1=bb.x1;if(bb.y1>y1)y1=bb.y1;}if(px>=x0-8&&px<=x1+8&&py>=y0-8&&py<=y1+8){grabMode='move';redrawInk();drawGrabOverlay();return;}}let hit=null;for(let i=strokes.length-1;i>=0;i--){if(strokeHit(strokes[i],px,py)){hit=strokes[i];break;}}if(hit){if(!grabSel.has(hit)){if(!e.shiftKey)grabSel.clear();grabSel.add(hit);}grabMode='move';}else{const pa=typeof picAt==='function'&&picAt(e.clientX,e.clientY);if(pa){grabActive=false;grabSel.clear();try{cv.releasePointerCapture(e.pointerId);}catch(_){}redrawInk();picStartDrag(pa.p,e,pa.handle);return;}
+    const im=imageAt(e.clientX,e.clientY);if(im){grabActive=false;grabSel.clear();try{cv.releasePointerCapture(e.pointerId);}catch(_){}redrawInk();editor.pickImage(im,e.clientX,e.clientY);return;}   // no ink here, but a picture: pick it (menu + drag)
     if(!e.shiftKey)grabSel.clear();grabMode='box';grabBox={x0:px,y0:py,x1:px,y1:py};}redrawInk();drawGrabOverlay();}
 // the picture under a screen point (the ink layer sits on top of the page, so look underneath it)
 function imageAt(x,y){for(const el of document.elementsFromPoint(x,y)){const w=el.closest&&el.closest('.img-run');if(w&&noteEd.contains(w))return w;}return null;}
@@ -266,6 +269,7 @@ async function switchProject(npid){
   pid=npid;
   const pg=(await db.pages.get(pid))||{};
   strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);inkRedo=[];
+  if(typeof picsLoad==='function')await picsLoad();
   gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   if(editor){editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();}
@@ -284,12 +288,12 @@ async function deleteProject(p){
   const others=projects.filter(x=>x.id!==p.id);
   const snapProj={id:p.id,name:p.name,created:p.created};
   const snapPage=(await db.pages.get(p.id))||null;
-  const snapStrokes=await db.strokes.where('pid').equals(p.id).toArray();
+  const snapStrokes=await db.strokes.where('pid').equals(p.id).toArray();const snapPics=await db.pics.where('pid').equals(p.id).toArray();
   const snapMarks=marks.filter(m=>m.pid===p.id).map(m=>JSON.parse(JSON.stringify(m)));
   const snapHist=await db.snaps.where('pid').equals(p.id).toArray();
   const gone=snapMarks.map(m=>m.id);const qedits=[];
   for(const q of marks)if(q.pid!==p.id&&q.links&&q.links.some(id=>gone.includes(id))){const removed=q.links.filter(id=>gone.includes(id));qedits.push({q,removed});q.links=q.links.filter(id=>!gone.includes(id));saveMark(q);}
-  await db.pages.delete(p.id);await db.strokes.where('pid').equals(p.id).delete();await db.marks.where('pid').equals(p.id).delete();await db.snaps.where('pid').equals(p.id).delete();await db.projects.delete(p.id);
+  await db.pages.delete(p.id);await db.strokes.where('pid').equals(p.id).delete();await db.pics.where('pid').equals(p.id).delete();await db.marks.where('pid').equals(p.id).delete();await db.snaps.where('pid').equals(p.id).delete();await db.projects.delete(p.id);
   marks=marks.filter(m=>m.pid!==p.id);projects=projects.filter(x=>x.id!==p.id);
   if(pid===p.id)await switchProject(others[0].id);
   renderProjects();if(typeof updateBackupLabels==='function')updateBackupLabels();
@@ -298,6 +302,7 @@ async function deleteProject(p){
     for(const m of snapMarks)await db.marks.put(m);
     if(snapHist.length)await db.snaps.bulkPut(snapHist);
     for(const sk of snapStrokes){const c=Object.assign({},sk);delete c.id;c.pid=snapProj.id;await db.strokes.add(c);}
+    for(const pk of snapPics){const c=Object.assign({},pk);delete c.id;c.pid=snapProj.id;await db.pics.add(c);}
     for(const {q,removed} of qedits)for(const id of removed)if(!q.links.includes(id)){q.links.push(id);saveMark(q);}
     projects=await db.projects.toArray();marks=await db.marks.toArray();
     await switchProject(snapProj.id);renderProjects();if(typeof updateBackupLabels==='function')updateBackupLabels();
@@ -621,6 +626,7 @@ addEventListener('DOMContentLoaded',async function(){
   editor=makeEditor('note-ed','note-tb','note-status','note-valign');
   pid=active;const pg=(await db.pages.get(pid))||{};
   strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);
+  if(typeof picsLoad==='function')await picsLoad();
   gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();
@@ -668,7 +674,7 @@ document.getElementById('bk-status').addEventListener('click',()=>backupAll());
 stage.addEventListener('dragover',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')){e.preventDefault();e.dataTransfer.dropEffect='copy';}});
 stage.addEventListener('drop',e=>{const fs=e.dataTransfer&&[...e.dataTransfer.files];if(!fs||!fs.length)return;e.preventDefault();const pe=cv.style.pointerEvents;cv.style.pointerEvents='none';
   const t=editor.dropTarget(e.clientX,e.clientY);   // look up the drop spot now, under the ink layer
-  for(const f of fs){if(/^image\//.test(f.type)){if(mode!=='text')setMode('text');const r=new FileReader();r.onload=()=>editor.insertImageAt(t,r.result);r.readAsDataURL(f);}else if(f.type==='application/pdf'||/\.pdf$/i.test(f.name))importPdf(f);}
+  for(const f of fs){if(/^image\//.test(f.type)){if(mode!=='text')setMode('text');const r=new FileReader(),at={clientX:e.clientX,clientY:e.clientY};r.onload=()=>typeof addFreePicture==='function'?addFreePicture(r.result,at):editor.insertImageAt(t,r.result);r.readAsDataURL(f);}else if(f.type==='application/pdf'||/\.pdf$/i.test(f.name))importPdf(f);}
   setTimeout(()=>{cv.style.pointerEvents=pe;},0);});
 function openMiniMenu(anchor){if(IS_MINI)return;if(!_miniMenu){_miniMenu=document.createElement('div');_miniMenu.className='panel mini-menu';document.body.appendChild(_miniMenu);document.addEventListener('mousedown',e=>{if(_miniMenu.style.display!=='none'&&!_miniMenu.contains(e.target)&&!e.target.closest('#mini-btn'))_miniMenu.style.display='none';});}
   const busy=new Set(editorWindows().map(w=>{try{return w.currentPid();}catch(e){return null;}}));

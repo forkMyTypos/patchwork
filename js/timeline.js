@@ -71,7 +71,7 @@ async function openTimeline(){ensureTimeline();await historyFlush();await savePa
   const need=new Set();TL.snaps.forEach(s=>s.paras.forEach(h=>{if(!TL.paras.has(h))need.add(h);}));
   if(need.size){const ks=[...need];const rows=await db.paras.bulkGet(ks);rows.forEach((r,i)=>{if(r)TL.paras.set(ks[i],r.p);});}
   const imgs=new Set();for(const p of TL.paras.values())p.runs.forEach(r=>{const h=r.type==='image'&&imgHashOf(r.src);if(h)imgs.add(h);});await loadImages([...imgs]);
-  TL.strokes=await db.strokes.where('pid').equals(p0).toArray();
+  TL.strokes=await db.strokes.where('pid').equals(p0).toArray();TL.pics=await db.pics.where('pid').equals(p0).toArray();
   // every moment something changed
   const ev=[];TL.snaps.forEach(s=>ev.push({t:s.t,k:'text',label:(s.sum&&s.sum.label)||'Edited'}));TL.strokes.forEach(s=>{ev.push({t:s.born||s.t,k:'ink',label:s.born?'Moved / restored a drawing':(s.tool==='eraser'?'Erased ink':s.tool==='hl'?'Highlighter stroke':'Drew a stroke')});if(s.del)ev.push({t:s.del,k:'ink',label:'Removed a drawing'});});
   TL.events=ev.sort((a,b)=>a.t-b.t);
@@ -94,7 +94,10 @@ function tlDensity(){const c=TL.dens,x=c.getContext('2d'),w=c.width,h=c.height;i
 function tlSchedule(){cancelAnimationFrame(TL.raf);TL.raf=requestAnimationFrame(()=>tlShow(false));}
 function tlSnapAt(T){let lo=0,hi=TL.snaps.length-1,ans=-1;while(lo<=hi){const m=(lo+hi)>>1;if(TL.snaps[m].t<=T){ans=m;lo=m+1;}else hi=m-1;}return ans;}
 function tlStrokesAt(T){return TL.strokes.filter(s=>(s.born||s.t)<=T&&(!s.del||s.del>T));}
-function tlShow(force){const T=TL.T,si=tlSnapAt(T),vis=tlStrokesAt(T);const key=si+':'+vis.map(s=>s.id).join(',');
+function tlPicsAt(T){return (TL.pics||[]).filter(p=>p.t<=T&&(!p.del||p.del>T));}
+// free pictures in the Timeline: drawn under the ink, where they are now (moves aren't replayed)
+const _tlImg=new Map();function tlPicImg(p){const src=picSrc(p);if(!src)return null;let im=_tlImg.get(src);if(!im){im=new Image();im.onload=()=>tlInk();im.src=src;_tlImg.set(src,im);}return im.complete&&im.naturalWidth?im:null;}
+function tlShow(force){const T=TL.T,si=tlSnapAt(T),vis=tlStrokesAt(T),vp=tlPicsAt(T);const key=si+':'+vis.map(s=>s.id).join(',')+'|'+vp.map(p=>p.id).join(',');
   // readout + thumb
   const f=(T-TL.t0)/Math.max(1,TL.t1-TL.t0);TL.thumb.style.left=(f*100)+'%';TL.fill.style.width=(f*100)+'%';
   const atNow=TL.t1-T<1500;TL.el.querySelector('.tl-big').textContent=atNow?'Now':fmtFull(T);
@@ -103,13 +106,14 @@ function tlShow(force){const T=TL.T,si=tlSnapAt(T),vis=tlStrokesAt(T);const key=
   TL.el.classList.toggle('is-now',atNow);
   if(!force&&key===TL.shownKey){return;}TL.shownKey=key;
   const paras=si>=0?TL.snaps[si].paras.map(h=>TL.paras.get(h)||{align:'left',runs:[{type:'text',text:''}]}):[];
-  editor.renderParas(paras,TL.ed);TL.vis=vis;
+  editor.renderParas(paras,TL.ed);TL.vis=vis;TL.vp=vp;
   const emp=TL.el.querySelector('.tl-empty');emp.style.display=(!paras.some(p=>p.runs.some(r=>r.type==='image'||(r.text&&r.text.trim())))&&!vis.length)?'':'none';emp.textContent=TL.snaps.length<=1&&TL.strokes.length===0?'History starts now — keep working and come back here to travel through it.':'The page was empty at this moment.';
   let mx=0;for(const s of vis)mx=Math.max(mx,s.maxYn*(s.u?PAGE_REF*TL.k:TL.drawW));TL.pad.style.minHeight=Math.ceil(Math.max(TL.ed.scrollHeight+20,mx+TL.H*.5,TL.H))+'px';
   tlInk();}
 function tlInk(){if(!TL||!TL.vis)return;const c=TL.ctx,st=TL.wrap.scrollTop,dW=TL.drawW,g=TL.gutter;c.setTransform(TL.dpr,0,0,TL.dpr,0,0);c.clearRect(0,0,TL.W,TL.H);
   // same placement as the live page: page units for new ink, and anchored ink follows its paragraph in this view
   const tops=new Map(),er=TL.wrap.getBoundingClientRect();TL.ed.querySelectorAll(':scope > .line').forEach(l=>{if(l.dataset.id)tops.set(l.dataset.id,l.getBoundingClientRect().top-er.top+st);});
+  for(const p of TL.vp||[]){const U=PAGE_REF*TL.k,t=p.a?tops.get(p.a.p):null,d=t!=null?t-p.a.top*U:0,im=tlPicImg(p);if(im)c.drawImage(im,g+p.x*U,p.y*U+d-st,p.w*U,p.h*U);}
   for(const s of TL.vis){const U=s.u?PAGE_REF*TL.k:dW,t=s.a?tops.get(s.a.p):null,d=t!=null?t-s.a.top*U:0,X=xn=>g+xn*U,Y=yn=>yn*U+d-st;const top=s.minYn*U+d-st,bot=s.maxYn*U+d-st;if(bot<-14||top>TL.H+14)continue;c.lineCap='round';c.lineJoin='round';
     if(s.tool==='eraser'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';c.fillStyle='#000';c.globalAlpha=1;}else{c.globalCompositeOperation='source-over';c.strokeStyle=s.color;c.fillStyle=s.color;c.globalAlpha=s.tool==='hl'?.30:1;}
     const p=s.pts;if(p.length===1){c.beginPath();c.arc(X(p[0].xn),Y(p[0].yn),Math.max(.5,p[0].wn*U/2),0,7);c.fill();}else for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];c.lineWidth=Math.max(.5,(a.wn+b.wn)/2*U);c.beginPath();c.moveTo(X(a.xn),Y(a.yn));c.lineTo(X(b.xn),Y(b.yn));c.stroke();}}
@@ -127,6 +131,7 @@ async function tlOpenAsNew(){const T=TL.T,si=tlSnapAt(T);const paras=si>=0?TL.sn
   paras.forEach(p=>p.runs.forEach(r=>{if(r.mark)r.mark=null;}));   // highlights belong to the original page
   const name=(projName(TL.pid)+' · '+new Date(T).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})).slice(0,60);
   const np=await db.projects.add({name,created:Date.now()});await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0,ww:TL.ww||undefined});
+  for(const p of tlPicsAt(T)){const c={pid:np,kind:'pic',src:p.src,u:1,x:p.x,y:p.y,w:p.w,h:p.h,minYn:p.minYn,maxYn:p.maxYn,t:p.t};if(p.a)c.a=p.a;await db.pics.add(c);}
   for(const s of tlStrokesAt(T))await db.strokes.add(Object.assign({pid:np,t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn},s.u?{u:1}:{},s.a?{a:s.a}:{}));
   projects=await db.projects.toArray();closeTimeline();await switchProject(np);renderProjects();toast('Opened “'+name+'” — the original is untouched','ok');}
 document.getElementById('timeline-btn').addEventListener('click',()=>{if(tlOpen())closeTimeline();else openTimeline();});

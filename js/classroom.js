@@ -40,6 +40,8 @@ async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Ma
     if(r.mark){const ms=getMarkStyle(r.mark);if(ms){x.mk=String(r.mark);out.marks[x.mk]={c:clsHex(ms.color)||'#818cf8',fx:ms.fx||{}};}}runs.push(x);}
     out.paras.push({a:p.align,r:runs});}
   // sent as seen on this page (relative to its width), whatever units/anchor the stroke is stored in
+  out.pics=[];for(const p of (typeof pics!=='undefined'?pics:[])){const u=await clsImage(p.src);if(!u||u.length>CLS_MAX.img||imgBytes+u.length>CLS_MAX.imgs)continue;imgBytes+=u.length;const U=inkW/drawW,d=inkDy(p)/drawW;
+    out.pics.push({img:u,x:+(p.x*U).toFixed(4),y:+(p.y*U+d).toFixed(4),w:+(p.w*U).toFixed(4),h:+(p.h*U).toFixed(4)});}   // free pictures
   for(const s of strokes){const U=inkU(s)/drawW,d=inkDy(s)/drawW;out.strokes.push({tool:s.tool,color:clsHex(s.color)||'#ece6da',p:s.pts.map(q=>[+(q.xn*U).toFixed(4),+(q.yn*U+d).toFixed(4),+(q.wn*U).toFixed(5)])});}
   return out;}
 async function clsTick(){if(CLS.role!=='teacher'||!CLS.broadcast)return;
@@ -106,6 +108,8 @@ function clsClean(b){const fail=w=>{throw new Error(w);};if(!b||typeof b!=='obje
   for(const s of (Array.isArray(b.strokes)?b.strokes:[]).slice(0,8000)){if(!s||!Array.isArray(s.p)||!['pen','hl','eraser'].includes(s.tool))continue;const pts=[];
     for(const q of s.p.slice(0,5000)){if(!Array.isArray(q)||points>=CLS_MAX.points)break;const x=num(q[0],-0.5,1.5,NaN),y=num(q[1],-1,5000,NaN),w=num(q[2],0,0.2,0.004);if(isNaN(x)||isNaN(y))continue;pts.push({xn:x,yn:y,wn:w});points++;}
     if(pts.length)out.strokes.push({tool:s.tool,color:hex(s.color)||'#ece6da',pts});}
+  out.pics=[];for(const q of (Array.isArray(b.pics)?b.pics:[]).slice(0,60)){if(!q||typeof q.img!=='string'||q.img.length>CLS_MAX.img||imgs+q.img.length>CLS_MAX.imgs||!/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(q.img))continue;
+    const x=num(q.x,-0.5,1.5,NaN),y=num(q.y,-1,5000,NaN),w=num(q.w,0.005,3,NaN),h=num(q.h,0.005,50,NaN);if([x,y,w,h].some(isNaN))continue;imgs+=q.img.length;out.pics.push({src:q.img,x,y,w,h});}
   return out;}
 
 /* ---------- Teaching Mode: two editor spaces side by side, exactly 50:50 ----------
@@ -225,6 +229,7 @@ async function clsSaveCopy(snap,mine,ask){const s=snap||CLS.snap;mine=mine||CLS.
   await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0,ww:s.ww});
   const f=s.ww/PAGE_REF,t=Date.now(),add=async(tool,color,pts)=>{if(!pts.length)return;let lo=Infinity,hi=-Infinity;for(const q of pts){lo=Math.min(lo,q.yn);hi=Math.max(hi,q.yn);}await db.strokes.add({pid:np,kind:'stroke',tool,color,t,pts,minYn:lo,maxYn:hi,u:1});};   // view-relative -> page units (the page's own width)
   for(const k of s.strokes)await add(k.tool,k.color,k.pts.map(q=>({xn:q.xn*f,yn:q.yn*f,wn:q.wn*f})));
+  for(const q of s.pics||[]){const src=await storeDataURL(q.src);await db.pics.add({pid:np,kind:'pic',src,u:1,x:q.x*f,y:q.y*f,w:q.w*f,h:q.h*f,minYn:q.y*f,maxYn:(q.y+q.h)*f,t});}
   const G=24;for(const m of mine)await add('pen',m.color,m.pts.map(([x,y])=>({xn:(x-G)/s.w*f,yn:y/s.w*f,wn:3/s.w*f})));   // your marks, as ink you can edit
   projects=await db.projects.toArray();marks=await db.marks.toArray();syncPing('projects');syncPing('marks');renderProjects();
   if(CLS.role&&CLS.mode==='default')openMiniEditor(np);else if(!projectOpenElsewhere(np))await switchProject(np);
@@ -265,7 +270,9 @@ function clsDrawMine(){const w=CLS.view;if(!w)return;const ink=w.querySelector('
 function clsDrawView(){const w=CLS.view;if(!w)return;const s=CLS.snap,ed=w.querySelector('.cls-ed'),cv=w.querySelector('.cls-ink'),page=w.querySelector('.cls-page');w.querySelector('.cls-wait').style.display=s?'none':'';page.style.display=s?'':'none';if(!s){ed.textContent='';cv.width=cv.width;w.querySelector('.cls-strip-hint').textContent='waiting for your teacher…';return;}
   w.querySelector('.cls-strip-hint').textContent='from your teacher · '+(s.title||'page');const G=24,kt=s.w/s.ww;page.style.width=(s.w+G+12)+'px';ed.style.fontSize=(15*kt)+'px';ed.style.paddingLeft=(G+10*kt)+'px';ed.style.paddingRight=(12+8*kt)+'px';ed.style.paddingTop=(18*kt)+'px';
   editor.renderParas(s.paras,ed,{markStyle:id=>s.marks[id]||null});ed.querySelectorAll('img').forEach(i=>{i.referrerPolicy='no-referrer';});
-  let bottom=ed.offsetHeight;for(const k of s.strokes)for(const q of k.pts)bottom=Math.max(bottom,q.yn*s.w+40);for(const m of CLS.mine||[])for(const q of m.pts)bottom=Math.max(bottom,q[1]+400);const H=Math.min(30000,Math.max(bottom,s.w*1.4));page.style.height=H+'px';
+  let pl=page.querySelector('.cls-pics');if(!pl){pl=document.createElement('div');pl.className='cls-pics';ed.after(pl);}pl.textContent='';
+  for(const q of s.pics||[]){const i=document.createElement('img');i.alt='';i.src=q.src;i.style.cssText='position:absolute;left:'+(G+q.x*s.w)+'px;top:'+(q.y*s.w)+'px;width:'+(q.w*s.w)+'px;height:'+(q.h*s.w)+'px;pointer-events:none;';pl.appendChild(i);}
+  let bottom=ed.offsetHeight;for(const q of s.pics||[])bottom=Math.max(bottom,(q.y+q.h)*s.w+40);for(const k of s.strokes)for(const q of k.pts)bottom=Math.max(bottom,q.yn*s.w+40);for(const m of CLS.mine||[])for(const q of m.pts)bottom=Math.max(bottom,q[1]+400);const H=Math.min(30000,Math.max(bottom,s.w*1.4));page.style.height=H+'px';
   const dpr=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round((s.w+G+12)*dpr);cv.height=Math.round(H*dpr);cv.style.width=(s.w+G+12)+'px';cv.style.height=H+'px';const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,s.w+G+12,H);
   for(const k of s.strokes){c.lineCap='round';c.lineJoin='round';if(k.tool==='eraser'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';c.fillStyle='#000';c.globalAlpha=1;}else{c.globalCompositeOperation='source-over';c.strokeStyle=k.color;c.fillStyle=k.color;c.globalAlpha=k.tool==='hl'?.3:1;}
     const P=k.pts,X=q=>G+q.xn*s.w,Y=q=>q.yn*s.w;if(P.length===1){c.beginPath();c.arc(X(P[0]),Y(P[0]),Math.max(.5,P[0].wn*s.w/2),0,7);c.fill();}else for(let i=1;i<P.length;i++){c.lineWidth=Math.max(.5,(P[i-1].wn+P[i].wn)/2*s.w);c.beginPath();c.moveTo(X(P[i-1]),Y(P[i-1]));c.lineTo(X(P[i]),Y(P[i]));c.stroke();}}

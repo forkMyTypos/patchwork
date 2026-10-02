@@ -11,13 +11,19 @@ async function _impHandwriting(data){if(!Array.isArray(data.handwriting))return;
 async function _impTypes(data){for(const t of (data.htypes||[]))if(t&&t.id&&!HT.has(t.id)){HT.set(t.id,t);await db.htypes.put(t);}for(const p of (data.profiles||[]))if(p&&p.id&&!PROFILES.some(x=>x.id===p.id)){PROFILES.push(p);await db.profiles.put(p);}if(typeof typesChanged==='function')typesChanged();}
 function _mexp(m){return{oid:m.id,type:m.type,fields:m.fields||{},hover:m.hover||'',name:m.name||'',tags:m.tags||[],created:m.created,done:!!m.done,doneAt:m.doneAt||null,links:m.links||[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||''};}
 function _sexp(s){const o={t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn};if(s.u)o.u=1;if(s.a&&typeof s.a.p==='string')o.a={p:s.a.p,top:+s.a.top||0};return o;}
+// free pictures: exported with the picture itself inlined; imported back into this browser's image store
+async function _pexp(p){const o={src:await inlineImagesForExport(p.src),x:p.x,y:p.y,w:p.w,h:p.h,t:p.t};if(p.a&&typeof p.a.p==='string')o.a={p:p.a.p,top:+p.a.top||0};return o;}
+async function _pimp(o,np){if(!o||typeof o!=='object')return;const n=v=>(typeof v==='number'&&isFinite(v))?v:null;const x=n(o.x),y=n(o.y),w=n(o.w),h=n(o.h);if(x==null||y==null||!(w>0&&w<=50)||!(h>0&&h<=200)||x<-5||y<-5)return;
+  let src=typeof o.src==='string'?o.src:'';if(/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(src)&&src.length<=MAX_CARD_FIELD)src=await storeDataURL(src);else if(!/^https:\/\/[^\s"'<>]+$/.test(src))return;
+  const p={pid:np,kind:'pic',src,u:1,x,y,w,h,minYn:y,maxYn:y+h,t:n(o.t)||Date.now()};if(o.a&&typeof o.a.p==='string'&&/^[a-z0-9]{4,24}$/.test(o.a.p)&&isFinite(o.a.top))p.a={p:o.a.p,top:+o.a.top};await db.pics.add(p);}
 function _simp(s){const o={t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn};if(s.u===1)o.u=1;if(s.a&&typeof s.a.p==='string'&&/^[a-z0-9]{4,24}$/.test(s.a.p)&&isFinite(s.a.top))o.a={p:s.a.p,top:+s.a.top};return o;}
 // one project as a backup object (also what a student hands in as a page)
 async function projectExport(id){if(id===pid)await savePageNow();
   const pg=(await db.pages.get(id))||{};
   return{app:'patchwork',type:'patchwork-backup',version:1,scope:'project',exportedAt:new Date().toISOString(),
     project:{name:projName(id)},page:{html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined},
-    marks:marks.filter(m=>m.pid===id).map(_mexp),htypes:_typesFor(marks.filter(m=>m.pid===id)),strokes:(await db.strokes.where('pid').equals(id).toArray()).filter(s=>!s.del).map(_sexp)};}
+    marks:marks.filter(m=>m.pid===id).map(_mexp),htypes:_typesFor(marks.filter(m=>m.pid===id)),strokes:(await db.strokes.where('pid').equals(id).toArray()).filter(s=>!s.del).map(_sexp),
+    pics:await Promise.all((await db.pics.where('pid').equals(id).toArray()).filter(p=>!p.del).map(_pexp))};}
 async function backupProject(){
   const data=await projectExport(pid);
   _download(data,'patchwork-'+_slug(projName(pid))+'-'+_today()+'.json');
@@ -31,6 +37,7 @@ async function backupAll(){
     pages:await Promise.all(pgs.map(async pg=>({poid:pg.pid,html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined}))),
     marks:marks.map(m=>{const oo=_mexp(m);oo.poid=m.pid;return oo;}),
     strokes:allS.map(s=>{const oo=_sexp(s);oo.poid=s.pid;return oo;}),
+    pics:await Promise.all((await db.pics.toArray()).filter(p=>!p.del).map(async p=>{const oo=await _pexp(p);oo.poid=p.pid;return oo;})),
     colors:{favorites:COLOR_FAVORITES,recents:COLOR_RECENTS},htypes:[...HT.values()],profiles:PROFILES,handwriting:(await db.hw.toArray()).map(({id,...r})=>r)};
   _download(data,'patchwork-all-'+_today()+'.json');
   toast('Backed up everything ('+projects.length+' project'+(projects.length!==1?'s':'')+')','ok');db.info.update('info',{lastBackupAt:Date.now()}).then(()=>{if(typeof updateBkStatus==='function')updateBkStatus();}).catch(()=>{});
@@ -58,6 +65,7 @@ async function _impProject(data){
   for(const m of (data.marks||[]))if(m.links&&m.links.length&&map[m.oid]){const mm=m.links.map(x=>map[x]).filter(Boolean);if(mm.length)await db.marks.update(map[m.oid],{links:mm});}
   if(data.page){const h=_remapMarkIds(_sani(data.page.html),map);if(h.length<=MAX_CARD_FIELD)await db.pages.put({pid:np,html:h,scrollYn:data.page.scrollYn||0,gutterW:data.page.gutterW||0,ww:cleanWW(data.page.ww)||undefined});}
   for(const s of (data.strokes||[]))await db.strokes.add({pid:np,..._simp(s)});
+  for(const o of (Array.isArray(data.pics)?data.pics:[]).slice(0,500))await _pimp(o,np);
   return np;
 }
 async function _impAll(data){
@@ -69,6 +77,7 @@ async function _impAll(data){
   for(const m of (data.marks||[]))if(m.links&&m.links.length&&map[m.oid]){const mm=m.links.map(x=>map[x]).filter(Boolean);if(mm.length)await db.marks.update(map[m.oid],{links:mm});}
   for(const pg of (data.pages||[]))if(pmap[pg.poid]!=null){const h=_remapMarkIds(_sani(pg.html),map);if(h.length<=MAX_CARD_FIELD)await db.pages.put({pid:pmap[pg.poid],html:h,scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined});}
   for(const s of (data.strokes||[])){const np=pmap[s.poid];if(np!=null)await db.strokes.add({pid:np,..._simp(s)});}
+  for(const o of (Array.isArray(data.pics)?data.pics:[]).slice(0,5000)){const np=o&&pmap[o.poid];if(np!=null)await _pimp(o,np);}
   if(data.colors){if(Array.isArray(data.colors.favorites))COLOR_FAVORITES=Array.from(new Set([...COLOR_FAVORITES,...data.colors.favorites])).slice(0,18);if(Array.isArray(data.colors.recents))COLOR_RECENTS=(data.colors.recents||COLOR_RECENTS).slice(0,8);DB_saveColors();}
   return Object.values(pmap)[0];
 }

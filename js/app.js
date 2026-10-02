@@ -216,7 +216,12 @@ cv.addEventListener('pointermove',e=>{if(mode==='grab'){grabMove(e);return;}if(!
 function endStroke(){if(!active)return;const s=active;active=null;drawing=false;s.pid=pid;addViewStroke(s);redrawInk();}
 cv.addEventListener('pointerup',e=>{if(mode==='grab'){grabUp(e);return;}if(drawing)endStroke();});
 cv.addEventListener('pointercancel',e=>{if(mode==='grab'){grabUp(e);return;}if(drawing)endStroke();});
-cv.addEventListener('wheel',e=>{if(isDraw(mode)){e.preventDefault();wrap.scrollTop+=e.deltaY;}},{passive:false});
+cv.addEventListener('wheel',e=>{if(isDraw(mode)||mode==='hand'){e.preventDefault();wrap.scrollTop+=e.deltaY;wrap.scrollLeft+=e.deltaX;}},{passive:false});
+// hand tool: drag the page around (for a page wider or taller than the window, with a mouse)
+let _pan=null;
+cv.addEventListener('pointerdown',e=>{if(mode!=='hand'||(e.button!==undefined&&e.button!==0))return;e.preventDefault();cv.setPointerCapture(e.pointerId);_pan={x:e.clientX,y:e.clientY,l:wrap.scrollLeft,t:wrap.scrollTop};cv.classList.add('panning');});
+cv.addEventListener('pointermove',e=>{if(!_pan)return;wrap.scrollLeft=_pan.l-(e.clientX-_pan.x);wrap.scrollTop=_pan.t-(e.clientY-_pan.y);});
+const _panEnd=()=>{if(!_pan)return;_pan=null;cv.classList.remove('panning');saveMeta();};cv.addEventListener('pointerup',_panEnd);cv.addEventListener('pointercancel',_panEnd);
 wrap.addEventListener('scroll',()=>{redrawInk();hideTagbar();saveMeta();},{passive:true});
 
 /* marks CRUD */
@@ -533,7 +538,7 @@ document.getElementById('gut-add').addEventListener('click',()=>{const bottom=co
 (function(){const grip=document.getElementById('gut-grip');let on=false;grip.addEventListener('pointerdown',e=>{on=true;grip.setPointerCapture(e.pointerId);e.preventDefault();});grip.addEventListener('pointermove',e=>{if(!on)return;const r=stage.getBoundingClientRect();gutterW=Math.max(40,Math.min(340,e.clientX-r.left));layout();});const end=()=>{if(on){on=false;saveMeta();}};grip.addEventListener('pointerup',end);grip.addEventListener('pointercancel',end);})();
 
 /* modes */
-function setMode(m){mode=m;document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg');hideTagbar();if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>noteEd.focus());}else if(m==='hand'){tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='none';noteEd.blur();}else{tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}const _gb=document.getElementById('ink-grab');if(_gb)_gb.classList.toggle('on',m==='grab');if(m!=='grab')grabSel.clear();}
+function setMode(m){mode=m;document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg');hideTagbar();if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>noteEd.focus());}else if(m==='hand'){tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='auto';noteEd.blur();}else{tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}cv.classList.toggle('pan',m==='hand');const _gb=document.getElementById('ink-grab');if(_gb)_gb.classList.toggle('on',m==='grab');if(m!=='grab')grabSel.clear();}
 document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 
 /* ink controls */
@@ -581,7 +586,7 @@ if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INP
   if(document.activeElement===noteEd)return;
   if((e.ctrlKey||e.metaKey)&&!e.altKey){const k=e.key.toLowerCase();if(k==='z'&&!e.shiftKey){e.preventDefault();hostUndo();return;}if((k==='z'&&e.shiftKey)||k==='y'){e.preventDefault();hostRedo();return;}}
   if(e.ctrlKey||e.metaKey||e.altKey)return;if(tag==='INPUT'||tag==='TEXTAREA')return;
-  const mm={t:'text',p:'pen'}[e.key.toLowerCase()];if(mm)setMode(mm);
+  const mm={t:'text',p:'pen',h:'hand'}[e.key.toLowerCase()];if(mm)setMode(mm);
 });
 addEventListener('resize',()=>{const yn=scrollTop()/drawW;layout();wrap.scrollTop=yn*drawW;redrawInk();});
 

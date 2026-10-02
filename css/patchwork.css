@@ -42,6 +42,7 @@ button{font-family:inherit;}
 #wrap::-webkit-scrollbar-track{background:transparent;}
 #pad{position:relative;min-height:100%;}
 #ink{position:absolute;inset:0;display:block;z-index:5;pointer-events:none;touch-action:none;}
+#ink.pan{cursor:grab;}#ink.pan.panning{cursor:grabbing;}
 
 /* ===== rich text editor (module) ===== */
 .toolbar{display:flex;align-items:center;gap:3px;flex-wrap:nowrap;}

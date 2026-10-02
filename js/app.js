@@ -681,6 +681,19 @@ stage.addEventListener('drop',e=>{const fs=e.dataTransfer&&[...e.dataTransfer.fi
   const t=editor.dropTarget(e.clientX,e.clientY);   // look up the drop spot now, under the ink layer
   for(const f of fs){if(/^image\//.test(f.type)){if(mode!=='text')setMode('text');const r=new FileReader(),at={clientX:e.clientX,clientY:e.clientY};r.onload=()=>typeof addFreePicture==='function'?addFreePicture(r.result,at):editor.insertImageAt(t,r.result);r.readAsDataURL(f);}else if(f.type==='application/pdf'||/\.pdf$/i.test(f.name))importPdf(f);}
   setTimeout(()=>{cv.style.pointerEvents=pe;},0);});
+/* print / save as PDF (browser print, also Ctrl+P): the whole page, its ink and pictures, dark on white, fitted to the paper
+   width. The on-screen ink canvas only covers the window, so a full-height copy of the ink is drawn just for printing. */
+let _printCv=null,_printLight=false;
+addEventListener('beforeprint',()=>{if(!editor||_printCv)return;const w=pad.offsetWidth,h=Math.min(30000,pad.scrollHeight),k=Math.max(.5,Math.min(1.5,4e7/(w*h)));
+  const c=document.createElement('canvas');c.id='print-ink';c.width=Math.round(w*k);c.height=Math.round(h*k);c.style.width=w+'px';c.style.height=h+'px';const x=c.getContext('2d');x.setTransform(k,0,0,k,0,0);
+  for(const s of strokes){const U=inkU(s),d=inkDy(s),X=q=>gutter+q.xn*U,Y=q=>q.yn*U+d;x.lineCap='round';x.lineJoin='round';
+    if(s.tool==='eraser'){x.globalCompositeOperation='destination-out';x.strokeStyle=x.fillStyle='#000';x.globalAlpha=1;}else{x.globalCompositeOperation='source-over';x.strokeStyle=x.fillStyle=s.color;x.globalAlpha=s.tool==='hl'?.30:1;}
+    const P=s.pts;if(P.length===1){x.beginPath();x.arc(X(P[0]),Y(P[0]),Math.max(.5,P[0].wn*U/2),0,7);x.fill();}else for(let i=1;i<P.length;i++){x.lineWidth=Math.max(.5,(P[i-1].wn+P[i].wn)/2*U);x.beginPath();x.moveTo(X(P[i-1]),Y(P[i-1]));x.lineTo(X(P[i]),Y(P[i]));x.stroke();}}
+  pad.appendChild(c);_printCv=c;const pw=w-gutter,land=pw>760,st=document.createElement('style');st.id='print-page';st.textContent='@page{size:'+(land?'landscape':'portrait')+';margin:10mm;}';document.head.appendChild(st);
+  const R=document.documentElement.style;R.setProperty('--print-zoom',String(Math.min(1,(land?1020:720)/pw)));R.setProperty('--print-gutter',gutter+'px');   // wide pages print landscape; the margin is left out
+  _printLight=!document.documentElement.classList.contains('light');if(_printLight)document.documentElement.classList.add('light');document.documentElement.classList.add('printing');});
+addEventListener('afterprint',()=>{if(_printCv){_printCv.remove();_printCv=null;}const ps=document.getElementById('print-page');if(ps)ps.remove();if(_printLight)document.documentElement.classList.remove('light');_printLight=false;document.documentElement.classList.remove('printing');});
+function printPage(){window.print();}
 function openMiniMenu(anchor){if(IS_MINI)return;if(!_miniMenu){_miniMenu=document.createElement('div');_miniMenu.className='panel mini-menu';document.body.appendChild(_miniMenu);document.addEventListener('mousedown',e=>{if(_miniMenu.style.display!=='none'&&!_miniMenu.contains(e.target)&&!e.target.closest('#mini-btn'))_miniMenu.style.display='none';});}
   const busy=new Set(editorWindows().map(w=>{try{return w.currentPid();}catch(e){return null;}}));
   _miniMenu.innerHTML='<div class="panel-h"><div class="panel-t">Open beside this page</div></div><div class="panel-b"><div class="mini-list"></div><div class="proj-new"><input class="pf-in" placeholder="New project\u2026" maxlength="60"><button title="Create">+</button></div></div>';

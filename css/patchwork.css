@@ -590,3 +590,17 @@ body.pic-through #pics,body.pic-through #pics *{pointer-events:none!important;}
 .mm-bgrow{flex-wrap:wrap;gap:8px;cursor:default;}.mm-bgs{display:flex;gap:4px;}
 .mm-bg{height:26px;padding:0 9px;border-radius:6px;border:1px solid #2a2a3a;background:#15151f;color:#b8b8cc;font-size:11.5px;cursor:pointer;}
 .mm-bg.on{border-color:#5a4a2b;color:#fbbf24;background:#1f1a10;}
+
+/* print / save as PDF: just the page (see beforeprint in app.js) */
+#print-ink{position:absolute;left:0;top:0;z-index:3;pointer-events:none;display:none;}
+@media print{
+  html,body{height:auto!important;overflow:visible!important;}
+  body{display:block!important;}
+  #bar1,#bar2,#side,#side-scrim,#gut,#ink,#hint,.toast,#toast,.panel,.img-pop,.pic-menu,.mini-win,#main-menu,.cls-modal,.cls-pane,.cls-strip,#class-chip,.ctx-menu,.color-pop,.ins-pop,#tagbar,.tagbar{display:none!important;}
+  html.printing body,html.printing #stage,html.printing #wrap{background:#000!important;background-image:none!important;}   /* black here = white on paper (light mode inverts) */
+  #stage{position:static!important;}#wrap{position:relative!important;z-index:0;overflow:visible!important;height:auto!important;inset:auto!important;}
+  #pad{zoom:var(--print-zoom,1);min-height:0!important;margin-left:calc(-1 * var(--print-gutter,0px));}
+  .editor{padding-bottom:0!important;min-height:0!important;caret-color:transparent!important;}
+  #print-ink{display:block;}
+  .pic.on{outline:none!important;}.pic-h{display:none!important;}.img-run.img-selected img{outline:none!important;}
+}

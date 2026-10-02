@@ -4,12 +4,14 @@ let menuEl=null;
 function ensureMenu(){if(menuEl)return menuEl;menuEl=document.createElement('div');menuEl.id='main-menu';
   menuEl.innerHTML='<div class="mm-scrim"></div><aside class="mm-panel"><div class="panel-h"><div class="panel-t">Patchwork</div><button class="panel-x" title="Close (Esc)">×</button></div>'+
     '<div class="mm-items"><label class="mm-item"><span>Light mode</span><input type="checkbox" class="pf-cb mm-light"></label>'+
+    '<button class="mm-item mm-print">Print / Save as PDF<span class="hw-hint">Ctrl+P</span></button>'+
     '<div class="mm-item mm-bgrow"><span>Page background</span><span class="mm-bgs">'+[['','Plain'],['lined','Lined'],['grid','Grid'],['dots','Dots']].map(([v,l])=>'<button class="mm-bg" data-bg="'+v+'">'+l+'</button>').join('')+'</span></div>'+(IS_MINI?'':'<button class="mm-item mm-class">Classroom<span class="hw-hint">optional</span></button><button class="mm-item mm-ai">AI board link<span class="hw-hint">experimental</span></button>')+'</div>'+
     '<div class="mm-bottom"><button class="mm-item mm-about">About &amp; legal</button></div></aside>';
   document.body.appendChild(menuEl);
   const close=()=>menuEl.classList.remove('open');menuEl.querySelector('.mm-scrim').onclick=close;menuEl.querySelector('.panel-x').onclick=close;
   const lt=menuEl.querySelector('.mm-light');lt.checked=document.documentElement.classList.contains('light');lt.onchange=()=>setTheme(lt.checked?'light':'dark');
   menuEl.querySelector('.mm-about').onclick=()=>{close();openAbout();};
+  menuEl.querySelector('.mm-print').onclick=()=>{close();setTimeout(printPage,150);};
   menuEl.querySelectorAll('.mm-bg').forEach(b=>b.onclick=()=>{setPageBg(b.dataset.bg);menuBgSync();});
   const mc=menuEl.querySelector('.mm-class');if(mc)mc.onclick=()=>{close();openClassroom();};
   const ma=menuEl.querySelector('.mm-ai');if(ma)ma.onclick=()=>{close();openAiLink();};

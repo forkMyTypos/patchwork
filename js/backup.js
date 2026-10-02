@@ -37,6 +37,7 @@ async function backupAll(){
 }
 function _sani(h){try{return DOMPurify.sanitize(String(h||''));}catch(e){return '';}}
 async function importFile(file,opt){
+  if(/\.pdf$/i.test(file.name||'')||file.type==='application/pdf')return importPdf(file,opt);
   let data;try{data=JSON.parse(await file.text());}catch(e){toast('Not a valid backup file','err');return;}
   if(!data||data.type!=='patchwork-backup'){toast('That\u2019s not a Patchwork backup','err');return;}
   try{
@@ -73,3 +74,24 @@ async function _impAll(data){
 }
 function updateBackupLabels(){const a=document.getElementById('bk-proj');if(a)a.textContent='\u2913 this project ('+projName(pid)+')';const e=document.getElementById('bk-all');if(e)e.textContent='\u2913 everything ('+projects.length+' project'+(projects.length!==1?'s':'')+')';}
 document.getElementById('proj-btn').addEventListener('click',()=>setTimeout(updateBackupLabels,0));
+
+// A PDF becomes a new private page: each PDF page is an image you can write beside and draw on. pdf.js (js/vendor/pdfjs,
+// Apache-2.0) is loaded only when a PDF is imported and runs in this browser; nothing is uploaded.
+const PDF_MAX={bytes:60e6,pages:150,px:1600};
+async function importPdf(file,opt){opt=opt||{};
+  if(file.size>PDF_MAX.bytes){toast('That PDF is too big (60 MB max)','err');return null;}
+  let lib;try{const base=new URL('js/vendor/pdfjs/',document.baseURI);lib=await import(new URL('pdf.min.mjs',base).href);lib.GlobalWorkerOptions.workerSrc=new URL('pdf.worker.min.mjs',base).href;}catch(e){toast('Couldn\u2019t load the PDF reader','err');return null;}
+  let pdf;try{pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,enableXfa:false}).promise;}catch(e){toast(e&&e.name==='PasswordException'?'That PDF is password-protected':'Not a readable PDF','err');return null;}
+  const n=Math.min(pdf.numPages,PDF_MAX.pages),paras=[];
+  try{for(let i=1;i<=n;i++){toast('Importing PDF page '+i+' of '+n+'\u2026','info');const pg=await pdf.getPage(i),v1=pg.getViewport({scale:1}),vp=pg.getViewport({scale:Math.min(4,PDF_MAX.px/v1.width)});
+    const c=document.createElement('canvas');c.width=Math.round(vp.width);c.height=Math.round(vp.height);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
+    await pg.render({canvasContext:x,viewport:vp}).promise;const src=await storeDataURL(c.toDataURL('image/jpeg',0.88));pg.cleanup();
+    paras.push({align:'left',runs:[{type:'image',src,width:100,bg:null}]},{align:'left',runs:[{type:'text',text:''}]});}}
+  catch(e){toast('Couldn\u2019t read page '+(paras.length/2+1)+' of the PDF','err');}finally{pdf.destroy();}
+  if(!paras.length)return null;
+  const name=(opt.name||(file.name||'PDF').replace(/\.pdf$/i,'')).slice(0,60);
+  const np=await db.projects.add({name,created:Date.now(),folder:opt.noSwitch?null:(curFolder||null)});
+  await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0,ww:wsW()});
+  projects=await db.projects.toArray();syncPing('projects');
+  if(!opt.noSwitch)await switchProject(np);renderProjects();
+  toast('Imported \u201c'+name+'\u201d: '+n+' page'+(n>1?'s':'')+(pdf.numPages>n?' (the first '+n+' of '+pdf.numPages+')':''),'ok');return np;}

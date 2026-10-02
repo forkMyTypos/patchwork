@@ -45,7 +45,7 @@
 ## Files (classic scripts sharing globals; load order in index.html matters)
 
 - `css/patchwork.css` - all page styles
-- `js/vendor/` - DOMPurify, Dexie (kept local for offline use)
+- `js/vendor/` - DOMPurify, Dexie, `pdfjs/` (pdf.js legacy build, Apache-2.0; loaded only on PDF import) - all local for offline use
 - `js/editor.js` - rich-text editor (`makeEditor`) and the draw-an-image modal
 - `js/app.js` - database schema, projects, page, ink, marks, margin, panels, keyboard, boot (on DOMContentLoaded)
 - `js/images.js` - image store (pw-img:<hash> blobs)
@@ -53,7 +53,7 @@
 - `js/explorer.js` - highlight Explorer
 - `js/timeline.js` - history snapshots + Timeline view
 - `js/handwriting-core.js`, `js/handwriting.js` - recogniser core; language modules + Handwriting Lab
-- `js/backup.js`, `js/about.js`, `js/menu.js` - backup/import; About panel; main menu (logo) + light mode
+- `js/backup.js`, `js/about.js`, `js/menu.js` - backup/import (JSON backups; PDFs -> a new private page of page images, `importPdf`); About panel; main menu (logo) + light mode
 - `js/classroom.js` - optional classroom: teacher broadcast, read-only Teacher View window for students
 - `js/ai-board.js` - experimental AI board link: receives the 4 commands, creates highlights (addMark) / doodles (commitStroke)
 - `relay/` - classroom relay: `relay-core.mjs` (logic), `ai-board.mjs` (AI board link), `worker.mjs` + `wrangler.toml` (Cloudflare), `schema.sql` (D1 log), `dev-server.mjs` (local, needs `ws`); setup in `relay/README.md`

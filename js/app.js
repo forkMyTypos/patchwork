@@ -172,7 +172,7 @@ function drawGutter(){
 // pages: one page = one screen height of this window; faint breaks + a Page n / N readout
 function drawPages(){if(!H)return;const st=scrollTop(),total=Math.max(1,Math.ceil((contentBottomPx()+1)/H)),cur=Math.min(total,Math.floor((st+H*0.5)/H)+1);
   ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';for(let k=1;k<total+1;k++){const y=k*H-st;if(y<-2||y>H+2)continue;ctx.strokeStyle='rgba(255,255,255,.09)';ctx.setLineDash([6,6]);ctx.beginPath();ctx.moveTo(gutter,y+.5);ctx.lineTo(W,y+.5);ctx.stroke();ctx.setLineDash([]);ctx.font='600 9px Arial';ctx.fillStyle='#5a5a72';ctx.textAlign='right';ctx.fillText('PAGE '+(k+1),W-18,y+12);}ctx.restore();
-  const pi=document.getElementById('page-ind');if(pi)pi.textContent='Page '+cur+' / '+total;}
+  const pi=document.getElementById('page-ind');if(pi)pi.textContent=cur+' / '+total;}
 function buildFilterBar(){const fb=document.getElementById('filterbar');if(!fb)return;fb.innerHTML='';
   const mk=(t,label)=>{const c=document.createElement('div');c.className='fchip';c.dataset.t=t;c.setAttribute('role','button');
     c.innerHTML=(t==='all'?'':'<span class="fdot" style="background:'+mtype(t).c+'"></span>')+'<span class="flabel">'+label+'</span><span class="fcnt" data-c="'+t+'">0</span>'+(t==='all'?'':'<span class="fcaret">\u203a</span>');
@@ -626,6 +626,7 @@ addEventListener('DOMContentLoaded',async function(){
   }
   marks=await db.marks.toArray();
   updateBkStatus();setInterval(updateBkStatus,10*60e3);
+  setTimeout(maybeWelcome,800);
   const meta=await db.meta.get('meta');
   let active=(meta&&meta.activePid&&projects.find(p=>p.id===meta.activePid))?meta.activePid:projects[0].id;
   if(IS_MINI){const q=+new URLSearchParams(location.search).get('pid');if(projects.find(p=>p.id===q))active=q;}
@@ -718,6 +719,24 @@ function openFindReplace(){if(!editor)return;if(!frPanel){frPanel=document.creat
     frPanel.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();close();}});}
   frPanel.style.display='flex';const s=editor.selText&&editor.selText();if(s&&s.length<80&&!/\n/.test(s))frPanel.querySelector('.fr-q').value=s;const qi=frPanel.querySelector('.fr-q');qi.focus();qi.select();frRun(false);}
 addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='h'){e.preventDefault();openFindReplace();}},true);
+// Highlights menu (Explore / Factory)
+let _hlMenu=null;document.getElementById('hl-btn').addEventListener('click',e=>{e.stopPropagation();if(!_hlMenu){_hlMenu=document.createElement('div');_hlMenu.className='color-pop hl-pop';document.body.appendChild(_hlMenu);
+    _hlMenu.innerHTML='<button class="cp-row" data-k="explore"><span>Explore highlights</span><span class="hw-hint" style="margin-left:auto">Ctrl+Shift+F</span></button><button class="cp-row" data-k="factory"><span>Highlight Factory \u2014 make your own types</span></button>';
+    _hlMenu.querySelectorAll('.cp-row').forEach(b=>b.onclick=()=>{_hlMenu.classList.remove('open');document.getElementById(b.dataset.k==='explore'?'explore-btn':'factory-btn').click();});
+    document.addEventListener('mousedown',ev=>{if(!_hlMenu.contains(ev.target)&&!ev.target.closest('#hl-btn'))_hlMenu.classList.remove('open');});}
+  const r=e.currentTarget.getBoundingClientRect();_hlMenu.style.left=r.left+'px';_hlMenu.style.top=(r.bottom+6)+'px';_hlMenu.classList.toggle('open');});
+document.getElementById('class-btn').addEventListener('click',()=>openClassroom());
+/* keyboard shortcuts (press ? or main menu) */
+const SHORTCUTS=[['Tools',[['T','Write and format'],['P','Pen'],['G','Select & move (ink and pictures)'],['H','Hand: drag the page'],['Shift + draw','Straight line'],['Del','Delete the selected ink or picture']]],
+  ['Editing',[['Ctrl+Z / Ctrl+Shift+Z','Undo / redo'],['- or * then space','Bullet list'],['1. then space','Numbered list'],['# / ## / ### then space','Heading 1 / 2 / 3'],['Tab / Shift+Tab','Indent a list item'],['Ctrl+click','Open a link']]],
+  ['Find & more',[['Ctrl+F','Find words (browser)'],['Ctrl+H','Find & replace'],['Ctrl+Shift+F','Explore highlights'],['Ctrl+Shift+H','Timeline'],['Ctrl+P','Print / Save as PDF'],['?','This list']]]];
+function openShortcuts(){clsAsk('Keyboard shortcuts','<div class="sc-grid">'+SHORTCUTS.map(([g,rows])=>'<div class="sc-g"><div class="sc-h">'+g+'</div>'+rows.map(([k,d])=>'<div class="sc-r"><kbd>'+esc(k)+'</kbd><span>'+esc(d)+'</span></div>').join('')+'</div>').join('')+'</div>',[['','Close','pbtn']]);}
+addEventListener('keydown',e=>{if(e.key!=='?'||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable)return;e.preventDefault();openShortcuts();});
+/* first run: a short welcome (only on a fresh, empty Patchwork) */
+async function maybeWelcome(){if(IS_MINI||navigator.webdriver)return;   // (not in automated test browsers)
+  try{const i=await db.info.get('info');if(i&&i.welcomed)return;await db.info.update('info',{welcomed:Date.now()});
+  if(projects.length>1||marks.length||strokes.length||(editor&&editor.getPlainText().trim()))return;
+  clsAsk('Welcome to Patchwork','<ol class="wl"><li><b>Type</b> anywhere on the page (T), or <b>draw</b> with the pen (P). Both stay together on one page.</li><li><b>Highlight</b>: select some text and pick a type (Question, Note, Task\u2026). They show in the margin and in Explore.</li><li><b>Pictures</b>: paste, drop or + Insert them, then drag them anywhere.</li><li>Everything stays <b>in this browser</b>. The chip at the top shows your last backup: click it, or switch on automatic backup under Projects.</li></ol><p class="hw-hint">Press <b>?</b> any time for keyboard shortcuts.</p>',[['','Start writing','fx-primary']]);}catch(e){}}
 function openMiniMenu(anchor){if(IS_MINI)return;if(!_miniMenu){_miniMenu=document.createElement('div');_miniMenu.className='panel mini-menu';document.body.appendChild(_miniMenu);document.addEventListener('mousedown',e=>{if(_miniMenu.style.display!=='none'&&!_miniMenu.contains(e.target)&&!e.target.closest('#mini-btn'))_miniMenu.style.display='none';});}
   const busy=new Set(editorWindows().map(w=>{try{return w.currentPid();}catch(e){return null;}}));
   _miniMenu.innerHTML='<div class="panel-h"><div class="panel-t">Open beside this page</div></div><div class="panel-b"><div class="mini-list"></div><div class="proj-new"><input class="pf-in" placeholder="New project\u2026" maxlength="60"><button title="Create">+</button></div></div>';

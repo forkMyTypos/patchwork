@@ -29,6 +29,10 @@
   units (`u:1`) and paragraph-anchored like strokes (`kind:'pic'`, so `reanchor` writes db.pics). Pasted / dropped / inserted pictures
   are free by default; PDF pages stay in-line. Undo token 'pic' in hostUndo. They travel with backups (`pics`, image inlined),
   Timeline, class snapshots (`pics`, validated in clsClean, same image caps), class copies and hand-ins. No text wrap around them.
+- Paragraph styles: `ls` ('ul'|'ol'), `lv` (indent 0-4), `hd` (1-3) on paragraphs (saved as data-ls/lv/hd; copy paragraphs with
+  `pcopy`, which keeps ids). Runs may carry `link` (only http(s)/mailto, checked by `safeLink`). Page background `bg` and width `ww`
+  live on the page record. Print = browser print with a full-height ink copy (beforeprint in app.js). Auto-backup keeps a folder
+  handle in db.info (`bkDir`, Chrome/Edge). Welcome dialog shows once on a fresh install (never in automated test browsers).
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.

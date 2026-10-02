@@ -93,7 +93,10 @@ body.gut-min #bar2 #gut-tools{display:none;}
 .editor-valign-wrap{position:static;display:block;overflow:visible;}
 .editor{outline:none;font-size:15px;line-height:1.75;color:#e0e0e0;cursor:text;caret-color:#e0e0e0;padding:18px 20px 45vh 70px;min-height:60vh;}
 .editor .line{min-height:1.75em;white-space:pre-wrap;word-break:break-word;}
-.img-run{display:inline-block;vertical-align:middle;position:relative;}
+.img-run{display:inline-block;vertical-align:middle;position:relative;cursor:default;}.img-run img{-webkit-user-drag:none;user-select:none;}
+.img-resize-group.img-pop{position:fixed;z-index:70;box-shadow:0 6px 18px rgba(0,0,0,.45);}
+.img-drop{position:fixed;width:3px;background:#4caf50;border-radius:2px;z-index:70;pointer-events:none;display:none;box-shadow:0 0 6px #4caf50;}
+body.img-dragging,body.img-dragging *{cursor:default!important;}
 .img-run.img-selected img{outline:2px solid #4caf50;border-radius:2px;}
 .status{display:none;}
 

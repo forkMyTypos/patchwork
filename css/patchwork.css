@@ -92,7 +92,7 @@ button{font-family:inherit;}
 .img-run{display:inline-block;vertical-align:middle;position:relative;cursor:default;}.img-run img{-webkit-user-drag:none;user-select:none;}
 .img-resize-group.img-pop{position:fixed;z-index:70;box-shadow:0 6px 18px rgba(0,0,0,.45);}
 .img-drop{position:fixed;width:3px;background:#4caf50;border-radius:2px;z-index:70;pointer-events:none;display:none;box-shadow:0 0 6px #4caf50;}
-body.img-dragging,body.img-dragging *{cursor:default!important;}
+body.img-dragging,body.img-dragging *{cursor:default!important;}body.img-dragging #ink{pointer-events:none!important;}   /* the drop spot is looked up under the ink layer */
 .img-run.img-selected img{outline:2px solid #4caf50;border-radius:2px;}
 .status{display:none;}
 

@@ -226,15 +226,18 @@ function makeEditor(edId,tbId,statusId,valignId){
     ed.addEventListener("keydown",e=>{if(/^Arrow|^Escape$/.test(e.key)&&pickedImg()){unpickImg();updateTb();}if((e.ctrlKey||e.metaKey)&&!e.altKey){const k=e.key.toLowerCase();if(k==="z"&&!e.shiftKey){e.preventDefault();e.stopPropagation();(typeof hostUndo==="function"?hostUndo:undo)();}else if((k==="z"&&e.shiftKey)||k==="y"){e.preventDefault();e.stopPropagation();(typeof hostRedo==="function"?hostRedo:redo)();}}});
     document.addEventListener("selectionchange",()=>{if(!busy&&!pickerOpen&&document.activeElement===ed)onSC();});
     // drag a picture to another place in the text: a green bar shows where it will land
-    let imgDrag=null,dropBar=null;
     ed.addEventListener("pointerdown",e=>{const w=e.target.closest("[data-img-run]");if(!w||e.button!==0||busy)return;imgDrag={w,x:e.clientX,y:e.clientY,on:false};});
     ed.addEventListener("selectstart",e=>{if(imgDrag)e.preventDefault();});
     document.addEventListener("pointermove",e=>{if(!imgDrag)return;if(!imgDrag.on){if(Math.hypot(e.clientX-imgDrag.x,e.clientY-imgDrag.y)<6)return;imgDrag.on=true;document.body.classList.add("img-dragging");}
       const t=dropAt(e.clientX,e.clientY);if(!dropBar){dropBar=document.createElement("div");dropBar.className="img-drop";document.body.appendChild(dropBar);}
       if(!t||!t.r){dropBar.style.display="none";return;}dropBar.style.display="block";dropBar.style.left=(t.r.left-1)+"px";dropBar.style.top=t.r.top+"px";dropBar.style.height=Math.max(14,t.r.height)+"px";});
-    document.addEventListener("pointerup",e=>{if(!imgDrag)return;const d=imgDrag;imgDrag=null;document.body.classList.remove("img-dragging");if(dropBar)dropBar.style.display="none";if(!d.on)return;const t=dropAt(e.clientX,e.clientY);if(t)moveImg(d.w,t);});
+    document.addEventListener("pointerup",e=>{if(!imgDrag)return;const d=imgDrag;imgDrag=null;const t=d.on?dropAt(e.clientX,e.clientY):null;document.body.classList.remove("img-dragging");if(dropBar)dropBar.style.display="none";if(t)moveImg(d.w,t);});
   }
+  let imgDrag=null,dropBar=null;   // a picture being dragged to a new place in the text
   function pickedImg(){const w=ed.querySelector(".img-run.img-selected");if(!w)return null;const p=+w.dataset.imgP,ri=+w.dataset.imgRi;if(!doc[p]||!doc[p].runs[ri]||doc[p].runs[ri].type!=="image")return null;let acc=0;for(let i=0;i<ri;i++)acc+=rlen(doc[p].runs[i]);return{p,ri,acc,w};}
+  // the Select & move tool picks a picture from outside the editor: outline it, show its menu, and let this press drag it
+  function pickImage(w,x,y){if(!w||!ed.contains(w))return;unpickImg();w.classList.add("img-selected");const p=+w.dataset.imgP,ri=+w.dataset.imgRi;selectedImage={p,runIndex:ri};updateTb();if(x!=null)imgDrag={w,x,y,on:false};}
+  function deletePicked(){const pk=pickedImg();if(!pk)return false;unpickImg();pushUndo("del");sel={sp:pk.p,so:pk.acc,ep:pk.p,eo:pk.acc+1};delSel();commit();updateTb();return true;}
   function unpickImg(){ed.querySelectorAll(".img-run.img-selected").forEach(el=>el.classList.remove("img-selected"));selectedImage=null;}
   // the text position under a screen point -> {p,o,r} (r = where to draw the drop bar)
   function dropAt(x,y){let n,o;if(document.caretRangeFromPoint){const q=document.caretRangeFromPoint(x,y);if(!q)return null;n=q.startContainer;o=q.startOffset;}else if(document.caretPositionFromPoint){const q=document.caretPositionFromPoint(x,y);if(!q)return null;n=q.offsetNode;o=q.offset;}else return null;
@@ -248,7 +251,7 @@ function makeEditor(edId,tbId,statusId,valignId){
     const T=doc[tp];if(!T.t)T.t=Date.now();T.runs=mergeRuns([...rfr(T,0,to),run,...rfr(T,to,plen(T))]);
     let a=0,nri=0;for(let i=0;i<T.runs.length;i++){if(a===to&&T.runs[i].type==="image"){nri=i;break;}a+=rlen(T.runs[i]);}
     cur={p:tp,offset:to+1};sel=null;commit();requestAnimationFrame(()=>{const el=ed.querySelector(`[data-img-p="${tp}"][data-img-ri="${nri}"]`);if(el){el.classList.add("img-selected");selectedImage={p:tp,runIndex:nri};}updateTb();});}
-  function posImgPop(){const g=imgResizeGroup;if(!g||!g.classList.contains("visible"))return;const el=ed.querySelector(".img-run.img-selected");const tb=document.getElementById(tbId);if(!el||!tb||tb.offsetParent===null){g.classList.remove("visible");return;}
+  function posImgPop(){const g=imgResizeGroup;if(!g||!g.classList.contains("visible"))return;const el=ed.querySelector(".img-run.img-selected");if(!el){g.classList.remove("visible");return;}
     const r=el.getBoundingClientRect(),vt=(ed.closest("#wrap")||ed.parentElement||ed).getBoundingClientRect().top,h=g.offsetHeight||28;let top=r.top-h-6;if(top<vt+4)top=Math.max(vt+4,Math.min(r.bottom-h-4,r.top+6));
     g.style.visibility=(r.bottom<vt||r.top>innerHeight)?"hidden":"";g.style.left=Math.max(4,Math.min(r.left,innerWidth-g.offsetWidth-4))+"px";g.style.top=top+"px";}
   addEventListener("scroll",()=>posImgPop(),true);addEventListener("resize",()=>posImgPop());
@@ -276,5 +279,5 @@ function makeEditor(edId,tbId,statusId,valignId){
   function mapImageSrc(fn){let ch=false;for(const p of doc)for(const r of p.runs)if(r.type==="image"){const n=fn(r.src);if(n&&n!==r.src){r.src=n;ch=true;}}return ch;}
   function stampParas(fn){let ch=false;doc.forEach((p,i)=>{if(p.t)return;const t=fn(i,p);if(t){p.t=t;ch=true;}});if(ch){busy=true;renderAll();requestAnimationFrame(()=>{if(document.activeElement===ed)placeCaret(cur.p,cur.offset);busy=false;});if(typeof markDirty==="function")markDirty();}return ch;}
   function parasToHTML(paras){const c=document.createElement("div");paras.forEach((p,i)=>c.appendChild(lineEl(p,i,{save:true})));return c.innerHTML;}
-  return{parasToHTML,getDoc,renderParas,paraRects,mapImageSrc,stampParas,getHTML,setHTML,clear,getPlainText,insertImage,undo,redo,applyMark,clearMarkRuns,selText,hasSelection,refresh,markEl,appendMarked};
+  return{pickImage,deletePicked,hasPickedImage:()=>!!pickedImg(),unpickImage:()=>{unpickImg();updateTb();},parasToHTML,getDoc,renderParas,paraRects,mapImageSrc,stampParas,getHTML,setHTML,clear,getPlainText,insertImage,undo,redo,applyMark,clearMarkRuns,selText,hasSelection,refresh,markEl,appendMarked};
 }

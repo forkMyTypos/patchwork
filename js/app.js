@@ -41,6 +41,9 @@ let projects=[],pid=null;
 let marks=[];                 // ALL marks across projects (for cross-project links/search)
 let strokes=[],inkRedo=[];    // current project's ink
 let W=0,H=0,drawW=0,dpr=1,gutter=70,gutterW=0,pageWW=0;
+// the timestamp margin: never narrower than its tools (GUT_MIN), or folded to a thin strip (remembered per browser)
+const GUT_MIN=76,GUT_FOLDED=16;let gutMin=false;try{gutMin=localStorage.getItem('pw-gut-min')==='1';}catch(e){}
+function setGutMin(on){gutMin=on;try{localStorage.setItem('pw-gut-min',on?'1':'0');}catch(e){}document.body.classList.toggle('gut-min',on);const f=document.getElementById('gut-fold');f.innerHTML=on?'&rsaquo;':'&lsaquo;';f.title=on?'Show the timestamp margin':'Hide the timestamp margin';layout();}
 const PAGE_REF=1000;   // the page's width in 'sheet' px: 15px text on a 1000-wide page; everything scales from there
 // Each page keeps the width it was written at (page.ww, px at real size): its document width. It is ALWAYS shown at real
 // size (15px is 15px on every screen): lines wrap at that width everywhere, a narrower window scrolls sideways, a wider one
@@ -82,7 +85,7 @@ function sy(yn){return yn*drawW-scrollTop();}
 /* layout */
 function layout(){
   W=stage.clientWidth;H=stage.clientHeight;
-  gutter=gutterW>0?Math.max(40,Math.min(340,gutterW)):(W<560?62:86);_paraStampCache=null;
+  gutter=gutMin?GUT_FOLDED:gutterW>0?Math.max(GUT_MIN,Math.min(340,gutterW)):(W<560?GUT_MIN:86);_paraStampCache=null;
   const fitW=Math.max(40,W-gutter-12);
   if(!IS_MINI&&!(typeof CLS!=='undefined'&&CLS.role)){try{localStorage.setItem('pw-ww',String(Math.round(fitW)));}catch(e){}}
   const k=1;drawW=pageWW||fitW;pad.style.width=(gutter+drawW+12)+'px';wrap.style.overflowX=drawW>fitW+1?'auto':'hidden';
@@ -140,6 +143,7 @@ function drawGutter(){
   const pe=sx(1)+12;if(pe<W-1){ctx.fillStyle='rgba(0,0,0,.32)';ctx.fillRect(pe,0,W-pe,H);ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(pe)+.5,0);ctx.lineTo(Math.round(pe)+.5,H);ctx.stroke();}
   ctx.fillStyle='rgba(16,13,22,.86)';ctx.fillRect(0,0,gutter,H);
   ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gutter-.5,0);ctx.lineTo(gutter-.5,H);ctx.stroke();
+  if(gutMin){pinHits=[];return;}   // margin folded away: no stamps
   const st=scrollTop(),tY=textMarkY(),labels=[];pinHits=[];
   // 1) session stamps (time labels)
   for(const sp of sessionStamps()){const y=sp.y-st;if(y<-30||y>H+30)continue;labels.push({y,prio:1,kind:'stamp',sp});}
@@ -529,16 +533,17 @@ function openProjects(){ensureProjects();renderProjects();projPanel.style.displa
 
 /* gutter interaction */
 let _pinDrag=null,_pinMoved=false,_suppressGut=false;
-gut.addEventListener('pointerdown',e=>{if(e.target.closest('#gut-tools')||e.target.closest('#gut-grip'))return;const r=wrap.getBoundingClientRect();const cy=e.clientY-r.top;let best=null,bd=15;for(const h of pinHits){const d=Math.abs(h.y-cy);if(d<bd){bd=d;best=h.m;}}if(!best||!(best.anchor&&best.anchor.kind==='time'))return;_pinDrag={m:best,startY:e.clientY};_pinMoved=false;try{gut.setPointerCapture(e.pointerId);}catch(_){}});
+gut.addEventListener('pointerdown',e=>{if(e.target.closest('#gut-tools')||e.target.closest('#gut-grip')||e.target.closest('#gut-fold'))return;const r=wrap.getBoundingClientRect();const cy=e.clientY-r.top;let best=null,bd=15;for(const h of pinHits){const d=Math.abs(h.y-cy);if(d<bd){bd=d;best=h.m;}}if(!best||!(best.anchor&&best.anchor.kind==='time'))return;_pinDrag={m:best,startY:e.clientY};_pinMoved=false;try{gut.setPointerCapture(e.pointerId);}catch(_){}});
 gut.addEventListener('pointermove',e=>{if(!_pinDrag){const r=wrap.getBoundingClientRect();const cy=e.clientY-r.top;let near=false;for(const h of pinHits){if(Math.abs(h.y-cy)<15&&h.m.anchor&&h.m.anchor.kind==='time'){near=true;break;}}gut.style.cursor=near?'grab':'';return;}if(!_pinMoved&&Math.abs(e.clientY-_pinDrag.startY)<4)return;_pinMoved=true;e.preventDefault();gut.style.cursor='grabbing';const r=wrap.getBoundingClientRect();const yn=((e.clientY-r.top)+scrollTop())/drawW;_pinDrag.m.anchor.yn=Math.max(0,yn);redrawInk();});
 gut.addEventListener('pointerup',e=>{if(!_pinDrag)return;const m=_pinDrag.m,moved=_pinMoved;_pinDrag=null;gut.style.cursor='';try{gut.releasePointerCapture(e.pointerId);}catch(_){}if(moved){saveMark(m);_suppressGut=true;redrawInk();if(typeof refreshSideLive==='function')refreshSideLive();}});
 gut.addEventListener('pointercancel',()=>{_pinDrag=null;gut.style.cursor='';});
-gut.addEventListener('click',e=>{if(_suppressGut){_suppressGut=false;return;}if(e.target.closest('#gut-add')||e.target.closest('#gut-grip')||e.target.closest('#gut-find')||e.target.closest('#gut-tools'))return;const r=wrap.getBoundingClientRect();const cy=e.clientY-r.top;let best=null,bd=15;for(const h of pinHits){const d=Math.abs(h.y-cy);if(d<bd){bd=d;best=h.m;}}if(best)openMarkPopup(best);});
+gut.addEventListener('click',e=>{if(_suppressGut){_suppressGut=false;return;}if(e.target.closest('#gut-add')||e.target.closest('#gut-grip')||e.target.closest('#gut-fold')||e.target.closest('#gut-find')||e.target.closest('#gut-tools'))return;const r=wrap.getBoundingClientRect();const cy=e.clientY-r.top;let best=null,bd=15;for(const h of pinHits){const d=Math.abs(h.y-cy);if(d<bd){bd=d;best=h.m;}}if(best)openMarkPopup(best);});
 document.getElementById('gut-add').addEventListener('click',()=>{const bottom=contentBottomPx();const yn=(bottom+30)/drawW;addMark({type:'note',name:'',anchor:{kind:'time',yn},auto:false},true);wrap.scrollTo({top:Math.max(0,bottom+30-H*0.55),behavior:'smooth'});});
-(function(){const grip=document.getElementById('gut-grip');let on=false;grip.addEventListener('pointerdown',e=>{on=true;grip.setPointerCapture(e.pointerId);e.preventDefault();});grip.addEventListener('pointermove',e=>{if(!on)return;const r=stage.getBoundingClientRect();gutterW=Math.max(40,Math.min(340,e.clientX-r.left));layout();});const end=()=>{if(on){on=false;saveMeta();}};grip.addEventListener('pointerup',end);grip.addEventListener('pointercancel',end);})();
+document.getElementById('gut-fold').addEventListener('click',e=>{e.stopPropagation();setGutMin(!gutMin);});if(gutMin){document.body.classList.add('gut-min');document.getElementById('gut-fold').innerHTML='&rsaquo;';document.getElementById('gut-fold').title='Show the timestamp margin';}
+(function(){const grip=document.getElementById('gut-grip');let on=false;grip.addEventListener('pointerdown',e=>{on=true;grip.setPointerCapture(e.pointerId);e.preventDefault();});grip.addEventListener('pointermove',e=>{if(!on)return;const r=stage.getBoundingClientRect();gutterW=Math.max(GUT_MIN,Math.min(340,e.clientX-r.left));layout();});const end=()=>{if(on){on=false;saveMeta();}};grip.addEventListener('pointerup',end);grip.addEventListener('pointercancel',end);})();
 
 /* modes */
-function setMode(m){mode=m;document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg');hideTagbar();if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>noteEd.focus());}else if(m==='hand'){tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='auto';noteEd.blur();}else{tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}cv.classList.toggle('pan',m==='hand');const _gb=document.getElementById('ink-grab');if(_gb)_gb.classList.toggle('on',m==='grab');if(m!=='grab')grabSel.clear();}
+function setMode(m){mode=m;document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg');hideTagbar();if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>noteEd.focus());}else if(m==='hand'){tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='auto';noteEd.blur();}else{tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}cv.classList.toggle('pan',m==='hand');cv.classList.toggle('m-pen',m==='pen');cv.classList.toggle('m-hl',m==='hl');if(m!=='grab')grabSel.clear();}
 document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 
 /* ink controls */
@@ -571,14 +576,13 @@ document.getElementById('redo').addEventListener('click',()=>hostRedo());
 document.getElementById('clearink').addEventListener('click',()=>{if(!strokes.length){toast('No ink to clear','info');return;}const _now=Date.now();strokes=[];inkRedo=[];db.strokes.where('pid').equals(pid).modify(s=>{if(!s.del)s.del=_now;});redrawInk();updatePad();refreshSideLive();toast('Ink cleared','ok');});
 document.getElementById('now').addEventListener('click',()=>wrap.scrollTo({top:Math.max(0,contentBottomPx()-H*0.6),behavior:'smooth'}));
 document.getElementById('gut-find').addEventListener('click',()=>{toggleSide(true);setTimeout(()=>{const q=document.getElementById('side-q');if(q)q.focus();},70);});
-document.getElementById('ink-grab').addEventListener('click',()=>{if(mode==='grab'){grabSel.clear();setMode('pen');}else{setMode('grab');}redrawInk();});
+document.getElementById('m-grab').addEventListener('click',()=>redrawInk());
 document.getElementById('side-x').addEventListener('click',()=>toggleSide(false));
 document.getElementById('side-scrim').addEventListener('click',()=>toggleSide(false));
 document.getElementById('side-q').addEventListener('input',e=>renderSideResults(e.target.value));
 document.getElementById('proj-btn').addEventListener('click',openProjects);
 addEventListener('keydown',e=>{
 if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INPUT|TEXTAREA)$/.test(e.target.tagName)&&!e.target.isContentEditable){e.preventDefault();for(const s of [...grabSel]){const i=strokes.indexOf(s);if(i>=0)strokes.splice(i,1);retireStroke(s);}grabSel.clear();redrawInk();schedulePrune();return;}
-  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();toggleSide(true);setTimeout(()=>document.getElementById('side-q').focus(),70);return;}
   if(e.key==='Escape'){const _sd=document.getElementById('side');if(_sd&&_sd.classList.contains('open')){toggleSide(false);return;}if(picker&&picker.style.display!=='none'){picker.style.display='none';return;}if(projPanel&&projPanel.style.display!=='none'){projPanel.style.display='none';return;}if(popup&&popup.style.display!=='none'){closePopup();return;}hideTagbar();return;}
   const tag=(e.target&&e.target.tagName)||'';
   // full-screen views (Lab, Timeline, Explorer) own the keyboard: never undo or switch tools on the hidden page
@@ -586,7 +590,7 @@ if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INP
   if(document.activeElement===noteEd)return;
   if((e.ctrlKey||e.metaKey)&&!e.altKey){const k=e.key.toLowerCase();if(k==='z'&&!e.shiftKey){e.preventDefault();hostUndo();return;}if((k==='z'&&e.shiftKey)||k==='y'){e.preventDefault();hostRedo();return;}}
   if(e.ctrlKey||e.metaKey||e.altKey)return;if(tag==='INPUT'||tag==='TEXTAREA')return;
-  const mm={t:'text',p:'pen',h:'hand'}[e.key.toLowerCase()];if(mm)setMode(mm);
+  const mm={t:'text',p:'pen',h:'hand',g:'grab'}[e.key.toLowerCase()];if(mm)setMode(mm);
 });
 addEventListener('resize',()=>{const yn=scrollTop()/drawW;layout();wrap.scrollTop=yn*drawW;redrawInk();});
 

@@ -130,7 +130,7 @@ new ResizeObserver(()=>{_paraTops=null;if(typeof redrawInk==='function'&&editor)
 if(document.fonts)document.fonts.addEventListener('loadingdone',()=>{_paraTops=null;_paraStampCache=null;if(editor)layout();});   // the bundled font arrived: re-measure
 function onEditorRender(){_paraStampCache=null;_paraTops=null;cancelAnimationFrame(_hintRAF);_hintRAF=requestAnimationFrame(()=>redrawInk());}   // ink anchored to paragraphs follows the text (redrawInk also updates the hint)
 let _hintRAF=0;
-function updateHint(hasText){if(hasText===undefined)hasText=editor&&editor.getPlainText&&editor.getPlainText().trim();document.getElementById('hint').style.display=(strokes.length||hasText||pageMarks().length)?'none':'';}
+function updateHint(hasText){if(hasText===undefined)hasText=editor&&editor.getPlainText&&editor.getPlainText().trim();document.getElementById('hint').style.display=(strokes.length||hasText||pageMarks().length||noteEd.querySelector('.img-run'))?'none':'';}
 function paraStamps(){if(_paraStampCache)return _paraStampCache;const out=[];if(editor&&editor.paraRects){const wr=wrap.getBoundingClientRect(),st=scrollTop();for(const r of editor.paraRects()){if(!r.t||!r.has)continue;const b=r.el.getBoundingClientRect();out.push({t:r.t,y:(b.top-wr.top)+st+Math.min(12,b.height/2),kind:'text'});}}return (_paraStampCache=out);}
 function dayLabel(t){const d=new Date(t),n=new Date();const k=x=>x.getFullYear()+'-'+x.getMonth()+'-'+x.getDate();if(k(d)===k(n))return 'Today';const y=new Date(n);y.setDate(n.getDate()-1);if(k(d)===k(y))return 'Yesterday';return fmtDay(t);}
 // Session stamps: one per burst of work (a gap of GAP_MS or a new day starts a new stamp), for text and ink alike.

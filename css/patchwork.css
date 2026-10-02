@@ -544,3 +544,4 @@ body:not(.cls-default) .cls-priv-btn,.cls-teach .cls-priv-btn{display:none;}
 .bk-chip:hover{background:#1a1a24;}html.mini .bk-chip{display:none;}
 .ins-btn{width:auto!important;padding:0 7px;display:flex;align-items:center;}
 .ins-pop{min-width:220px;}
+.ink-tool-btn.ink-wide{width:auto;padding:0 9px;gap:4px;white-space:nowrap;}

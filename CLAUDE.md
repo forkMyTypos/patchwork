@@ -42,6 +42,29 @@
   zoom/Fit buttons (owner wants pages to behave like normal pages); pure reflow (ink drifts off words); word-level ink anchors.
 - Possible later: a per-page "Re-fit to this window" (rewrap once at a new `ww`); a phone reading view.
 
+## AI mode / Create with AI (owner's thinking, UNDECIDED - nothing built yet, keep)
+
+- Status: the owner is still deciding what AI should do in Patchwork; "maybe a simple copy and paste works just as well".
+  Do not build any of this until asked.
+- Proposed name: "Create with AI" (would replace the "AI board link" menu item; the board link would live inside it as
+  "External AI tools (experimental)").
+- Owner's spec (2026-10-02), core rule: AI may suggest, explain, generate or propose; the user stays in control. AI never
+  silently edits the page, nothing is sent unless the user explicitly asks, only the selection is sent (Whole page is an
+  explicit choice). Actions: Hint (no answers), Check my work, Explain, Suggest edits (Accept/Dismiss proposals),
+  Continue, Generate, Ask AI. Results reuse Patchwork objects: Note/Question highlights linked to the source (marks
+  `links`), proposals, new content the user inserts. Provider-independent (Anthropic, OpenAI, Google, local), no framework.
+- Firm decisions: NO Google login for Create with AI. User's own API key, kept only in this browser (never in backups,
+  exports, classroom traffic or the AI link); no Patchwork AI server; browser talks straight to the chosen provider.
+  Classroom: teacher may switch AI actions on/off for the class (like Homework mode); student AI requests never go to
+  the teacher or other students.
+- Two routes discussed: (1) Create with AI = browser -> provider with the user's key; (2) give the AI board link a
+  user-granted read permission (Off / Selection / Whole page, `readPage` command) so an external AI (e.g. Claude via
+  curl) can read and leave notes/questions - text would pass through the relay in memory, never stored.
+- Smallest first slice if approved: provider + key settings, selected text only, Hint/Explain/Check/Ask -> linked
+  Note/Question cards; then Whole page, proposals, class switches, more providers.
+- Open questions for the owner: menu rename, first provider(s), default model, OK for the asked-about text to get a
+  source highlight.
+
 ## Files (classic scripts sharing globals; load order in index.html matters)
 
 - `css/patchwork.css` - all page styles

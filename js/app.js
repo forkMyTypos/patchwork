@@ -41,9 +41,8 @@ let projects=[],pid=null;
 let marks=[];                 // ALL marks across projects (for cross-project links/search)
 let strokes=[],inkRedo=[];    // current project's ink
 let W=0,H=0,drawW=0,dpr=1,gutter=70,gutterW=0,pageWW=0;
-// the timestamp margin: never narrower than its tools (GUT_MIN), or folded to a thin strip (remembered per browser)
-const GUT_MIN=76,GUT_FOLDED=16;let gutMin=false;try{gutMin=localStorage.getItem('pw-gut-min')==='1';}catch(e){}
-function setGutMin(on){gutMin=on;try{localStorage.setItem('pw-gut-min',on?'1':'0');}catch(e){}document.body.classList.toggle('gut-min',on);const f=document.getElementById('gut-fold');f.innerHTML=on?'&rsaquo;':'&lsaquo;';f.title=on?'Show the timestamp margin':'Hide the timestamp margin';layout();}
+// the timestamp margin is never narrower than its tools
+const GUT_MIN=76;
 const PAGE_REF=1000;   // the page's width in 'sheet' px: 15px text on a 1000-wide page; everything scales from there
 // Each page keeps the width it was written at (page.ww, px at real size): its document width. It is ALWAYS shown at real
 // size (15px is 15px on every screen): lines wrap at that width everywhere, a narrower window scrolls sideways, a wider one
@@ -85,7 +84,7 @@ function sy(yn){return yn*drawW-scrollTop();}
 /* layout */
 function layout(){
   W=stage.clientWidth;H=stage.clientHeight;
-  gutter=gutMin?GUT_FOLDED:gutterW>0?Math.max(GUT_MIN,Math.min(340,gutterW)):(W<560?GUT_MIN:86);_paraStampCache=null;
+  gutter=gutterW>0?Math.max(GUT_MIN,Math.min(340,gutterW)):(W<560?GUT_MIN:86);_paraStampCache=null;
   const fitW=Math.max(40,W-gutter-12);
   if(!IS_MINI&&!(typeof CLS!=='undefined'&&CLS.role)){try{localStorage.setItem('pw-ww',String(Math.round(fitW)));}catch(e){}}
   const k=1;drawW=pageWW||fitW;pad.style.width=(gutter+drawW+12)+'px';wrap.style.overflowX=drawW>fitW+1?'auto':'hidden';
@@ -143,7 +142,6 @@ function drawGutter(){
   const pe=sx(1)+12;if(pe<W-1){ctx.fillStyle='rgba(0,0,0,.32)';ctx.fillRect(pe,0,W-pe,H);ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(pe)+.5,0);ctx.lineTo(Math.round(pe)+.5,H);ctx.stroke();}
   ctx.fillStyle='rgba(16,13,22,.86)';ctx.fillRect(0,0,gutter,H);
   ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gutter-.5,0);ctx.lineTo(gutter-.5,H);ctx.stroke();
-  if(gutMin){pinHits=[];return;}   // margin folded away: no stamps
   const st=scrollTop(),tY=textMarkY(),labels=[];pinHits=[];
   // 1) session stamps (time labels)
   for(const sp of sessionStamps()){const y=sp.y-st;if(y<-30||y>H+30)continue;labels.push({y,prio:1,kind:'stamp',sp});}
@@ -533,13 +531,12 @@ function openProjects(){ensureProjects();renderProjects();projPanel.style.displa
 
 /* gutter interaction */
 let _pinDrag=null,_pinMoved=false,_suppressGut=false;
-gut.addEventListener('pointerdown',e=>{if(e.target.closest('#gut-tools')||e.target.closest('#gut-grip')||e.target.closest('#gut-fold'))return;const r=wrap.getBoundingClientRect();const cy=e.clientY-r.top;let best=null,bd=15;for(const h of pinHits){const d=Math.abs(h.y-cy);if(d<bd){bd=d;best=h.m;}}if(!best||!(best.anchor&&best.anchor.kind==='time'))return;_pinDrag={m:best,startY:e.clientY};_pinMoved=false;try{gut.setPointerCapture(e.pointerId);}catch(_){}});
+gut.addEventListener('pointerdown',e=>{if(e.target.closest('#gut-tools')||e.target.closest('#gut-grip'))return;const r=wrap.getBoundingClientRect();const cy=e.clientY-r.top;let best=null,bd=15;for(const h of pinHits){const d=Math.abs(h.y-cy);if(d<bd){bd=d;best=h.m;}}if(!best||!(best.anchor&&best.anchor.kind==='time'))return;_pinDrag={m:best,startY:e.clientY};_pinMoved=false;try{gut.setPointerCapture(e.pointerId);}catch(_){}});
 gut.addEventListener('pointermove',e=>{if(!_pinDrag){const r=wrap.getBoundingClientRect();const cy=e.clientY-r.top;let near=false;for(const h of pinHits){if(Math.abs(h.y-cy)<15&&h.m.anchor&&h.m.anchor.kind==='time'){near=true;break;}}gut.style.cursor=near?'grab':'';return;}if(!_pinMoved&&Math.abs(e.clientY-_pinDrag.startY)<4)return;_pinMoved=true;e.preventDefault();gut.style.cursor='grabbing';const r=wrap.getBoundingClientRect();const yn=((e.clientY-r.top)+scrollTop())/drawW;_pinDrag.m.anchor.yn=Math.max(0,yn);redrawInk();});
 gut.addEventListener('pointerup',e=>{if(!_pinDrag)return;const m=_pinDrag.m,moved=_pinMoved;_pinDrag=null;gut.style.cursor='';try{gut.releasePointerCapture(e.pointerId);}catch(_){}if(moved){saveMark(m);_suppressGut=true;redrawInk();if(typeof refreshSideLive==='function')refreshSideLive();}});
 gut.addEventListener('pointercancel',()=>{_pinDrag=null;gut.style.cursor='';});
-gut.addEventListener('click',e=>{if(_suppressGut){_suppressGut=false;return;}if(e.target.closest('#gut-add')||e.target.closest('#gut-grip')||e.target.closest('#gut-fold')||e.target.closest('#gut-find')||e.target.closest('#gut-tools'))return;const r=wrap.getBoundingClientRect();const cy=e.clientY-r.top;let best=null,bd=15;for(const h of pinHits){const d=Math.abs(h.y-cy);if(d<bd){bd=d;best=h.m;}}if(best)openMarkPopup(best);});
+gut.addEventListener('click',e=>{if(_suppressGut){_suppressGut=false;return;}if(e.target.closest('#gut-add')||e.target.closest('#gut-grip')||e.target.closest('#gut-find')||e.target.closest('#gut-tools'))return;const r=wrap.getBoundingClientRect();const cy=e.clientY-r.top;let best=null,bd=15;for(const h of pinHits){const d=Math.abs(h.y-cy);if(d<bd){bd=d;best=h.m;}}if(best)openMarkPopup(best);});
 document.getElementById('gut-add').addEventListener('click',()=>{const bottom=contentBottomPx();const yn=(bottom+30)/drawW;addMark({type:'note',name:'',anchor:{kind:'time',yn},auto:false},true);wrap.scrollTo({top:Math.max(0,bottom+30-H*0.55),behavior:'smooth'});});
-document.getElementById('gut-fold').addEventListener('click',e=>{e.stopPropagation();setGutMin(!gutMin);});if(gutMin){document.body.classList.add('gut-min');document.getElementById('gut-fold').innerHTML='&rsaquo;';document.getElementById('gut-fold').title='Show the timestamp margin';}
 (function(){const grip=document.getElementById('gut-grip');let on=false;grip.addEventListener('pointerdown',e=>{on=true;grip.setPointerCapture(e.pointerId);e.preventDefault();});grip.addEventListener('pointermove',e=>{if(!on)return;const r=stage.getBoundingClientRect();gutterW=Math.max(GUT_MIN,Math.min(340,e.clientX-r.left));layout();});const end=()=>{if(on){on=false;saveMeta();}};grip.addEventListener('pointerup',end);grip.addEventListener('pointercancel',end);})();
 
 /* modes */

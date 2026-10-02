@@ -38,7 +38,7 @@ async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Ma
     if(r.type==='image'){const u=await clsImage(r.src);if(u&&u.length<=CLS_MAX.img&&imgBytes+u.length<=CLS_MAX.imgs){imgBytes+=u.length;runs.push({img:u,w:r.width||100,bg:clsHex(r.bg)});}else runs.push({text:'[image not shared]',color:'#7a7a92',i:1});continue;}
     if(!r.text)continue;const x={text:r.text};if(r.bold)x.b=1;if(r.italic)x.i=1;if(r.underline)x.u=1;const c=clsHex(r.color);if(c)x.color=c;if(r.size)x.size=r.size;if(r.font&&CLS_FONTS.includes(r.font))x.font=r.font;
     if(r.mark){const ms=getMarkStyle(r.mark);if(ms){x.mk=String(r.mark);out.marks[x.mk]={c:clsHex(ms.color)||'#818cf8',fx:ms.fx||{}};}}runs.push(x);}
-    out.paras.push({a:p.align,r:runs});}
+    const q={a:p.align,r:runs};if(p.ls){q.ls=p.ls;if(p.lv)q.lv=p.lv;}if(p.hd)q.hd=p.hd;out.paras.push(q);}
   // sent as seen on this page (relative to its width), whatever units/anchor the stroke is stored in
   out.pics=[];for(const p of (typeof pics!=='undefined'?pics:[])){const u=await clsImage(p.src);if(!u||u.length>CLS_MAX.img||imgBytes+u.length>CLS_MAX.imgs)continue;imgBytes+=u.length;const U=inkW/drawW,d=inkDy(p)/drawW;
     out.pics.push({img:u,x:+(p.x*U).toFixed(4),y:+(p.y*U+d).toFixed(4),w:+(p.w*U).toFixed(4),h:+(p.h*U).toFixed(4)});}   // free pictures
@@ -104,7 +104,7 @@ function clsClean(b){const fail=w=>{throw new Error(w);};if(!b||typeof b!=='obje
       if(typeof r.img==='string'){if(r.img.length<=CLS_MAX.img&&imgs+r.img.length<=CLS_MAX.imgs&&/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(r.img)){imgs+=r.img.length;runs.push({type:'image',src:r.img,width:Math.round(num(r.w,10,100,100)),bg:hex(r.bg)});}continue;}
       const t=str(r.text,20000);if(!t||text+t.length>CLS_MAX.text)continue;text+=t.length;
       runs.push({type:'text',text:t,bold:r.b===1,italic:r.i===1,underline:r.u===1,color:hex(r.color),size:r.size==null?null:Math.round(num(r.size,8,96,15)),font:CLS_FONTS.includes(r.font)?r.font:null,mark:(typeof r.mk==='string'&&out.marks[r.mk])?r.mk:null});}
-    out.paras.push({align:['left','center','right'].includes(p&&p.a)?p.a:'left',t:null,runs:runs.length?runs:[{type:'text',text:''}]});}
+    const q={align:['left','center','right'].includes(p&&p.a)?p.a:'left',t:null,runs:runs.length?runs:[{type:'text',text:''}]};if(p&&(p.ls==='ul'||p.ls==='ol')){q.ls=p.ls;q.lv=Math.round(num(p.lv,0,4,0));}if(p&&[1,2,3].includes(p.hd))q.hd=p.hd;out.paras.push(q);}
   for(const s of (Array.isArray(b.strokes)?b.strokes:[]).slice(0,8000)){if(!s||!Array.isArray(s.p)||!['pen','hl','eraser'].includes(s.tool))continue;const pts=[];
     for(const q of s.p.slice(0,5000)){if(!Array.isArray(q)||points>=CLS_MAX.points)break;const x=num(q[0],-0.5,1.5,NaN),y=num(q[1],-1,5000,NaN),w=num(q[2],0,0.2,0.004);if(isNaN(x)||isNaN(y))continue;pts.push({xn:x,yn:y,wn:w});points++;}
     if(pts.length)out.strokes.push({tool:s.tool,color:hex(s.color)||'#ece6da',pts});}
@@ -225,7 +225,7 @@ async function clsSaveCopy(snap,mine,ask){const s=snap||CLS.snap;mine=mine||CLS.
   const text={};for(const p of s.paras)for(const r of p.runs)if(r.mark&&r.type==='text')text[r.mark]=(text[r.mark]||'')+r.text;
   const idMap={};for(const k of Object.keys(text)){const st=s.marks[k]||{},snip=text[k].trim().slice(0,200);
     idMap[k]=await db.marks.add({pid:np,type:byColor[(st.color||'').toLowerCase()]||'note',name:snip.slice(0,80),snippet:snip,tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'text'}});}
-  const paras=s.paras.map(p=>({align:p.align,t:null,runs:p.runs.map(r=>r.type==='text'?{...r,mark:r.mark?idMap[r.mark]||null:null}:{...r})}));
+  const paras=s.paras.map(p=>({ls:p.ls,lv:p.lv,hd:p.hd,align:p.align,t:null,runs:p.runs.map(r=>r.type==='text'?{...r,mark:r.mark?idMap[r.mark]||null:null}:{...r})}));
   await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0,ww:s.ww});
   const f=s.ww/PAGE_REF,t=Date.now(),add=async(tool,color,pts)=>{if(!pts.length)return;let lo=Infinity,hi=-Infinity;for(const q of pts){lo=Math.min(lo,q.yn);hi=Math.max(hi,q.yn);}await db.strokes.add({pid:np,kind:'stroke',tool,color,t,pts,minYn:lo,maxYn:hi,u:1});};   // view-relative -> page units (the page's own width)
   for(const k of s.strokes)await add(k.tool,k.color,k.pts.map(q=>({xn:q.xn*f,yn:q.yn*f,wn:q.wn*f})));

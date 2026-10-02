@@ -9,7 +9,8 @@ let _histT=null,_histFirst=0,_histBusy=null,_histEditT=0;
 const _histLast=new Map();   // pid -> {paras:[hash], text, imgs}
 const _parasKnown=new Set();
 // one canonical shape per paragraph, so identical content always hashes identically (live vs. reloaded runs differ in optional keys)
-function normPara(p){return{align:p.align||'left',t:p.t||null,runs:(p.runs||[]).map(r=>r.type==='image'?{type:'image',src:r.src,width:r.width||100,bg:r.bg||null}:{type:'text',text:r.text||'',bold:!!r.bold,italic:!!r.italic,underline:!!r.underline,color:r.color||null,size:r.size||null,font:r.font||null,mark:r.mark||null})};}
+// list / heading styles are added only when set, so plain paragraphs hash exactly as before
+function normPara(p){const o={align:p.align||'left',t:p.t||null,runs:(p.runs||[]).map(r=>r.type==='image'?{type:'image',src:r.src,width:r.width||100,bg:r.bg||null}:{type:'text',text:r.text||'',bold:!!r.bold,italic:!!r.italic,underline:!!r.underline,color:r.color||null,size:r.size||null,font:r.font||null,mark:r.mark||null})};if(p.ls==='ul'||p.ls==='ol'){o.ls=p.ls;if(p.lv)o.lv=p.lv;}if(p.hd)o.hd=p.hd;return o;}
 function paraKey(p){return contentHash(JSON.stringify(p));}
 function docPlain(paras){return paras.map(p=>p.runs.filter(r=>r.type==='text').map(r=>r.text).join('')).join('\n');}
 function docImgs(paras){let n=0;paras.forEach(p=>p.runs.forEach(r=>{if(r.type==='image')n++;}));return n;}

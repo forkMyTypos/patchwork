@@ -537,3 +537,10 @@ body:not(.cls-default) .cls-priv-btn,.cls-teach .cls-priv-btn{display:none;}
 .cm-half{flex:1;margin:6px 3px;border-radius:6px;}.cm-half:first-child{margin-left:6px;}.cm-half:last-child{margin-right:6px;}
 .cls-vs{display:flex;align-items:center;gap:6px;font-size:12px;color:#9898b4;margin:4px 0;}
 .cm-big{justify-content:flex-start;align-items:flex-start;padding:12px 14px;}
+
+/* backup status chip (top bar) */
+.bk-chip{height:24px;padding:0 10px;border-radius:999px;border:1px solid #2a2a3a;background:#121219;color:#9a9ab4;font-size:11px;cursor:pointer;margin-right:8px;white-space:nowrap;}
+.bk-chip.ok{color:#6fbf8a;border-color:#244232;}.bk-chip.warn{color:#e0b453;border-color:#4a3c1c;}.bk-chip.bad{color:#f08a8a;border-color:#4d2626;}
+.bk-chip:hover{background:#1a1a24;}html.mini .bk-chip{display:none;}
+.ins-btn{width:auto!important;padding:0 7px;display:flex;align-items:center;}
+.ins-pop{min-width:220px;}

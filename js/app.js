@@ -573,7 +573,8 @@ document.getElementById('size').addEventListener('input',e=>{inkSize=+e.target.v
 /* actions + keyboard */
 document.getElementById('undo').addEventListener('click',()=>hostUndo());
 document.getElementById('redo').addEventListener('click',()=>hostRedo());
-document.getElementById('clearink').addEventListener('click',()=>{if(!strokes.length){toast('No ink to clear','info');return;}const _now=Date.now();strokes=[];inkRedo=[];db.strokes.where('pid').equals(pid).modify(s=>{if(!s.del)s.del=_now;});redrawInk();updatePad();refreshSideLive();toast('Ink cleared','ok');});
+document.getElementById('clearink').addEventListener('click',async()=>{if(!strokes.length){toast('No ink to clear','info');return;}
+  if(await clsAsk('Clear all ink on this page?','<p>This removes every pen stroke on this page. Text and pictures stay.</p><p>The Timeline still shows the ink as it was.</p>',[['ok','Clear ink','fx-primary'],['','Cancel','pbtn']])!=='ok')return;const _now=Date.now();strokes=[];inkRedo=[];db.strokes.where('pid').equals(pid).modify(s=>{if(!s.del)s.del=_now;});redrawInk();updatePad();refreshSideLive();toast('Ink cleared','ok');});
 document.getElementById('now').addEventListener('click',()=>wrap.scrollTo({top:Math.max(0,contentBottomPx()-H*0.6),behavior:'smooth'}));
 document.getElementById('gut-find').addEventListener('click',()=>{toggleSide(true);setTimeout(()=>{const q=document.getElementById('side-q');if(q)q.focus();},70);});
 document.getElementById('m-grab').addEventListener('click',()=>redrawInk());
@@ -599,7 +600,7 @@ addEventListener('resize',()=>{const yn=scrollTop()/drawW;layout();wrap.scrollTo
 addEventListener('DOMContentLoaded',async function(){
   try{await db.open();}catch(e){toast('Storage failed \u2014 Patchwork needs IndexedDB','err');return;}
   if(!await db.info.get('info'))await db.info.add({id:'info'});
-  try{if(navigator.storage&&navigator.storage.persist){const granted=await navigator.storage.persist();const persisted=navigator.storage.persisted?await navigator.storage.persisted():granted;const inf=await db.info.get('info');if(!persisted&&!(inf&&inf.persistWarned)){toast('Your notes live only in this browser — use Projects ▸ Backup now and then','info');try{await db.info.update('info',{persistWarned:true});}catch(_){}}}}catch(_){}
+  try{if(navigator.storage&&navigator.storage.persist){const granted=await navigator.storage.persist();const persisted=navigator.storage.persisted?await navigator.storage.persisted():granted;const inf=await db.info.get('info');void inf;}}catch(_){}
   if(!IS_MINI)try{const _bc=new BroadcastChannel('patchwork-app');let _others=false;_bc.onmessage=ev=>{if(ev.data==='ping'){_bc.postMessage('pong');}else if(ev.data==='pong'&&!_others){_others=true;toast('Patchwork is open in another tab — editing the same project in two tabs can overwrite changes','err');}};_bc.postMessage('ping');}catch(_){}
   await DB_loadColors();
   if(typeof extBoot==='function')await extBoot();
@@ -612,7 +613,7 @@ addEventListener('DOMContentLoaded',async function(){
     await db.marks.toCollection().modify(m=>{if(m.pid==null)m.pid=id;});
   }
   marks=await db.marks.toArray();
-  try{const inf2=await db.info.get('info');const lastBk=(inf2&&inf2.lastBackupAt)||0;if(marks.filter(searchable).length>3&&Date.now()-lastBk>7*864e5)setTimeout(()=>toast('It has been a while since your last backup — Projects ▸ Backup','info'),1800);}catch(_){}
+  updateBkStatus();setInterval(updateBkStatus,10*60e3);
   const meta=await db.meta.get('meta');
   let active=(meta&&meta.activePid&&projects.find(p=>p.id===meta.activePid))?meta.activePid:projects[0].id;
   if(IS_MINI){const q=+new URLSearchParams(location.search).get('pid');if(projects.find(p=>p.id===q))active=q;}
@@ -658,6 +659,17 @@ function miniTitles(){setTimeout(renderMiniTabs,0);document.querySelectorAll('.m
 let _miniN=0,_miniZ=8100,_miniMenu=null;
 // no name typed: new-project-<date>, then new-project-<date>-2, -3 ...
 function autoProjName(){const d=new Date(),base='new-project-'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');const have=new Set(projects.map(p=>p.name));if(!have.has(base))return base;let i=2;while(have.has(base+'-'+i))i++;return base+'-'+i;}
+// backup status (top bar): when this browser last downloaded a backup; click = back up everything now
+async function updateBkStatus(){const el=document.getElementById('bk-status');if(!el||IS_MINI)return;let t=0;try{const i=await db.info.get('info');t=(i&&i.lastBackupAt)||0;}catch(e){}
+  const d=t?Math.floor((Date.now()-t)/864e5):null;el.textContent=d==null?'Not backed up':d===0?'Backed up today':d===1?'Backed up yesterday':'Backed up '+d+' days ago';
+  el.className='bk-chip '+(d==null||d>30?'bad':d>7?'warn':'ok');el.title=(d==null?'Your notes live only in this browser. ':'')+'Click to download a backup of everything';}
+document.getElementById('bk-status').addEventListener('click',()=>backupAll());
+// files dropped on the page: pictures go in where they're dropped, a PDF becomes a new page
+stage.addEventListener('dragover',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')){e.preventDefault();e.dataTransfer.dropEffect='copy';}});
+stage.addEventListener('drop',e=>{const fs=e.dataTransfer&&[...e.dataTransfer.files];if(!fs||!fs.length)return;e.preventDefault();const pe=cv.style.pointerEvents;cv.style.pointerEvents='none';
+  const t=editor.dropTarget(e.clientX,e.clientY);   // look up the drop spot now, under the ink layer
+  for(const f of fs){if(/^image\//.test(f.type)){if(mode!=='text')setMode('text');const r=new FileReader();r.onload=()=>editor.insertImageAt(t,r.result);r.readAsDataURL(f);}else if(f.type==='application/pdf'||/\.pdf$/i.test(f.name))importPdf(f);}
+  setTimeout(()=>{cv.style.pointerEvents=pe;},0);});
 function openMiniMenu(anchor){if(IS_MINI)return;if(!_miniMenu){_miniMenu=document.createElement('div');_miniMenu.className='panel mini-menu';document.body.appendChild(_miniMenu);document.addEventListener('mousedown',e=>{if(_miniMenu.style.display!=='none'&&!_miniMenu.contains(e.target)&&!e.target.closest('#mini-btn'))_miniMenu.style.display='none';});}
   const busy=new Set(editorWindows().map(w=>{try{return w.currentPid();}catch(e){return null;}}));
   _miniMenu.innerHTML='<div class="panel-h"><div class="panel-t">Open beside this page</div></div><div class="panel-b"><div class="mini-list"></div><div class="proj-new"><input class="pf-in" placeholder="New project\u2026" maxlength="60"><button title="Create">+</button></div></div>';

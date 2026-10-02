@@ -205,12 +205,21 @@ function makeEditor(edId,tbId,statusId,valignId){
     drawBtn.innerHTML='<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
     drawBtn.onmousedown=e=>e.preventDefault();
     drawBtn.onclick=()=>{readSel();const sc={...cur},ss=sel?{...sel}:null;openDrawModal(url=>insImgFitted(url,{cur:sc,sel:ss}));};
-    tb.appendChild(drawBtn);
     const linkImgBtn=document.createElement("div");linkImgBtn.className="tbtn";linkImgBtn.title="Insert image from URL (hotlink)";linkImgBtn.tabIndex=-1;
     linkImgBtn.innerHTML='<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
     linkImgBtn.onmousedown=e=>e.preventDefault();
     linkImgBtn.onclick=()=>{readSel();const sc={...cur},ss=sel?{...sel}:null;const u=(window.prompt('Image URL (https://\u2026)')||'').trim();if(!u)return;if(!/^https?:\/\//i.test(u)){toast('URL must start with http(s)://','err');return;}toast('Checking image\u2026','info');const probe=new Image();let done=false;const finish=ok2=>{if(done)return;done=true;if(!ok2){toast('That image didn\u2019t load \u2014 the link may be wrong or the host blocks hotlinking','err');return;}const w=_fitWidthFor(probe.naturalWidth||0,probe.naturalHeight||0);cur=sc;sel=ss;busy=false;selectedImage=null;insImg(u,w);sel=null;commit();toast('Image inserted (hotlinked)','ok');};probe.onload=()=>finish(true);probe.onerror=()=>finish(false);setTimeout(()=>finish(false),8000);probe.src=u;};
-    tb.appendChild(linkImgBtn);
+    // one Insert button: picture from this computer, from the web, a drawing, a PDF
+    const insBtn=document.createElement("div");insBtn.className="tbtn ins-btn";insBtn.title="Insert a picture, drawing or PDF";insBtn.tabIndex=-1;insBtn.innerHTML='<span style="font-size:15px;line-height:1">+</span><span style="font-size:11px;margin-left:3px">Insert</span>';
+    const fileIn=document.createElement("input");fileIn.type="file";fileIn.accept="image/*";fileIn.style.display="none";document.body.appendChild(fileIn);let insAt=null;
+    fileIn.onchange=()=>{const f=fileIn.files[0];fileIn.value="";if(!f)return;const r=new FileReader();r.onload=()=>insImgFitted(r.result,insAt);r.readAsDataURL(f);};
+    let insPop=null;const closeIns=()=>{if(insPop)insPop.classList.remove("open");document.removeEventListener("mousedown",insOut,true);};const insOut=e=>{if(insPop&&!insPop.contains(e.target)&&!insBtn.contains(e.target))closeIns();};
+    insBtn.onmousedown=e=>e.preventDefault();
+    insBtn.onclick=()=>{readSel();insAt={cur:{...cur},sel:sel?{...sel}:null};if(!insPop){insPop=document.createElement("div");insPop.className="color-pop ins-pop";document.body.appendChild(insPop);
+        const items=[["\ud83d\uddbc","Picture from this computer\u2026",()=>fileIn.click()],["\ud83c\udf10","Picture from the web\u2026",()=>linkImgBtn.onclick()],["\u270f\ufe0f","Drawing\u2026",()=>drawBtn.onclick()],["\ud83d\udcc4","PDF as a new page\u2026",()=>{if(typeof openPdfPicker==="function")openPdfPicker();}]];
+        for(const [ic,l,f] of items){const b=document.createElement("button");b.className="cp-row";b.innerHTML='<span style="width:18px;text-align:center">'+ic+'</span><span></span>';b.lastChild.textContent=l;b.onmousedown=e=>e.preventDefault();b.onclick=()=>{closeIns();f();};insPop.appendChild(b);}}
+      const r=insBtn.getBoundingClientRect();insPop.style.left=Math.max(6,Math.min(r.left,innerWidth-230))+"px";insPop.style.top=(r.bottom+6)+"px";insPop.classList.add("open");setTimeout(()=>document.addEventListener("mousedown",insOut,true),0);};
+    tb.appendChild(insBtn);
   }
   function bindEv(){
     // Never hand an edit back to the browser while a re-render is pending (busy): held-down keys auto-repeat faster than
@@ -279,5 +288,7 @@ function makeEditor(edId,tbId,statusId,valignId){
   function mapImageSrc(fn){let ch=false;for(const p of doc)for(const r of p.runs)if(r.type==="image"){const n=fn(r.src);if(n&&n!==r.src){r.src=n;ch=true;}}return ch;}
   function stampParas(fn){let ch=false;doc.forEach((p,i)=>{if(p.t)return;const t=fn(i,p);if(t){p.t=t;ch=true;}});if(ch){busy=true;renderAll();requestAnimationFrame(()=>{if(document.activeElement===ed)placeCaret(cur.p,cur.offset);busy=false;});if(typeof markDirty==="function")markDirty();}return ch;}
   function parasToHTML(paras){const c=document.createElement("div");paras.forEach((p,i)=>c.appendChild(lineEl(p,i,{save:true})));return c.innerHTML;}
-  return{pickImage,deletePicked,hasPickedImage:()=>!!pickedImg(),unpickImage:()=>{unpickImg();updateTb();},parasToHTML,getDoc,renderParas,paraRects,mapImageSrc,stampParas,getHTML,setHTML,clear,getPlainText,insertImage,undo,redo,applyMark,clearMarkRuns,selText,hasSelection,refresh,markEl,appendMarked};
+  // a picture dropped on the page goes in at the drop point
+  function insertImageAt(t,src){insImgFitted(src,t?{cur:{p:t.p,offset:t.o},sel:null}:{cur:{...cur},sel:null});}
+  return{dropTarget:(x,y)=>dropAt(x,y),insertImageAt,pickImage,deletePicked,hasPickedImage:()=>!!pickedImg(),unpickImage:()=>{unpickImg();updateTb();},parasToHTML,getDoc,renderParas,paraRects,mapImageSrc,stampParas,getHTML,setHTML,clear,getPlainText,insertImage,undo,redo,applyMark,clearMarkRuns,selText,hasSelection,refresh,markEl,appendMarked};
 }

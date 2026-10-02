@@ -21,7 +21,7 @@ async function projectExport(id){if(id===pid)await savePageNow();
 async function backupProject(){
   const data=await projectExport(pid);
   _download(data,'patchwork-'+_slug(projName(pid))+'-'+_today()+'.json');
-  toast('Backed up this project: \u201c'+projName(pid)+'\u201d','ok');db.info.update('info',{lastBackupAt:Date.now()}).catch(()=>{});
+  toast('Backed up this project: \u201c'+projName(pid)+'\u201d','ok');db.info.update('info',{lastBackupAt:Date.now()}).then(()=>{if(typeof updateBkStatus==='function')updateBkStatus();}).catch(()=>{});
 }
 async function backupAll(){
   await savePageNow();
@@ -33,7 +33,7 @@ async function backupAll(){
     strokes:allS.map(s=>{const oo=_sexp(s);oo.poid=s.pid;return oo;}),
     colors:{favorites:COLOR_FAVORITES,recents:COLOR_RECENTS},htypes:[...HT.values()],profiles:PROFILES,handwriting:(await db.hw.toArray()).map(({id,...r})=>r)};
   _download(data,'patchwork-all-'+_today()+'.json');
-  toast('Backed up everything ('+projects.length+' project'+(projects.length!==1?'s':'')+')','ok');db.info.update('info',{lastBackupAt:Date.now()}).catch(()=>{});
+  toast('Backed up everything ('+projects.length+' project'+(projects.length!==1?'s':'')+')','ok');db.info.update('info',{lastBackupAt:Date.now()}).then(()=>{if(typeof updateBkStatus==='function')updateBkStatus();}).catch(()=>{});
 }
 function _sani(h){try{return DOMPurify.sanitize(String(h||''));}catch(e){return '';}}
 async function importFile(file,opt){
@@ -95,3 +95,5 @@ async function importPdf(file,opt){opt=opt||{};
   projects=await db.projects.toArray();syncPing('projects');
   if(!opt.noSwitch)await switchProject(np);renderProjects();
   toast('Imported \u201c'+name+'\u201d: '+n+' page'+(n>1?'s':'')+(pdf.numPages>n?' (the first '+n+' of '+pdf.numPages+')':''),'ok');return np;}
+// Insert ▸ PDF: pick a PDF file and import it as a new page
+function openPdfPicker(){const i=document.createElement('input');i.type='file';i.accept='.pdf,application/pdf';i.onchange=()=>{if(i.files[0])importPdf(i.files[0]);};i.click();}

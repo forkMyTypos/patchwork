@@ -17,7 +17,7 @@ function savePic(p){db.pics.put(picClean(p)).catch(e=>console.error(e));}
 
 /* ---- drawing (DOM images in the page, so they scroll with it) ---- */
 function renderPics(){const U=inkW,keep=new Set();
-  for(const p of pics){let el=_picEl.get(p);if(!el){el=document.createElement('div');el.className='pic';el.innerHTML='<img alt="" draggable="false"><div class="pic-h" title="Drag to resize"></div>';_picEl.set(p,el);el._pic=p;}
+  for(const p of pics){let el=_picEl.get(p);if(!el){el=document.createElement('div');el.className='pic';el.innerHTML='<img alt="" draggable="false">'+['tl','tr','bl','br'].map(c=>'<div class="pic-h '+c+'" data-c="'+c+'" title="Drag to resize"></div>').join('');_picEl.set(p,el);el._pic=p;}
     keep.add(el);if(el.parentNode!==picLayer)picLayer.appendChild(el);const img=el.firstChild,src=picSrc(p);if(src&&img.getAttribute('src')!==src)img.setAttribute('src',src);
     el.style.left=(gutter+p.x*U)+'px';el.style.top=(p.y*U+inkDy(p))+'px';el.style.width=(p.w*U)+'px';el.style.height=(p.h*U)+'px';el.classList.toggle('on',p===picSel);}
   for(const el of [...picLayer.children])if(!keep.has(el))el.remove();picMenuPos();}
@@ -55,14 +55,15 @@ function picMenuPos(){if(!picSel){if(picMenu)picMenu.style.display='none';return
   if(picMenu.parentNode!==document.body)document.body.appendChild(picMenu);const r=el.getBoundingClientRect(),vt=wrap.getBoundingClientRect().top;
   if(r.bottom<vt||r.top>innerHeight){picMenu.style.display='none';return;}picMenu.style.display='flex';picMenu.style.left=Math.max(4,r.left)+'px';picMenu.style.top=(r.top-34<vt+4?Math.max(vt+4,r.top+6):r.top-34)+'px';}
 function picDelete(){const p=picSel;if(!p)return;const b=picSnap(p);picUnpick();p.del=Date.now();pics=pics.filter(q=>q!==p);savePic(p);picRecord(p,b);renderPics();updatePad();updateHint();}
-function picAt(x,y){for(const el of document.elementsFromPoint(x,y)){const d=el.closest&&el.closest('.pic');if(d&&d._pic&&picLayer.contains(d))return{p:d._pic,handle:!!(el.closest('.pic-h'))};}return null;}
+function picAt(x,y){for(const el of document.elementsFromPoint(x,y)){const d=el.closest&&el.closest('.pic');if(d&&d._pic&&picLayer.contains(d)){const h=el.closest('.pic-h');return{p:d._pic,handle:h?h.dataset.c:null};}}return null;}
 function picStartDrag(p,e,handle){picPick(p);_picDrag={p,x:e.clientX,y:e.clientY,orig:picSnap(p),handle,moved:false};document.body.classList.add('pic-dragging');}
-picLayer.addEventListener('pointerdown',e=>{const d=e.target.closest('.pic');if(!d||!d._pic||(e.button!==undefined&&e.button!==0))return;e.preventDefault();e.stopPropagation();picStartDrag(d._pic,e,!!e.target.closest('.pic-h'));});
+picLayer.addEventListener('pointerdown',e=>{const d=e.target.closest('.pic');if(!d||!d._pic||(e.button!==undefined&&e.button!==0))return;e.preventDefault();e.stopPropagation();const h=e.target.closest('.pic-h');picStartDrag(d._pic,e,h?h.dataset.c:null);});
 document.addEventListener('pointermove',e=>{const g=_picDrag;if(!g)return;const U=inkW,dx=(e.clientX-g.x)/U,dy=(e.clientY-g.y)/U;if(!g.moved&&Math.hypot(e.clientX-g.x,e.clientY-g.y)<3)return;g.moved=true;const p=g.p,o=g.orig;
-  if(g.handle){const w=Math.max(16/U,o.w+dx);p.w=w;p.h=w*o.h/o.w;}else{p.x=Math.max(0,o.x+dx);p.y=o.y+dy;}picFix(p);renderPics();});
+  // resize from any corner, keeping proportions; the opposite corner stays put
+  if(g.handle){const c=g.handle,w=Math.max(16/U,o.w+(c[1]==='r'?dx:-dx)),h=w*o.h/o.w;p.w=w;p.h=h;p.x=c[1]==='l'?o.x+o.w-w:o.x;p.y=c[0]==='t'?o.y+o.h-h:o.y;}else{p.x=Math.max(0,o.x+dx);p.y=o.y+dy;}picFix(p);renderPics();});
 document.addEventListener('pointerup',()=>{const g=_picDrag;if(!g)return;_picDrag=null;document.body.classList.remove('pic-dragging');if(!g.moved)return;const p=g.p;p._dy=inkDy(p);reanchor(p);savePic(p);picRecord(p,g.orig);renderPics();updatePad();});
 // a press anywhere else unpicks; Del removes the picked picture, Esc unpicks
-document.addEventListener('pointerdown',e=>{if(picSel&&!(e.target.closest&&(e.target.closest('.pic')||e.target.closest('.pic-menu'))))picUnpick();},true);
+document.addEventListener('pointerdown',e=>{if(!picSel||(e.target.closest&&(e.target.closest('.pic')||e.target.closest('.pic-menu'))))return;const h=picAt(e.clientX,e.clientY);if(h&&h.p===picSel)return;picUnpick();},true);   // (under the ink layer in Select & move, so look at what's under the pointer)
 addEventListener('keydown',e=>{if(!picSel||/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||e.target.isContentEditable)return;
   if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();picDelete();}else if(e.key==='Escape')picUnpick();});
 

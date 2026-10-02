@@ -71,7 +71,9 @@ const gut=document.getElementById('gut');
 function isDraw(m){return m==='pen'||m==='hl'||m==='eraser';}
 function scrollTop(){return wrap.scrollTop;}
 // the editor handles keys itself, so the browser never scrolls to follow the caret: do it here (held Enter/Backspace)
-function keepCaretVisible(){const s=window.getSelection();if(!s||!s.rangeCount)return;let r=s.getRangeAt(0).getClientRects()[0];if(!r||!r.height){const n=s.anchorNode,el=n&&(n.nodeType===1?n:n.parentElement);if(el)r=el.getBoundingClientRect();}if(!r)return;const w=wrap.getBoundingClientRect(),m=48;if(r.bottom>w.bottom-m)wrap.scrollTop+=r.bottom-(w.bottom-m);else if(r.top<w.top+m)wrap.scrollTop=Math.max(0,wrap.scrollTop-((w.top+m)-r.top));}
+function keepCaretVisible(){const s=window.getSelection();if(!s||!s.rangeCount)return;let r=s.getRangeAt(0).getClientRects()[0];if(!r||!r.height){const n=s.anchorNode,el=n&&(n.nodeType===1?n:n.parentElement);if(el)r=el.getBoundingClientRect();}if(!r)return;const w=wrap.getBoundingClientRect(),m=48;if(r.bottom>w.bottom-m)wrap.scrollTop+=r.bottom-(w.bottom-m);else if(r.top<w.top+m)wrap.scrollTop=Math.max(0,wrap.scrollTop-((w.top+m)-r.top));
+  // sideways too (a page wider than the window): follow the caret right, and back left on a new line
+  const mx=40;if(r.right>w.right-mx)wrap.scrollLeft+=r.right-(w.right-mx);else if(r.left<w.left+gutter+mx)wrap.scrollLeft=Math.max(0,wrap.scrollLeft-((w.left+gutter+mx)-r.left));}
 function esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
 function markById(id){id=typeof id==='string'?+id:id;return marks.find(m=>m.id===id);}
 function projName(id){const p=projects.find(x=>x.id===id);return p?p.name:'?';}

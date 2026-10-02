@@ -221,7 +221,9 @@ function inkRedoFn(){if(!inkRedo.length)return;const s=inkRedo.pop();s.born=Date
 /* stroke input */
 function widthFor(pr){const eff=(pr>0&&pr<1)?pr:0.5;const base=mode==='eraser'?inkSize*3:mode==='hl'?inkSize*2.2:inkSize;const mul=mode==='pen'?(0.55+0.9*eff):1;return base*mul/drawW;}
 cv.addEventListener('pointerdown',e=>{if(mode==='grab'){grabDown(e);return;}if(!isDraw(mode))return;if(e.button!==undefined&&e.button!==0)return;e.preventDefault();cv.setPointerCapture(e.pointerId);drawing=true;const p=ptFromEvent(e);active={kind:'stroke',tool:mode,color:inkColor,t:Date.now(),pts:[{xn:p.xn,yn:p.yn,wn:widthFor(e.pressure)}],minYn:p.yn,maxYn:p.yn};styleFor(active);const a=active.pts[0];ctx.beginPath();ctx.arc(sx(a.xn),sy(a.yn),Math.max(.5,a.wn*drawW/2),0,7);ctx.fill();ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;});
-cv.addEventListener('pointermove',e=>{if(mode==='grab'){grabMove(e);return;}if(!drawing||!active)return;e.preventDefault();const p=ptFromEvent(e),pts=active.pts,prev=pts[pts.length-1],np={xn:p.xn,yn:p.yn,wn:widthFor(e.pressure)};pts.push(np);if(p.yn<active.minYn)active.minYn=p.yn;if(p.yn>active.maxYn)active.maxYn=p.yn;styleFor(active);ctx.lineWidth=Math.max(.5,(prev.wn+np.wn)/2*drawW);ctx.beginPath();ctx.moveTo(sx(prev.xn),sy(prev.yn));ctx.lineTo(sx(np.xn),sy(np.yn));ctx.stroke();ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;});
+cv.addEventListener('pointermove',e=>{if(mode==='grab'){grabMove(e);return;}if(!drawing||!active)return;e.preventDefault();const p=ptFromEvent(e),pts=active.pts,prev=pts[pts.length-1],np={xn:p.xn,yn:p.yn,wn:widthFor(e.pressure)};
+  if(e.shiftKey){active.pts=[pts[0],{...np,wn:pts[0].wn}];active.minYn=Math.min(pts[0].yn,np.yn);active.maxYn=Math.max(pts[0].yn,np.yn);redrawInk();drawStroke(active);return;}   // Shift: a straight line
+  pts.push(np);if(p.yn<active.minYn)active.minYn=p.yn;if(p.yn>active.maxYn)active.maxYn=p.yn;styleFor(active);ctx.lineWidth=Math.max(.5,(prev.wn+np.wn)/2*drawW);ctx.beginPath();ctx.moveTo(sx(prev.xn),sy(prev.yn));ctx.lineTo(sx(np.xn),sy(np.yn));ctx.stroke();ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;});
 function endStroke(){if(!active)return;const s=active;active=null;drawing=false;s.pid=pid;addViewStroke(s);redrawInk();}
 cv.addEventListener('pointerup',e=>{if(mode==='grab'){grabUp(e);return;}if(drawing)endStroke();});
 cv.addEventListener('pointercancel',e=>{if(mode==='grab'){grabUp(e);return;}if(drawing)endStroke();});
@@ -695,6 +697,27 @@ addEventListener('beforeprint',()=>{if(!editor||_printCv)return;const w=pad.offs
   _printLight=!document.documentElement.classList.contains('light');if(_printLight)document.documentElement.classList.add('light');document.documentElement.classList.add('printing');});
 addEventListener('afterprint',()=>{if(_printCv){_printCv.remove();_printCv=null;}const ps=document.getElementById('print-page');if(ps)ps.remove();if(_printLight)document.documentElement.classList.remove('light');_printLight=false;document.documentElement.classList.remove('printing');});
 function printPage(){window.print();}
+/* find & replace (Ctrl+H or main menu): matches are shown with the browser's highlight API, so typing stays in the box */
+let frPanel=null,frM=[],frI=-1;
+function frHL(){if(!window.CSS||!CSS.highlights||typeof Highlight==='undefined')return;const all=new Highlight(),one=new Highlight();frM.forEach((m,i)=>{const r=editor.rangeOf(m);if(r)(i===frI?one:all).add(r);});CSS.highlights.set('pw-find',all);CSS.highlights.set('pw-find-on',one);}
+function frClear(){if(window.CSS&&CSS.highlights){CSS.highlights.delete('pw-find');CSS.highlights.delete('pw-find-on');}}
+function frRun(keep){const q=frPanel.querySelector('.fr-q').value,cs=frPanel.querySelector('.fr-cs').checked;frM=editor.findAll(q,cs);if(!keep||frI>=frM.length)frI=frM.length?0:-1;frStatus();frHL();}
+function frStatus(){const st=frPanel.querySelector('.fr-st');st.textContent=frPanel.querySelector('.fr-q').value?(frM.length?(frI+1)+' of '+frM.length:'No matches'):'';}
+function frGo(d){if(!frM.length)return;frI=(frI+d+frM.length)%frM.length;frStatus();frHL();const r=editor.rangeOf(frM[frI]);if(r){const b=r.getBoundingClientRect(),w=wrap.getBoundingClientRect();if(b.top<w.top+60||b.bottom>w.bottom-60)wrap.scrollTop+=b.top-w.top-w.height*0.35;if(b.left<w.left+gutter||b.right>w.right-20)wrap.scrollLeft+=b.left-w.left-gutter-80;}}
+function openFindReplace(){if(!editor)return;if(!frPanel){frPanel=document.createElement('div');frPanel.className='panel fr-panel';
+    frPanel.innerHTML='<div class="panel-h"><div class="panel-t">Find &amp; replace</div><button class="panel-x" title="Close (Esc)">\u00d7</button></div><div class="panel-b">'+
+      '<div class="fr-row"><input class="pf-in fr-q" placeholder="Find" spellcheck="false"><span class="fr-st"></span><button class="pbtn fr-prev" title="Previous (Shift+Enter)">\u2191</button><button class="pbtn fr-next" title="Next (Enter)">\u2193</button></div>'+
+      '<div class="fr-row"><input class="pf-in fr-r" placeholder="Replace with" spellcheck="false"><button class="pbtn fr-one">Replace</button><button class="pbtn fr-all">Replace all</button></div>'+
+      '<label class="fr-opt"><input type="checkbox" class="fr-cs"> Match case</label></div>';
+    document.body.appendChild(frPanel);makeDraggable(frPanel,frPanel.querySelector('.panel-h'));const q=x=>frPanel.querySelector(x);
+    const close=()=>{frPanel.style.display='none';frClear();};q('.panel-x').onclick=close;
+    q('.fr-q').oninput=()=>frRun(false);q('.fr-cs').onchange=()=>frRun(false);q('.fr-next').onclick=()=>frGo(1);q('.fr-prev').onclick=()=>frGo(-1);
+    q('.fr-q').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();frGo(e.shiftKey?-1:1);}};
+    q('.fr-one').onclick=()=>{if(frI<0||!frM[frI])return;editor.replaceAt(frM[frI],q('.fr-r').value);requestAnimationFrame(()=>{frRun(true);q('.fr-r').focus();});};
+    q('.fr-all').onclick=()=>{const n=editor.replaceAll(q('.fr-q').value,q('.fr-r').value,q('.fr-cs').checked);toast(n?'Replaced '+n+(n===1?' match':' matches'):'No matches','info');requestAnimationFrame(()=>frRun(false));};
+    frPanel.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();close();}});}
+  frPanel.style.display='flex';const s=editor.selText&&editor.selText();if(s&&s.length<80&&!/\n/.test(s))frPanel.querySelector('.fr-q').value=s;const qi=frPanel.querySelector('.fr-q');qi.focus();qi.select();frRun(false);}
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='h'){e.preventDefault();openFindReplace();}},true);
 function openMiniMenu(anchor){if(IS_MINI)return;if(!_miniMenu){_miniMenu=document.createElement('div');_miniMenu.className='panel mini-menu';document.body.appendChild(_miniMenu);document.addEventListener('mousedown',e=>{if(_miniMenu.style.display!=='none'&&!_miniMenu.contains(e.target)&&!e.target.closest('#mini-btn'))_miniMenu.style.display='none';});}
   const busy=new Set(editorWindows().map(w=>{try{return w.currentPid();}catch(e){return null;}}));
   _miniMenu.innerHTML='<div class="panel-h"><div class="panel-t">Open beside this page</div></div><div class="panel-b"><div class="mini-list"></div><div class="proj-new"><input class="pf-in" placeholder="New project\u2026" maxlength="60"><button title="Create">+</button></div></div>';

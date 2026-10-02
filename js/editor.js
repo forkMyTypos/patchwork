@@ -324,5 +324,14 @@ function makeEditor(edId,tbId,statusId,valignId){
   function insertImageAt(t,src,w){if(w){cur=t?{p:t.p,offset:t.o}:{...cur};sel=null;busy=false;selectedImage=null;insImg(src,w);commit();return;}insImgFitted(src,t?{cur:{p:t.p,offset:t.o},sel:null}:{cur:{...cur},sel:null});}
   // a picture on its own new line after paragraph pi (-1 = at the very top)
   function insertImageLine(pi,src,w){pushUndo("img");const np=mkPara([mkImage(src,w||100)]);np.t=Date.now();doc.splice(pi+1,0,np);cur={p:pi+1,offset:1};sel=null;selectedImage=null;commit();}
-  return{insertImageLine,dropTarget:(x,y)=>dropAt(x,y),insertImageAt,pickImage,deletePicked,hasPickedImage:()=>!!pickedImg(),unpickImage:()=>{unpickImg();updateTb();},parasToHTML,getDoc,renderParas,paraRects,mapImageSrc,stampParas,getHTML,setHTML,clear,getPlainText,insertImage,undo,redo,applyMark,clearMarkRuns,selText,hasSelection,refresh,markEl,appendMarked};
+  // find & replace (pictures count as one character and never match)
+  function paraText(p){return p.runs.map(r=>r.type==="text"?r.text:"\u0000").join("");}
+  function findAll(q,cs){const out=[];if(!q)return out;const Q=cs?q:q.toLowerCase();doc.forEach((p,pi)=>{const t=cs?paraText(p):paraText(p).toLowerCase();let i=0;while((i=t.indexOf(Q,i))>=0){out.push({p:pi,o:i,len:q.length});i+=q.length;}});return out;}
+  function domPoint(pi,off){const le=getLine(pi);if(!le)return null;let r=off;for(const c of le.childNodes){if(c.dataset&&c.dataset.imgRun){if(r<=0)return[le,[...le.childNodes].indexOf(c)];r-=1;continue;}const t=c.firstChild;if(!t||t.nodeType!==3)continue;const l=t.textContent==="\u200B"?0:t.textContent.length;if(r<=l)return[t,Math.min(r,t.textContent.length)];r-=l;}return[le,le.childNodes.length];}
+  function rangeOf(m){const a=domPoint(m.p,m.o),b=domPoint(m.p,m.o+m.len);if(!a||!b)return null;const rg=document.createRange();rg.setStart(a[0],a[1]);rg.setEnd(b[0],b[1]);return rg;}
+  function selectMatch(m){sel={sp:m.p,so:m.o,ep:m.p,eo:m.o+m.len};cur={p:m.p,offset:m.o};const rg=rangeOf(m);if(rg){const s=window.getSelection();s.removeAllRanges();s.addRange(rg);}}
+  function replaceAt(m,txt,undo){const P=doc[m.p];if(!P)return;if(undo!==false)pushUndo("type");const st=getStyleAt(P,m.o+1),mk=(rfr(P,m.o,m.o+1)[0]||{}).mark||null;
+    P.runs=mergeRuns([...rfr(P,0,m.o),{...mkRun(txt),...st,type:"text",text:txt,mark:mk,link:null},...rfr(P,m.o+m.len,plen(P))]);if(undo!==false){sel=null;cur={p:m.p,offset:m.o+txt.length};commit();}}
+  function replaceAll(q,txt,cs){const ms=findAll(q,cs);if(!ms.length)return 0;pushUndo("type");for(let k=ms.length-1;k>=0;k--)replaceAt(ms[k],txt,false);sel=null;commit();return ms.length;}
+  return{findAll,rangeOf,selectMatch,replaceAt,replaceAll,insertImageLine,dropTarget:(x,y)=>dropAt(x,y),insertImageAt,pickImage,deletePicked,hasPickedImage:()=>!!pickedImg(),unpickImage:()=>{unpickImg();updateTb();},parasToHTML,getDoc,renderParas,paraRects,mapImageSrc,stampParas,getHTML,setHTML,clear,getPlainText,insertImage,undo,redo,applyMark,clearMarkRuns,selText,hasSelection,refresh,markEl,appendMarked};
 }

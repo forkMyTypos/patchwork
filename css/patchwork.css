@@ -604,3 +604,10 @@ body.pic-through #pics,body.pic-through #pics *{pointer-events:none!important;}
   #print-ink{display:block;}
   .pic.on{outline:none!important;}.pic-h{display:none!important;}.img-run.img-selected img{outline:none!important;}
 }
+
+/* find & replace */
+.fr-panel{position:fixed;top:96px;right:18px;width:390px;max-width:calc(100vw - 24px);z-index:80;}
+.fr-row{display:flex;gap:6px;align-items:center;margin-bottom:8px;}.fr-row .pf-in{flex:1;min-width:0;}
+.fr-st{font-size:11px;color:#8a8aa4;white-space:nowrap;min-width:58px;text-align:right;}
+.fr-opt{font-size:12px;color:#a8a8c0;display:flex;gap:6px;align-items:center;}
+::highlight(pw-find){background:rgba(251,191,36,.28);}::highlight(pw-find-on){background:rgba(251,146,60,.7);color:#111;}

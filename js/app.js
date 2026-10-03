@@ -620,6 +620,8 @@ if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INP
   if(document.activeElement===noteEd)return;
   if((e.ctrlKey||e.metaKey)&&!e.altKey){const k=e.key.toLowerCase();if(k==='z'&&!e.shiftKey){e.preventDefault();hostUndo();return;}if((k==='z'&&e.shiftKey)||k==='y'){e.preventDefault();hostRedo();return;}}
   if(e.ctrlKey||e.metaKey||e.altKey)return;if(tag==='INPUT'||tag==='TEXTAREA')return;
+  // Page Up / Page Down move the page by a screen in any tool (the page itself never has focus); ignored mid-stroke
+  if(e.key==='PageDown'||e.key==='PageUp'){if(tag==='SELECT'||e.target.isContentEditable||(typeof tlOpen==='function'&&tlOpen()))return;e.preventDefault();if(!drawing)wrap.scrollBy({top:(e.key==='PageDown'?1:-1)*Math.max(40,wrap.clientHeight-40)});return;}
   const mm={t:'text',p:'pen',h:'hand',g:'grab'}[e.key.toLowerCase()];if(mm)setMode(mm);
 });
 addEventListener('resize',()=>{const yn=scrollTop()/drawW;layout();wrap.scrollTop=yn*drawW;redrawInk();});

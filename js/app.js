@@ -119,7 +119,9 @@ function reanchor(s){const tops=paraTops();if(!tops.size||!editor||s.pid!==pid)r
 function inkToUnits(s){const f=drawW/inkW;for(const q of s.pts){q.xn*=f;q.yn*=f;q.wn*=f;}s.minYn*=f;s.maxYn*=f;s.u=1;s._dy=0;}
 function addViewStroke(s){inkToUnits(s);reanchor(s);commitStroke(s);saveMeta();}
 function inkBottomPx(){let mx=typeof picsBottomPx==='function'?picsBottomPx():0;for(const s of strokes){const b=s.maxYn*inkU(s)+inkDy(s);if(b>mx)mx=b;}return mx;}
-function updatePad(){pad.style.minHeight=Math.ceil(Math.max(noteEd.scrollHeight+20,inkBottomPx()+H*0.5,H))+'px';}
+// padGrow: blank space added by Page Down at the end of the page (for this visit; drawing there keeps it via the ink)
+let padGrow=0;
+function updatePad(){pad.style.minHeight=Math.ceil(Math.max(noteEd.scrollHeight+20,inkBottomPx()+H*0.5,H,padGrow))+'px';}
 
 /* ink */
 function styleFor(s){ctx.lineCap='round';ctx.lineJoin='round';if(s.tool==='eraser'){ctx.globalCompositeOperation='destination-out';ctx.strokeStyle='#000';ctx.fillStyle='#000';ctx.globalAlpha=1;}else if(s.tool==='hl'){ctx.globalCompositeOperation='source-over';ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.globalAlpha=.30;}else{ctx.globalCompositeOperation='source-over';ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.globalAlpha=1;}}
@@ -277,6 +279,7 @@ async function switchProject(npid){
   const pg=(await db.pages.get(pid))||{};
   strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);inkRedo=[];
   if(typeof picsLoad==='function')await picsLoad();
+  padGrow=0;
   gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);pageBg=PAGE_BGS.includes(pg.bg)?pg.bg:'';
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   if(editor){editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();}
@@ -572,7 +575,9 @@ document.getElementById('gut-add').addEventListener('click',()=>{const bottom=co
 
 /* modes */
 // one screen up (-1) or down (1), minus a small overlap; never while a stroke is being drawn (Page Up/Down keys, margin buttons)
-function pageStep(d){if(!drawing)wrap.scrollBy({top:d*Math.max(40,wrap.clientHeight-40)});}
+function pageStep(d){if(drawing)return;const step=Math.max(40,wrap.clientHeight-40);
+  if(d>0&&wrap.scrollTop+wrap.clientHeight>=wrap.scrollHeight-2){padGrow=wrap.scrollHeight+step;updatePad();}   // at the end: add a new blank page first
+  wrap.scrollBy({top:d*step});}
 document.getElementById('pg-up').addEventListener('click',()=>pageStep(-1));document.getElementById('pg-dn').addEventListener('click',()=>pageStep(1));
 function setMode(m){if(mode!==m&&editor&&editor.hasPickedImage&&editor.hasPickedImage())editor.unpickImage();mode=m;document.body.classList.toggle('draw-tools',m!=='text');   // page up/down buttons in the margin
   document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg');hideTagbar();if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>noteEd.focus());}else if(m==='hand'){document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='auto';noteEd.blur();}else{document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}cv.classList.toggle('pan',m==='hand');cv.classList.toggle('m-pen',m==='pen');cv.classList.toggle('m-hl',m==='hl');if(m!=='grab')grabSel.clear();}
@@ -657,6 +662,7 @@ addEventListener('DOMContentLoaded',async function(){
   pid=active;const pg=(await db.pages.get(pid))||{};
   strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);
   if(typeof picsLoad==='function')await picsLoad();
+  padGrow=0;
   gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);pageBg=PAGE_BGS.includes(pg.bg)?pg.bg:'';
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();

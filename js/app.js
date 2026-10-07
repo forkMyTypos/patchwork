@@ -240,7 +240,7 @@ wrap.addEventListener('scroll',()=>{redrawInk();hideTagbar();saveMeta();},{passi
 /* marks CRUD */
 async function addMark(obj,open){const m=Object.assign({pid,type:'note',name:'',tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'time',yn:0}},obj);try{const id=await db.marks.add(stripId(m));m.id=id;}catch(e){console.error(e);return null;}marks.push(m);syncPing('marks');redrawInk();flashPin(m.id);if(open)openMarkPopup(m);return m;}
 let _saveTimers={};
-function saveMark(m){clearTimeout(_saveTimers[m.id]);_saveTimers[m.id]=setTimeout(()=>{db.marks.update(m.id,{type:m.type,name:m.name,tags:m.tags,done:m.done,doneAt:m.doneAt,links:m.links,anchor:m.anchor,snippet:m.snippet||'',created:m.created,fields:m.fields||{},hover:m.hover||'',hoverSrc:m.hoverSrc||null}).then(()=>syncPing('marks')).catch(e=>console.error(e));},300);}
+function saveMark(m){clearTimeout(_saveTimers[m.id]);_saveTimers[m.id]=setTimeout(()=>{db.marks.update(m.id,{type:m.type,name:m.name,tags:m.tags,done:m.done,doneAt:m.doneAt,links:m.links,anchor:m.anchor,snippet:m.snippet||'',created:m.created,fields:m.fields||{},hover:m.hover||'',hoverSrc:m.hoverSrc||null,vt:m.vt||null}).then(()=>syncPing('marks')).catch(e=>console.error(e));},300);}
 async function hardDeleteMark(m){await db.marks.delete(m.id);syncPing('marks');if(m.anchor&&m.anchor.kind==='text'&&editor)editor.clearMarkRuns(m.id);for(const q of marks)if(q.links&&q.links.includes(m.id)){q.links=q.links.filter(x=>x!==m.id);saveMark(q);}marks=marks.filter(x=>x!==m);redrawInk();}
 let _mkCleanT=null,_mkCleanId=null;
 function softDeleteMark(m){const isText=m.anchor&&m.anchor.kind==='text';const qedits=[];for(const q of marks)if(q!==m&&q.links&&q.links.includes(m.id)){qedits.push(q);q.links=q.links.filter(x=>x!==m.id);saveMark(q);}const snap=JSON.parse(JSON.stringify(m));db.marks.delete(m.id).then(()=>syncPing('marks')).catch(()=>{});marks=marks.filter(x=>x!==m);if(isText&&editor)editor.refresh();redrawInk();if(isText){clearTimeout(_mkCleanT);_mkCleanId=m.id;_mkCleanT=setTimeout(()=>{if(editor&&_mkCleanId!=null)editor.clearMarkRuns(_mkCleanId);_mkCleanId=null;},6400);}toast('Deleted','ok',{label:'Undo',fn:()=>{if(isText){clearTimeout(_mkCleanT);_mkCleanId=null;}db.marks.put(snap).catch(()=>{});marks.push(snap);for(const q of qedits)if(!q.links.includes(snap.id)){q.links.push(snap.id);saveMark(q);}if(isText&&editor)editor.refresh();redrawInk();}});}
@@ -343,6 +343,12 @@ function buildPopupBody(m){
   const nf=document.createElement('div');nf.className='pf';nf.innerHTML='<div class="pf-l">Name</div>';
   const ni=document.createElement('input');ni.className='pf-in';ni.placeholder='Name\u2026';ni.value=m.name||'';
   ni.oninput=()=>{m.name=ni.value;saveMark(m);redrawInk();flagSaved();};nf.appendChild(ni);b.appendChild(nf);
+  // a moment in a YouTube video (youtube.js): jump to it, unlink, or link the active video's current moment
+  if(m.vt||(typeof YT!=='undefined'&&YT.mode&&YT.active)){const vr=document.createElement('div');vr.className='pf yt-row';vr.innerHTML='<div class="pf-l">YouTube moment</div>';const row=document.createElement('div');row.className='hw-row';row.style.marginTop='0';
+    if(m.vt){const j=document.createElement('button');j.className='pbtn yt-jump';j.textContent='\u25b6 '+ytFmt(m.vt.s);j.title='Play the video from here (video '+m.vt.v+')';j.onclick=()=>ytJump(m.vt);
+      const x=document.createElement('button');x.className='fx-link';x.textContent='Unlink';x.onclick=()=>{m.vt=null;saveMark(m);buildPopupBody(m);};row.append(j,x);}
+    else{const l=document.createElement('button');l.className='pbtn';l.textContent='\u23f1 Link to the active video, now';l.onclick=()=>{if(ytLinkMark(m))buildPopupBody(m);};row.appendChild(l);}
+    vr.appendChild(row);b.appendChild(vr);}
   const tf=document.createElement('div');tf.className='pf';tf.innerHTML='<div class="pf-l">Type</div>';
   const seg=document.createElement('div');seg.className='seg wrap';
   const types=activeTypeIds().slice();if(!types.includes(m.type))types.unshift(m.type);
@@ -754,6 +760,7 @@ let _hlMenu=null;document.getElementById('hl-btn').addEventListener('click',e=>{
     document.addEventListener('mousedown',ev=>{if(!_hlMenu.contains(ev.target)&&!ev.target.closest('#hl-btn'))_hlMenu.classList.remove('open');});}
   const r=e.currentTarget.getBoundingClientRect();_hlMenu.style.left=r.left+'px';_hlMenu.style.top=(r.bottom+6)+'px';_hlMenu.classList.toggle('open');});
 document.getElementById('class-btn').addEventListener('click',()=>openClassroom());
+document.getElementById('yt-mode').addEventListener('click',()=>ytToggleMode());
 /* keyboard shortcuts (press ? or main menu) */
 const SHORTCUTS=[['Tools',[['T','Write and format'],['P','Pen'],['G','Select & move (ink and pictures)'],['H','Hand: drag the page'],['Shift + draw','Straight line'],['Del','Delete the selected ink or picture']]],
   ['Editing',[['Ctrl+Z / Ctrl+Shift+Z','Undo / redo'],['- or * then space','Bullet list'],['1. then space','Numbered list'],['# / ## / ### then space','Heading 1 / 2 / 3'],['Tab / Shift+Tab','Indent a list item'],['Ctrl+click','Open a link']]],

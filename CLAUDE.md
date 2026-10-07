@@ -17,6 +17,9 @@
   Second, EXPERIMENTAL exception: the opt-in AI board link (`js/ai-board.js` + `relay/ai-board.mjs`, same relay). Off unless
   switched on (Google sign-in); an external client with the board's key may send ONLY createQuestion/createAnswer/createNote
   (plain text -> highlights via addMark) and drawStrokes (capped doodle -> pen strokes via commitStroke, below existing work). The relay keeps only key hashes in memory; nothing stored.
+  Third, user-initiated exception: YouTube videos (`js/youtube.js`). A page with a video the user pasted/inserted loads the
+  official embed from youtube-nocookie.com (no API key, no extra script, nothing sent by Patchwork; player time via the embed's
+  postMessage channel). Same footing as pictures linked from the web.
 - Projects are PRIVATE by default (`shared!==true`). Only sharable projects may be broadcast (teacher's class area) or used by
   the AI link; check `isShared(pid)` at every sharing point. Making a project private fires `pw-private` and stops sharing.
 - Page width: each page stores `ww` (px at real size, the width it was written at; older pages get it frozen on first open).
@@ -33,6 +36,9 @@
   `pcopy`, which keeps ids). Runs may carry `link` (only http(s)/mailto, checked by `safeLink`). Page background `bg` and width `ww`
   live on the page record. Print = browser print with a full-height ink copy (beforeprint in app.js). Auto-backup keeps a folder
   handle in db.info (`bkDir`, Chrome/Edge). Welcome dialog shows once on a fresh install (never in automated test browsers).
+- YouTube objects: a db.pics record with `yt` (11-char video id), `st` (start s), optional `pin`+`px`/`py` (fixed on screen).
+  Video moments live on marks as `vt={v:video id,s:seconds,o:video object id}` (margin timestamp or highlight); YT mode = one
+  active video (`YT.active`). Not sent to the classroom (no picture to send), not drawn in the Timeline.
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.
@@ -81,6 +87,7 @@
 - `js/app.js` - database schema, projects, page, ink, marks, margin, panels, keyboard, boot (on DOMContentLoaded)
 - `js/images.js` - image store (pw-img:<hash> blobs)
 - `js/pics.js` - free pictures: render, pick/move/resize/delete, undo, In line <-> Free
+- `js/youtube.js` - YouTube objects (embed, pin), YT mode, video timestamps on marks, jump/seek
 - `js/highlights.js` - highlight types, profiles, Highlight Factory
 - `js/explorer.js` - highlight Explorer
 - `js/timeline.js` - history snapshots + Timeline view

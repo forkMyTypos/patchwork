@@ -633,3 +633,18 @@ body.pic-through #pics,body.pic-through #pics *{pointer-events:none!important;}
 body.draw-tools #gut-pg{display:flex;}
 #gut-pg button{width:36px;height:36px;border-radius:50%;border:1px solid #2a2a3a;background:#15151f;color:#c0c0d8;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 #gut-pg button:hover{border-color:#5a4a2b;color:#fbbf24;}
+
+/* YouTube objects (youtube.js): a title bar to drag, the official player below */
+.pic-yt{background:#0b0b10;border:1px solid #2a2a3a;border-radius:8px;overflow:visible;display:flex;flex-direction:column;}
+.pic-yt.pinned{z-index:4;box-shadow:0 8px 26px rgba(0,0,0,.5);}
+.yt-bar{height:30px;flex:0 0 30px;display:flex;align-items:center;gap:6px;padding:0 6px 0 10px;cursor:grab;font-size:11.5px;color:#c8c8dc;user-select:none;border-bottom:1px solid #20202e;}
+.yt-logo{color:#f87171;font-weight:600;}.yt-t{font:11px ui-monospace,Menlo,Consolas,monospace;color:#9a9ab4;}.yt-sp{flex:1;}
+.yt-bar button{height:22px;padding:0 8px;border-radius:6px;border:1px solid #2a2a3a;background:#15151f;color:#c0c0d8;font-size:11px;cursor:pointer;}
+.yt-bar button:hover{border-color:#5a4a2b;color:#fbbf24;}.pic-yt.pinned .yt-pin{border-color:#fbbf24;}
+.yt-act,.yt-stamp{display:none;}body.yt-mode .yt-act,body.yt-mode .pic-yt.yt-on .yt-stamp{display:inline-block;}body.yt-mode .pic-yt.yt-on .yt-act{display:none;}
+body.yt-mode .pic-yt.yt-on{border-color:#f87171;box-shadow:0 0 0 1px #f87171;}
+.yt-box{position:relative;flex:1;min-height:0;}.yt-box iframe{width:100%;height:100%;border:0;display:block;border-radius:0 0 8px 8px;}
+.yt-fail{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;padding:16px;font-size:12px;color:#9a9ab4;background:#0b0b10;}
+.pic-yt.yt-failed .yt-fail{display:flex;}
+body.pic-dragging .pic iframe{pointer-events:none;}
+#yt-mode.on{border-color:#f87171;color:#f87171;}

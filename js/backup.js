@@ -9,13 +9,15 @@ function _typesFor(ms){const ids=new Set(ms.map(m=>m.type));return [...HT.values
 // imported highlight types / profiles are only ever ADDED (an id that already exists here is left alone)
 async function _impHandwriting(data){if(!Array.isArray(data.handwriting))return;for(const r of data.handwriting)if(r&&r.ch&&Array.isArray(r.strokes))await db.hw.add({lang:r.lang||'en',ch:String(r.ch).slice(0,4),strokes:r.strokes,frame:r.frame||null,src:r.src||'import',created:r.created||Date.now()});if(typeof HWS!=='undefined')HWS.dict=null;}
 async function _impTypes(data){for(const t of (data.htypes||[]))if(t&&t.id&&!HT.has(t.id)){HT.set(t.id,t);await db.htypes.put(t);}for(const p of (data.profiles||[]))if(p&&p.id&&!PROFILES.some(x=>x.id===p.id)){PROFILES.push(p);await db.profiles.put(p);}if(typeof typesChanged==='function')typesChanged();}
-function _mexp(m){return{oid:m.id,type:m.type,fields:m.fields||{},hover:m.hover||'',name:m.name||'',tags:m.tags||[],created:m.created,done:!!m.done,doneAt:m.doneAt||null,links:m.links||[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||''};}
+function _mexp(m){return{oid:m.id,type:m.type,fields:m.fields||{},hover:m.hover||'',name:m.name||'',tags:m.tags||[],created:m.created,done:!!m.done,doneAt:m.doneAt||null,links:m.links||[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',vt:m.vt||undefined};}
 function _sexp(s){const o={t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn};if(s.u)o.u=1;if(s.a&&typeof s.a.p==='string')o.a={p:s.a.p,top:+s.a.top||0};return o;}
 // free pictures: exported with the picture itself inlined; imported back into this browser's image store
-async function _pexp(p){const o={src:await inlineImagesForExport(p.src),x:p.x,y:p.y,w:p.w,h:p.h,t:p.t};if(p.a&&typeof p.a.p==='string')o.a={p:p.a.p,top:+p.a.top||0};return o;}
+async function _pexp(p){const o={src:p.yt?'':await inlineImagesForExport(p.src),x:p.x,y:p.y,w:p.w,h:p.h,t:p.t};if(p.yt){o.yt=p.yt;o.st=p.st||0;if(p.pin){o.pin=true;o.px=p.px;o.py=p.py;}}if(p.a&&typeof p.a.p==='string')o.a={p:p.a.p,top:+p.a.top||0};return o;}
 async function _pimp(o,np){if(!o||typeof o!=='object')return;const n=v=>(typeof v==='number'&&isFinite(v))?v:null;const x=n(o.x),y=n(o.y),w=n(o.w),h=n(o.h);if(x==null||y==null||!(w>0&&w<=50)||!(h>0&&h<=200)||x<-5||y<-5)return;
+  if(typeof o.yt==='string'){if(!/^[A-Za-z0-9_-]{11}$/.test(o.yt))return;const v={pid:np,kind:'pic',src:'',yt:o.yt,st:Math.max(0,Math.floor(+o.st||0)),u:1,x,y,w,h,minYn:y,maxYn:y+h,t:n(o.t)||Date.now()};if(o.pin===true&&isFinite(o.px)&&isFinite(o.py)){v.pin=true;v.px=+o.px;v.py=+o.py;}await db.pics.add(v);return;}   // a YouTube video
   let src=typeof o.src==='string'?o.src:'';if(/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(src)&&src.length<=MAX_CARD_FIELD)src=await storeDataURL(src);else if(!/^https:\/\/[^\s"'<>]+$/.test(src))return;
   const p={pid:np,kind:'pic',src,u:1,x,y,w,h,minYn:y,maxYn:y+h,t:n(o.t)||Date.now()};if(o.a&&typeof o.a.p==='string'&&/^[a-z0-9]{4,24}$/.test(o.a.p)&&isFinite(o.a.top))p.a={p:o.a.p,top:+o.a.top};await db.pics.add(p);}
+function _vt(v){return v&&typeof v==='object'&&/^[A-Za-z0-9_-]{11}$/.test(v.v||'')&&isFinite(v.s)?{v:v.v,s:Math.max(0,Math.floor(+v.s)),o:isFinite(v.o)?+v.o:undefined}:null;}   // video moment on a mark
 function _simp(s){const o={t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn};if(s.u===1)o.u=1;if(s.a&&typeof s.a.p==='string'&&/^[a-z0-9]{4,24}$/.test(s.a.p)&&isFinite(s.a.top))o.a={p:s.a.p,top:+s.a.top};return o;}
 // one project as a backup object (also what a student hands in as a page)
 async function projectExport(id){if(id===pid)await savePageNow();
@@ -64,7 +66,7 @@ async function importFile(file,opt){
 async function _impProject(data){
   const np=await db.projects.add({name:((data.project&&data.project.name)||'Imported').slice(0,60),created:Date.now()});
   const map={};
-  for(const m of (data.marks||[])){const nid=await db.marks.add({pid:np,type:m.type||'note',name:m.name||'',tags:m.tags||[],created:m.created||Date.now(),done:!!m.done,doneAt:m.doneAt||null,links:[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',fields:m.fields||{},hover:m.hover||''});map[m.oid]=nid;}
+  for(const m of (data.marks||[])){const nid=await db.marks.add({pid:np,type:m.type||'note',name:m.name||'',tags:m.tags||[],created:m.created||Date.now(),done:!!m.done,doneAt:m.doneAt||null,links:[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',fields:m.fields||{},hover:m.hover||'',vt:_vt(m.vt)});map[m.oid]=nid;}
   for(const m of (data.marks||[]))if(m.links&&m.links.length&&map[m.oid]){const mm=m.links.map(x=>map[x]).filter(Boolean);if(mm.length)await db.marks.update(map[m.oid],{links:mm});}
   if(data.page){const h=_remapMarkIds(_sani(data.page.html),map);if(h.length<=MAX_CARD_FIELD)await db.pages.put({pid:np,html:h,scrollYn:data.page.scrollYn||0,gutterW:data.page.gutterW||0,ww:cleanWW(data.page.ww)||undefined,bg:PAGE_BGS.includes(data.page.bg)?data.page.bg:undefined});}
   for(const s of (data.strokes||[]))await db.strokes.add({pid:np,..._simp(s)});
@@ -76,7 +78,7 @@ async function _impAll(data){
   const fmap={};for(const f of (data.folders||[]))fmap[f.oid]=await db.folders.add({name:(f.name||'Folder').slice(0,60),parent:null,created:Date.now()});for(const f of (data.folders||[]))if(f.parent!=null&&fmap[f.parent])await db.folders.update(fmap[f.oid],{parent:fmap[f.parent]});
   for(const p of (data.projects||[])){const nid=await db.projects.add({name:(p.name||'Imported').slice(0,60),created:p.created||Date.now(),folder:p.folder!=null&&fmap[p.folder]?fmap[p.folder]:null});pmap[p.oid]=nid;}
   const map={};
-  for(const m of (data.marks||[])){const np=pmap[m.poid];if(np==null)continue;const nid=await db.marks.add({pid:np,type:m.type||'note',name:m.name||'',tags:m.tags||[],created:m.created||Date.now(),done:!!m.done,doneAt:m.doneAt||null,links:[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',fields:m.fields||{},hover:m.hover||''});map[m.oid]=nid;}
+  for(const m of (data.marks||[])){const np=pmap[m.poid];if(np==null)continue;const nid=await db.marks.add({pid:np,type:m.type||'note',name:m.name||'',tags:m.tags||[],created:m.created||Date.now(),done:!!m.done,doneAt:m.doneAt||null,links:[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',fields:m.fields||{},hover:m.hover||'',vt:_vt(m.vt)});map[m.oid]=nid;}
   for(const m of (data.marks||[]))if(m.links&&m.links.length&&map[m.oid]){const mm=m.links.map(x=>map[x]).filter(Boolean);if(mm.length)await db.marks.update(map[m.oid],{links:mm});}
   for(const pg of (data.pages||[]))if(pmap[pg.poid]!=null){const h=_remapMarkIds(_sani(pg.html),map);if(h.length<=MAX_CARD_FIELD)await db.pages.put({pid:pmap[pg.poid],html:h,scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined,bg:PAGE_BGS.includes(pg.bg)?pg.bg:undefined});}
   for(const s of (data.strokes||[])){const np=pmap[s.poid];if(np!=null)await db.strokes.add({pid:np,..._simp(s)});}

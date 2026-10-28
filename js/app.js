@@ -117,8 +117,9 @@ function layout(){
 function patchClampZ(z){return Math.max(0.25,Math.min(4,+z||1));}
 function patchView(){const k=PATCH.z;return{z:k,x:wrap.scrollLeft/k,y:wrap.scrollTop/k};}
 function patchSetView(z,x,y){PATCH.z=patchClampZ(z);layout();const k=PATCH.z;wrap.scrollLeft=Math.max(0,x*k);wrap.scrollTop=Math.max(0,y*k);redrawInk();patchTell();}
-// zoom keeping the point at (cx,cy) (px from the top-left of the page area) where it is; none = the middle of what you see
-function patchZoomAt(z,cx,cy){const k1=PATCH.z;if(cx==null){cx=gutter+(wrap.clientWidth-gutter)/2;cy=wrap.clientHeight/2;}
+// zoom keeping the point at (cx,cy) (px from the top-left of the page area) where it is; none = the top-left of what you see
+// (like a document: zooming in never pushes the start of the lines out of the window)
+function patchZoomAt(z,cx,cy){const k1=PATCH.z;if(cx==null){cx=gutter;cy=0;}
   const X=(wrap.scrollLeft+cx-gutter)/k1,Y=(wrap.scrollTop+cy)/k1;PATCH.z=patchClampZ(z);layout();const k2=PATCH.z;
   wrap.scrollLeft=Math.max(0,X*k2+gutter-cx);wrap.scrollTop=Math.max(0,Y*k2-cy);redrawInk();patchTell();}
 // Fit: zoom and move so everything on the patch's page (text, ink, pictures) fills the window
@@ -138,8 +139,10 @@ async function patchReload(){strokes=(await db.strokes.where('pid').equals(pid).
 function patchTell(kind){if(!IS_PATCH)return;try{if(parent!==window&&typeof parent.ptChanged==='function')parent.ptChanged(window,patchView(),kind);}catch(e){}}
 // Esc closes this page's own popups first; then it goes back to the page around the patch
 function patchEsc(){for(const el of document.querySelectorAll('.panel,.pic-menu,.ctx-menu,.cls-modal,.ins-pop.open,.color-pop.open,#explorer,#hwlab'))if(el.getClientRects().length)return;try{parent.ptEsc(window);}catch(e){}}
-if(IS_PATCH){wrap.addEventListener('scroll',()=>patchTell(),{passive:true});
-  stage.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();e.stopPropagation();const wr=wrap.getBoundingClientRect();patchZoomAt(PATCH.z*Math.exp(-e.deltaY*(e.deltaMode?0.05:0.0025)),e.clientX-wr.left,e.clientY-wr.top);},{capture:true,passive:false});}
+if(IS_PATCH){wrap.addEventListener('scroll',()=>patchTell(),{passive:true});addEventListener('focus',()=>patchTell('active'));addEventListener('blur',()=>patchTell('idle'));
+  // Ctrl+wheel (a pinch) zooms around the pointer; a plain wheel over a patch you aren't working in scrolls the page around it
+  stage.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();e.stopPropagation();const wr=wrap.getBoundingClientRect();patchZoomAt(PATCH.z*Math.exp(-e.deltaY*(e.deltaMode?0.05:0.0025)),e.clientX-wr.left,e.clientY-wr.top);return;}
+    if(!PATCH.focus&&!document.hasFocus()){e.preventDefault();e.stopPropagation();try{parent.ptWheel(e.deltaX,e.deltaY,e.deltaMode);}catch(_){}}},{capture:true,passive:false});}
 /* ink placement. New strokes (u:1) are stored in page units, the same scale as the text (inkW screen px per unit), so ink and
    text grow and shrink together (class page vs normal view, window size). Older strokes are relative to the page width
    (drawW), as before. A stroke anchored to a paragraph (a={p:id,top}) moves with it when text above re-wraps or changes. */

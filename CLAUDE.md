@@ -40,8 +40,11 @@
   Video moments live on marks as `vt={v:video id,s:seconds,o:video object id}` (margin timestamp or highlight); YT mode = one
   active video (`YT.active`). Not sent to the classroom (no picture to send), not drawn in the Timeline.
 - Patches (`js/patches.js`): a window on the page with a page of its own. A db.pics record (`src:''`, `patch` = the inner page's
-  project id, `z` zoom, `vx`/`vy` view = inner page point in px at real size at the window's top-left, `fz` focus-mode zoom), moved /
-  resized (8 handles; resizing changes the window, never the content) / anchored / undone like a free picture. The inner page is a
+  project id, `z` zoom, `vx`/`vy` view = inner page point in px at real size at the window's top-left, `fz` focus-mode zoom), moved by
+  its bar / resized in resize mode (bar's grip button: 8 handles + a `.pt-cover`; resizing changes the window, never the content; the
+  frame keeps its size until you let go) / anchored / undone like a free picture. Made with the Patch button (main bar) or Insert ▸ Patch.
+  On the page it is always ready to type in (one click, no handles); a plain wheel over a patch you aren't working in scrolls the page;
+  − / + zoom from the top-left, Ctrl+wheel around the pointer. The inner page is a
   project with `patchOf` = the page it sits on: hidden from every list (`userProjects()`), its text finds the outer page in search,
   opening it from elsewhere opens the outer page + the patch. It runs live in a frame (`?mini=1&patch=1&pid=N`, `IS_PATCH`); `PATCH.z`
   is the ONLY place layout's k != 1, so zoom changes nothing stored. Toolbars + margin only in focus mode (`patchFocus`); a patch never
@@ -99,7 +102,7 @@
 - `js/images.js` - image store (pw-img:<hash> blobs)
 - `js/pics.js` - free pictures: render, pick/move/resize/delete, undo, In line <-> Free
 - `js/youtube.js` - YouTube objects (embed, pin), YT mode, video timestamps on marks, jump/seek
-- `js/patches.js` - patches: create (Insert ▸ Patch, drag a rectangle), window + frame, zoom/Fit, focus mode, drop-in, delete options, purge
+- `js/patches.js` - patches: create (Patch button or Insert ▸ Patch, drag a rectangle), resize mode, window + frame, zoom/Fit, focus mode, drop-in, delete options, purge
 - `js/highlights.js` - highlight types, profiles, Highlight Factory
 - `js/explorer.js` - highlight Explorer
 - `js/timeline.js` - history snapshots + Timeline view

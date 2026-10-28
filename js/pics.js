@@ -52,21 +52,19 @@ let picMenu=null;
 function picPick(p){picSel=p;if(document.activeElement===noteEd)noteEd.blur();if(editor&&editor.hasPickedImage())editor.unpickImage();renderPics();}
 function picUnpick(){if(!picSel)return;picSel=null;renderPics();}
 function picMenuPos(){if(!picSel){if(picMenu)picMenu.style.display='none';return;}const el=_picEl.get(picSel);if(!el)return;
-  if(!picMenu){picMenu=document.createElement('div');picMenu.className='pic-menu';picMenu.innerHTML='<span class="pm-pt"><button class="pm-zo" title="Zoom out (Ctrl+wheel over the patch)">\u2212</button><button class="pm-zv" title="Back to 100%">100%</button><button class="pm-zi" title="Zoom in">+</button><button class="pm-fit" title="Fit everything in the patch into its window">Fit</button><button class="pm-open" title="Open it full size to work in it (or double-click its bar)">\u2922 Open</button><button class="pm-name" title="Name this patch">Name\u2026</button></span>'+
+  if(!picMenu){picMenu=document.createElement('div');picMenu.className='pic-menu';picMenu.innerHTML='<span class="pm-pt"><button class="pm-fit" title="Fit everything in the patch into its window">Fit</button><button class="pm-open" title="Open it full size to work in it (or double-click its bar)">\u2922 Open</button><button class="pm-name" title="Name this patch">Name\u2026</button></span>'+
       '<button class="pm-inline" title="Make it part of the text, where it is">In line</button><button class="pm-del" title="Delete (Del)">Delete</button>';
-    const pt=f=>()=>{if(picSel&&picSel.patch)f(picSel);};picMenu.querySelector('.pm-zo').onclick=pt(p=>ptZoom(p,1/1.25));picMenu.querySelector('.pm-zi').onclick=pt(p=>ptZoom(p,1.25));picMenu.querySelector('.pm-zv').onclick=pt(p=>ptZoom(p,0));
-    picMenu.querySelector('.pm-fit').onclick=pt(ptFit);picMenu.querySelector('.pm-open').onclick=pt(ptFocus);picMenu.querySelector('.pm-name').onclick=pt(ptRename);
+    const pt=f=>()=>{if(picSel&&picSel.patch)f(picSel);};picMenu.querySelector('.pm-fit').onclick=pt(ptFit);picMenu.querySelector('.pm-open').onclick=pt(ptFocus);picMenu.querySelector('.pm-name').onclick=pt(ptRename);
     picMenu.addEventListener('pointerdown',e=>e.stopPropagation());picMenu.querySelector('.pm-del').onclick=()=>picDelete();picMenu.querySelector('.pm-inline').onclick=()=>picToInline();}
   picMenu.querySelector('.pm-inline').style.display=picSel.yt||picSel.patch?'none':'';   // a video or a patch can't go in line
-  picMenu.querySelector('.pm-pt').style.display=picSel.patch?'contents':'none';if(picSel.patch)picMenu.querySelector('.pm-zv').textContent=Math.round((+picSel.z||1)*100)+'%';
+  picMenu.querySelector('.pm-pt').style.display=picSel.patch?'contents':'none';
   if(picMenu.parentNode!==document.body)document.body.appendChild(picMenu);const r=el.getBoundingClientRect(),vt=wrap.getBoundingClientRect().top;
   if(r.bottom<vt||r.top>innerHeight){picMenu.style.display='none';return;}picMenu.style.display='flex';picMenu.style.left=Math.max(4,r.left)+'px';const up=picSel.patch?48:34;picMenu.style.top=(r.top-up<vt+4?Math.max(vt+4,r.top+6):r.top-up)+'px';}   // (above a patch's resize handles)
 function picDelete(force){const p=picSel;if(!p)return;if(p.patch&&force!==true){ptDelete(p);return;}   // a patch with things in it asks first (patches.js)
   const b=picSnap(p);picUnpick();p.del=Date.now();pics=pics.filter(q=>q!==p);savePic(p);picRecord(p,b);renderPics();updatePad();updateHint();}
 function picAt(x,y){for(const el of document.elementsFromPoint(x,y)){const d=el.closest&&el.closest('.pic');if(d&&d._pic&&picLayer.contains(d)){const h=el.closest('.pic-h');return{p:d._pic,handle:h?h.dataset.c:null};}}return null;}
-function picStartDrag(p,e,handle){picPick(p);_picDrag={p,x:e.clientX,y:e.clientY,orig:picSnap(p),handle,moved:false};document.body.classList.add('pic-dragging');}
+function picStartDrag(p,e,handle){picPick(p);if(p.patch&&handle)ptSizeStart(p);_picDrag={p,x:e.clientX,y:e.clientY,orig:picSnap(p),handle,moved:false};document.body.classList.add('pic-dragging');}
 picLayer.addEventListener('pointerdown',e=>{const d=e.target.closest('.pic');if(!d||!d._pic||(e.button!==undefined&&e.button!==0)||e.target.closest('button'))return;e.preventDefault();e.stopPropagation();const h=e.target.closest('.pic-h');
-  if(d._pic.patch&&!h&&!e.target.closest('.pt-bar')){if(!d.classList.contains('focus'))picPick(d._pic);return;}   // a patch moves by its bar: a press in its window picks it (then you work inside it)
   picStartDrag(d._pic,e,h?h.dataset.c:null);});
 document.addEventListener('pointermove',e=>{const g=_picDrag;if(!g)return;const U=inkW,dx=(e.clientX-g.x)/U,dy=(e.clientY-g.y)/U;if(!g.moved&&Math.hypot(e.clientX-g.x,e.clientY-g.y)<3)return;g.moved=true;const p=g.p,o=g.orig;
   // resize from any corner, keeping proportions; the opposite corner stays put
@@ -76,7 +74,7 @@ document.addEventListener('pointermove',e=>{const g=_picDrag;if(!g)return;const 
   else if(g.handle){const c=g.handle,w=Math.max(16/U,o.w+(c[1]==='r'?dx:-dx)),h=w*o.h/o.w;p.w=w;p.h=h;p.x=c[1]==='l'?o.x+o.w-w:o.x;p.y=c[0]==='t'?o.y+o.h-h:o.y;if(p.pin){p.px=o.px+(p.x-o.x)*U;p.py=o.py+(p.y-o.y)*U;}}
   else if(p.pin){p.px=o.px+dx*U;p.py=o.py+dy*U;}else{p.x=Math.max(0,o.x+dx);p.y=o.y+dy;}picFix(p);renderPics();
   if(!g.handle&&!p.patch&&!p.pin)ptDropHint(ptUnder(e.clientX,e.clientY,p));});   // (dropped on a patch's window, it goes in)
-document.addEventListener('pointerup',e=>{const g=_picDrag;if(!g)return;_picDrag=null;document.body.classList.remove('pic-dragging');if(!g.moved)return;const p=g.p;
+document.addEventListener('pointerup',e=>{const g=_picDrag;if(!g)return;_picDrag=null;document.body.classList.remove('pic-dragging');if(g.p.patch&&g.handle)ptSizeEnd(g.p);if(!g.moved){if(g.p.patch&&g.handle)renderPics();return;}const p=g.p;
   if(!g.handle&&!p.patch&&!p.pin){const t=ptUnder(e.clientX,e.clientY,p);if(t){ptTakePic(p,t,g.orig);return;}}p._dy=inkDy(p);reanchor(p);savePic(p);picRecord(p,g.orig);renderPics();updatePad();});
 // a press anywhere else unpicks; Del removes the picked picture, Esc unpicks
 document.addEventListener('pointerdown',e=>{if(!picSel||(e.target.closest&&(e.target.closest('.pic')||e.target.closest('.pic-menu'))))return;const h=picAt(e.clientX,e.clientY);if(h&&h.p===picSel)return;picUnpick();},true);   // (under the ink layer in Select & move, so look at what's under the pointer)

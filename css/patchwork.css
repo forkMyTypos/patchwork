@@ -613,14 +613,14 @@ body.pic-through #pics,body.pic-through #pics *{pointer-events:none!important;}
 ::highlight(pw-find){background:rgba(251,191,36,.28);}::highlight(pw-find-on){background:rgba(251,146,60,.7);color:#111;}
 
 /* streamlining: highlights menu, class button, shortcuts, welcome */
-#hl-btn{width:auto;padding:0 10px;gap:6px;}#hl-btn .mb-lab{font-size:12px;}#hl-btn .mb-car{font-size:9px;opacity:.7;}
+#hl-btn,#patch-btn{width:auto;padding:0 10px;gap:6px;}#hl-btn .mb-lab,#patch-btn .mb-lab{font-size:12px;}#hl-btn .mb-car{font-size:9px;opacity:.7;}
 .hl-pop{min-width:270px;}
 .top-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;margin-right:8px;border-radius:999px;border:1px solid #2a2a3a;background:#121219;color:#c0c0d8;font-size:12px;cursor:pointer;white-space:nowrap;}
 .top-chip:hover{border-color:#5a4a2b;color:#fbbf24;}html.mini .top-chip{display:none;}
 .sc-grid{display:grid;grid-template-columns:1fr;gap:12px;font-size:12.5px;}.sc-h{font-weight:bold;color:#c8c8dc;margin-bottom:4px;}
 .sc-r{display:flex;gap:10px;align-items:baseline;padding:2px 0;}.sc-r kbd{min-width:150px;font:11px ui-monospace,Menlo,Consolas,monospace;color:#fbbf24;}
 .wl{padding-left:18px;line-height:1.6;font-size:13px;}.wl li{margin-bottom:6px;}
-@media (max-width:900px){#hl-btn .mb-lab,#hl-btn .mb-car{display:none;}}
+@media (max-width:900px){#hl-btn .mb-lab,#hl-btn .mb-car,#patch-btn .mb-lab{display:none;}}
 
 /* project search (Projects panel) */
 .proj-search{position:relative;margin-bottom:8px;}.proj-search .pf-in{width:100%;padding-right:28px;box-sizing:border-box;}
@@ -652,20 +652,26 @@ body.pic-dragging .pic iframe{pointer-events:none;}
 /* ===== patches (patches.js): a window on the page with a page of its own inside ===== */
 .pic.pic-pt{box-sizing:border-box;border:1px solid #34344a;border-radius:6px;background:#111;display:flex;flex-direction:column;}
 .pt-bar{height:24px;flex:0 0 24px;display:flex;align-items:center;gap:5px;padding:0 6px 0 8px;cursor:grab;font-size:11px;color:#a8a8c0;background:#15151f;border-bottom:1px solid #26263a;border-radius:5px 5px 0 0;user-select:none;overflow:hidden;white-space:nowrap;}
-.pt-ic{color:#f59e0b;font-size:12px;}.pt-name{overflow:hidden;text-overflow:ellipsis;min-width:0;}.pt-sp{flex:1;}.pt-zl{color:#6a6a86;font-size:10.5px;}
-.pt-back,.pt-zm{display:none;}.pt-zm{gap:4px;align-items:center;}
+.pt-ic{color:#f59e0b;font-size:12px;}.pt-name{overflow:hidden;text-overflow:ellipsis;min-width:0;}.pt-sp{flex:1;}
+.pt-bar .pt-back,.pt-bar .pt-fit{display:none;}.pt-zm{display:flex;gap:3px;align-items:center;}
 .pt-box{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:0 0 5px 5px;}
-.pt-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#111;pointer-events:none;}
-.pic-pt.on .pt-box iframe,.pic-pt.focus .pt-box iframe{pointer-events:auto;}   /* picked: you work inside it */
+.pt-box iframe{position:absolute;left:0;top:0;width:100%;height:100%;border:0;display:block;background:#111;}   /* always ready to type in */
+/* a cover over the page inside while it's being moved or resized (or something is dragged over it), so the drag never stalls */
+.pt-cover{position:absolute;inset:0;display:none;cursor:move;}
+.pic-pt.pt-resize .pt-cover,body.pic-dragging .pt-cover,body.img-dragging .pt-cover{display:block;}
+/* picked by its bar: a quiet outline; the green handles only in resize mode (the ⤡ button); amber edge while you work in it */
+.pic.pic-pt.on{outline:1px solid rgba(245,158,11,.75);outline-offset:1px;}.pic-pt.on .pic-h{display:none;}
+.pic.pic-pt.pt-resize{outline:2px solid #4caf50;}.pic-pt.pt-resize .pic-h{display:block;}.pic-pt.pt-active{border-color:rgba(245,158,11,.6);}
 .pic-pt .pic-h.t,.pic-pt .pic-h.b{left:50%;margin-left:-8px;cursor:ns-resize;}.pic-pt .pic-h.t{top:-8px;}.pic-pt .pic-h.b{bottom:-8px;}
 .pic-pt .pic-h.l,.pic-pt .pic-h.r{top:50%;margin-top:-8px;cursor:ew-resize;}.pic-pt .pic-h.l{left:-8px;}.pic-pt .pic-h.r{right:-8px;}
 /* focus mode: the same patch fills the window */
 body.pt-focus #wrap{z-index:9000;}body.pt-focus #pics{z-index:50;}
 .pic-pt.focus{position:fixed!important;left:0!important;top:0!important;width:100%!important;height:100%!important;border:0;border-radius:0;outline:none!important;z-index:9000;}
 .pic-pt.focus .pt-bar{height:38px;flex-basis:38px;cursor:default;font-size:13px;color:#e0e0e0;padding:0 10px;gap:8px;border-radius:0;background:#0e0e15;}
-.pic-pt.focus .pt-back,.pic-pt.focus .pt-zm{display:flex;}.pic-pt.focus .pt-zl,.pic-pt.focus .pic-h{display:none!important;}.pic-pt.focus .pt-box{border-radius:0;}
-.pt-bar button{height:26px;padding:0 10px;border-radius:6px;border:1px solid #2a2a3a;background:#15151f;color:#c0c0d8;font-size:12px;cursor:pointer;align-items:center;}
-.pt-bar button:hover{border-color:#5a4a2b;color:#fbbf24;}.pt-bar .pt-back{color:#fbbf24;border-color:#5a4a2b;}.pt-zv{min-width:54px;}
+.pic-pt.focus .pt-back,.pic-pt.focus .pt-fit{display:flex;}.pic-pt.focus .pt-rs,.pic-pt.focus .pt-op,.pic-pt.focus .pic-h,.pic-pt.focus .pt-cover{display:none!important;}.pic-pt.focus .pt-box{border-radius:0;}
+.pt-bar button{display:inline-flex;height:18px;padding:0 5px;border-radius:5px;border:1px solid #2a2a3a;background:#15151f;color:#a8a8c0;font-size:11px;line-height:1;cursor:pointer;align-items:center;flex-shrink:0;}
+.pt-bar button:hover{border-color:#5a4a2b;color:#fbbf24;}.pt-bar .pt-zv{min-width:38px;}.pic-pt.pt-resize .pt-rs{border-color:#4caf50;color:#7ddc80;}
+.pic-pt.focus .pt-bar button{height:26px;padding:0 10px;border-radius:6px;font-size:12px;color:#c0c0d8;}.pic-pt.focus .pt-bar .pt-back{color:#fbbf24;border-color:#5a4a2b;}.pic-pt.focus .pt-bar .pt-zv{min-width:54px;}
 /* drawing a new patch */
 .pt-draw{position:absolute;left:0;top:0;width:100%;height:100%;z-index:8;cursor:crosshair;touch-action:none;}
 .pt-band{position:absolute;display:none;border:2px dashed #f59e0b;background:rgba(245,158,11,.08);border-radius:6px;pointer-events:none;}
@@ -673,7 +679,7 @@ body.pt-focus #wrap{z-index:9000;}body.pt-focus #pics{z-index:50;}
 .pt-ask .pt-opts .pbtn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:9px 12px;height:auto;line-height:1.3;}
 .pt-ask .pt-opts .pbtn span{font-size:11.5px;color:#8a8aa6;}.pt-ask .pt-o-all b{color:#f87171;}
 /* inside a patch's frame: just the page until it's opened (focus mode), and never a way to other projects */
-html.patch:not(.patch-focus) #bar1,html.patch:not(.patch-focus) #bar2,html.patch:not(.patch-focus) #gut,html.patch #hint,html.patch #proj-btn,html.patch #mini-btn,html.patch #mini-tabs,html.patch #brand,html.patch #class-btn,html.patch #bk-status{display:none!important;}
+html.patch:not(.patch-focus) #bar1,html.patch:not(.patch-focus) #bar2,html.patch:not(.patch-focus) #gut,html.patch #hint,html.patch #patch-btn,html.patch #proj-btn,html.patch #mini-btn,html.patch #mini-tabs,html.patch #brand,html.patch #class-btn,html.patch #bk-status{display:none!important;}
 html.patch:not(.patch-focus) #wrap{scrollbar-width:none;}html.patch:not(.patch-focus) #wrap::-webkit-scrollbar{display:none;}
 .pic-pt.pt-drop{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.35);}   /* let go here and it goes into the patch */
 html.patch #bar1>.bsep:first-of-type{display:none;}

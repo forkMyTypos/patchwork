@@ -6,8 +6,9 @@
    shown live in a frame running this same app (?mini=1&patch=1&pid=N, IS_PATCH in app.js): text, ink, pictures, highlights,
    undo and the Timeline all work inside it, and the frame is the clipping. The record keeps the view: z (zoom), vx,vy (the
    page point, px at real size, at the window's top-left) and fz (zoom in focus mode). Zooming never changes the inner page.
-   Focus mode = the same patch filling the window, with its own toolbars. */
-const PT={focus:null,saved:null,ZMIN:0.25,ZMAX:4,MINW:160,MINH:90,_t:new Map()};
+   Focus mode = the same patch filling the window, with its own toolbars. On the page a patch is always ready to type in;
+   its bar moves it, ⤡ shows the resize handles (resize mode: a cover over the page inside, so it moves like a picture). */
+const PT={focus:null,saved:null,resize:null,active:null,sizing:null,drawing:null,ZMIN:0.25,ZMAX:4,MINW:190,MINH:90,_t:new Map()};
 // (the page inside is reached through its functions: its const/let globals aren't properties of its window)
 function ptWin(p){const el=_picEl.get(p),f=el&&el.querySelector('iframe');try{return f&&f.contentWindow&&typeof f.contentWindow.patchView==='function'?f.contentWindow:null;}catch(e){return null;}}
 function ptByWin(w){return pics.find(p=>p.patch&&ptWin(p)===w)||null;}
@@ -15,20 +16,23 @@ function ptPct(z){return Math.round((z||1)*100)+'%';}
 function ptName(p){return projName(p.patch)||'Patch';}
 
 /* ---- creating: Insert ▸ Patch, then drag a rectangle (any direction; a click makes a standard size; Esc cancels) ---- */
-function ptStartCreate(){if(!editor||pid==null||IS_PATCH)return;if(mode!=='text')setMode('text');picUnpick();
+function ptStartCreate(){if(!editor||pid==null||IS_PATCH)return;if(PT.drawing){PT.drawing();toast('No patch made','info');return;}   // (the Patch button again = cancel)
+  if(mode!=='text')setMode('text');picUnpick();
   const ov=document.createElement('div');ov.className='pt-draw';const band=document.createElement('div');band.className='pt-band';ov.appendChild(band);pad.appendChild(ov);
   document.body.classList.add('pt-drawing');toast('Drag a rectangle for the patch · Esc cancels','info');
   let a=null,b=null,last=null;
   const at=(x,y)=>{const wr=wrap.getBoundingClientRect();return{x:x-wr.left+wrap.scrollLeft,y:y-wr.top+wrap.scrollTop};};   // screen -> this page (scroll included)
   const show=()=>{if(!a||!b)return;band.style.display='block';band.style.left=Math.min(a.x,b.x)+'px';band.style.top=Math.min(a.y,b.y)+'px';band.style.width=Math.abs(b.x-a.x)+'px';band.style.height=Math.abs(b.y-a.y)+'px';};
   const onScroll=()=>{if(a&&last){b=at(last.x,last.y);show();}};
-  const end=()=>{ov.remove();document.body.classList.remove('pt-drawing');removeEventListener('keydown',key,true);wrap.removeEventListener('scroll',onScroll);};
+  const end=()=>{ov.remove();document.body.classList.remove('pt-drawing');removeEventListener('keydown',key,true);wrap.removeEventListener('scroll',onScroll);PT.drawing=null;ptBtn();};PT.drawing=end;ptBtn();
   const key=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();end();toast('No patch made','info');}};
   addEventListener('keydown',key,true);wrap.addEventListener('scroll',onScroll,{passive:true});
   ov.addEventListener('pointerdown',e=>{if(e.button!==0){end();return;}e.preventDefault();try{ov.setPointerCapture(e.pointerId);}catch(_){}last={x:e.clientX,y:e.clientY};a=at(e.clientX,e.clientY);b=a;show();});
   ov.addEventListener('pointermove',e=>{if(!a)return;last={x:e.clientX,y:e.clientY};b=at(e.clientX,e.clientY);show();});
   ov.addEventListener('pointerup',e=>{if(!a)return;b=at(e.clientX,e.clientY);const r={x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(b.x-a.x),h:Math.abs(b.y-a.y)};end();ptCreate(r);});
   ov.addEventListener('contextmenu',e=>{e.preventDefault();end();});}
+function ptBtn(){const b=document.getElementById('patch-btn');if(b)b.classList.toggle('on',!!PT.drawing);}
+{const b=document.getElementById('patch-btn');if(b)b.addEventListener('click',()=>ptStartCreate());}
 // r: the rectangle in this page's px (scroll included)
 async function ptCreate(r){if(pid==null)return;const U=inkW;
   if(r.w<8&&r.h<8){r.w=420;r.h=300;}else{r.w=Math.max(PT.MINW,r.w);r.h=Math.max(PT.MINH,r.h);}   // a click = standard size; never a sliver
@@ -38,36 +42,47 @@ async function ptCreate(r){if(pid==null)return;const U=inkW;
   projects=await db.projects.toArray();
   const p={pid,kind:'pic',src:'',patch:cid,z:1,vx:0,vy:0,u:1,x:(r.x-gutter)/U,y:r.y/U,w:r.w/U,h:r.h/U,t:Date.now()};picFix(p);p._dy=0;reanchor(p);
   p.id=await db.pics.add(picClean(stripId(p)));pics.push(p);picRecord(p,null);picPick(p);updatePad();updateHint();
-  toast('Patch made — click inside to write, ⤢ Open to work in it full size','ok');}
+  toast('Patch made \u2014 click inside to write \u00b7 drag its bar to move \u00b7 \u2922 opens it full size','ok');}
 
 /* ---- the object: a title bar + the frame (built once, so the page inside keeps running) ---- */
 function ptBuild(el,p){el.classList.add('pic-pt');
-  el.innerHTML='<div class="pt-bar" title="Drag to move · double-click to open"><button class="pt-back" title="Back to the page (Esc)">← Back to page</button><span class="pt-ic">▦</span><span class="pt-name"></span><span class="pt-sp"></span>'+
-    '<span class="pt-zm"><button class="pt-zo" title="Zoom out">−</button><button class="pt-zv" title="Back to 100%"></button><button class="pt-zi" title="Zoom in">+</button><button class="pt-fit" title="Fit everything in the patch into the window">Fit</button></span><span class="pt-zl"></span></div>'+
-    '<div class="pt-box"><iframe loading="lazy" title="Patch"></iframe></div>'+
+  el.innerHTML='<div class="pt-bar" title="Drag to move \u00b7 double-click to open full size"><button class="pt-back" title="Back to the page (Esc)">\u2190 Back to page</button><span class="pt-ic">\u25a6</span><span class="pt-name"></span><span class="pt-sp"></span>'+
+    '<span class="pt-zm"><button class="pt-zo" title="Zoom out (or Ctrl+wheel)">\u2212</button><button class="pt-zv" title="Back to 100%"></button><button class="pt-zi" title="Zoom in (or Ctrl+wheel)">+</button></span><button class="pt-fit" title="Fit everything in the patch into the window">Fit</button>'+
+    '<button class="pt-rs" title="Resize: show the handles (you can drag the whole patch too)"><svg width="11" height="11" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"><path d="M21 9L9 21M21 15l-6 6M21 3L3 21"/></svg></button>'+
+    '<button class="pt-op" title="Open full size (or double-click the bar)"><svg width="11" height="11" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button></div>'+
+    '<div class="pt-box"><iframe loading="lazy" title="Patch"></iframe><div class="pt-cover"></div></div>'+
     ['tl','tr','bl','br','t','r','b','l'].map(c=>'<div class="pic-h '+c+'" data-c="'+c+'" title="Drag to resize"></div>').join('');
   el.querySelector('iframe').src=location.pathname+'?mini=1&patch=1&pid='+p.patch+'&z='+(+p.z||1)+'&vx='+(+p.vx||0)+'&vy='+(+p.vy||0);
   p._v={z:+p.z||1,x:+p.vx||0,y:+p.vy||0};
   el.querySelectorAll('.pt-bar button').forEach(b=>b.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();}));
   el.querySelector('.pt-back').onclick=()=>ptUnfocus();el.querySelector('.pt-zo').onclick=()=>ptZoom(p,1/1.25);el.querySelector('.pt-zi').onclick=()=>ptZoom(p,1.25);
-  el.querySelector('.pt-zv').onclick=()=>ptZoom(p,0);el.querySelector('.pt-fit').onclick=()=>ptFit(p);
+  el.querySelector('.pt-zv').onclick=()=>ptZoom(p,0);el.querySelector('.pt-fit').onclick=()=>ptFit(p);el.querySelector('.pt-rs').onclick=()=>ptResize(p);el.querySelector('.pt-op').onclick=()=>ptFocus(p);
   el.querySelector('.pt-bar').addEventListener('dblclick',e=>{if(!e.target.closest('button'))ptFocus(p);});
   el.querySelector('.pt-bar').addEventListener('wheel',e=>{if(PT.focus===p)e.preventDefault();},{passive:false});
-  el.querySelector('.pt-bar').addEventListener('mousedown',e=>{if(PT.focus===p)e.preventDefault();});}   // (the page behind stays put and keeps no focus)   // (the page behind stays put)
+  el.querySelector('.pt-bar').addEventListener('mousedown',e=>{if(PT.focus===p)e.preventDefault();});}   // (the page behind stays put and keeps no focus)
 // every render: the name, the zoom shown, and the view if it changed here (undo, Back to page)
-function ptRender(el,p){const z=PT.focus===p?(p.fz||1):(+p.z||1);el.querySelector('.pt-name').textContent=ptName(p);el.querySelector('.pt-zl').textContent=ptPct(z);el.querySelector('.pt-zv').textContent=ptPct(z);
+function ptRender(el,p){const z=PT.focus===p?(p.fz||1):(+p.z||1);el.querySelector('.pt-name').textContent=ptName(p);el.querySelector('.pt-zv').textContent=ptPct(z);
+  if(PT.resize===p&&picSel!==p)PT.resize=null;el.classList.toggle('pt-resize',PT.resize===p);el.classList.toggle('pt-active',PT.active===p&&picSel!==p);
   el.classList.toggle('focus',PT.focus===p);if(PT.focus===p)return;
+  const s=PT.sizing;if(s&&s.p===p){const f=el.querySelector('iframe'),U=inkW;f.style.width=s.w+'px';f.style.height=s.h+'px';f.style.left=((s.x-p.x)*U)+'px';f.style.top=((s.y-p.y)*U)+'px';return;}   // resizing: the page inside stays put (and isn't re-laid out) until you let go
   const v=p._v||{},w=ptWin(p);if(w&&(Math.abs((v.z||1)-(+p.z||1))>1e-3||Math.abs((v.x||0)-(+p.vx||0))>0.5||Math.abs((v.y||0)-(+p.vy||0))>0.5)){p._v={z:+p.z||1,x:+p.vx||0,y:+p.vy||0};w.patchSetView(p._v.z,p._v.x,p._v.y);}}
 // the page inside reports its view (scroll, zoom, ready)
 function ptChanged(w,v,kind){const p=ptByWin(w);if(!p||!v)return;
+  if(kind==='active'||kind==='idle'){if(kind==='active'){if(picSel)picUnpick();PT.active=p;}else if(PT.active===p)PT.active=null;const el=_picEl.get(p);if(el)ptRender(el,p);return;}   // you're working in it (or not)
   if(kind==='ready'){if(PT.focus===p){w.patchFocus(true);w.patchSetView(p.fz||1,p.vx||0,p.vy||0);try{w.focus();}catch(e){}}else{p._v=null;renderPics();}return;}
   if(PT.focus===p){p.fz=v.z;}else{p.z=v.z;p.vx=v.x;p.vy=v.y;p._v={z:v.z,x:v.x,y:v.y};}
-  const el=_picEl.get(p);if(el){el.querySelector('.pt-zl').textContent=ptPct(v.z);el.querySelector('.pt-zv').textContent=ptPct(v.z);}if(picSel===p)picMenuPos();
+  const el=_picEl.get(p);if(el)el.querySelector('.pt-zv').textContent=ptPct(v.z);if(picSel===p)picMenuPos();
   clearTimeout(PT._t.get(p));PT._t.set(p,setTimeout(()=>{if(pics.includes(p))savePic(p);},400));}
 
 /* ---- zoom and Fit (in the page inside, so the frame is just a window on it) ---- */
 function ptZoom(p,f){const w=ptWin(p);if(!w)return;const z=f?w.patchView().z*f:1;w.patchZoomAt(Math.max(PT.ZMIN,Math.min(PT.ZMAX,z)));}
 function ptFit(p){const w=ptWin(p);if(w)w.patchFit();}
+// a plain wheel over a patch you aren't working in scrolls this page
+function ptWheel(dx,dy,m){const f=m===1?16:m===2?wrap.clientHeight:1;wrap.scrollBy(dx*f,dy*f);}
+// ⤡: resize mode (handles; the page inside is covered, so the whole patch drags like a picture); again, Esc or a click elsewhere ends it
+function ptResize(p){if(PT.resize===p){PT.resize=null;renderPics();return;}PT.resize=p;picPick(p);}
+function ptSizeStart(p){const f=_picEl.get(p).querySelector('iframe'),r=f.getBoundingClientRect();PT.sizing={p,w:r.width,h:r.height,x:p.x,y:p.y};}
+function ptSizeEnd(p){if(!PT.sizing||PT.sizing.p!==p)return;PT.sizing=null;const f=_picEl.get(p).querySelector('iframe');f.style.width=f.style.height=f.style.left=f.style.top='';}
 // Ctrl+wheel (or a pinch) over a patch on the page zooms it around the pointer
 picLayer.addEventListener('wheel',e=>{const d=e.target.closest&&e.target.closest('.pic-pt');if(!d||!(e.ctrlKey||e.metaKey)||PT.focus)return;const p=d._pic,w=ptWin(p);if(!w)return;e.preventDefault();
   const fr=d.querySelector('iframe').getBoundingClientRect();w.patchZoomAt(w.patchView().z*Math.exp(-e.deltaY*(e.deltaMode?0.05:0.0025)),e.clientX-fr.left,e.clientY-fr.top);},{passive:false});

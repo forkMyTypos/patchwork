@@ -4,6 +4,10 @@
 const IS_MINI=new URLSearchParams(location.search).has('mini');document.documentElement.classList.toggle('mini',IS_MINI);
 // the CLASS side of Teaching Mode: a pop-up editor whose projects are always sharable (what it shows is broadcast)
 const IS_CLASS=IS_MINI&&new URLSearchParams(location.search).has('class');
+// a patch (patches.js): a page of its own shown through a window on another page, this app in a frame (?mini=1&patch=1&pid=N).
+// The page around it sets its zoom (PATCH.z) and view; its toolbars and margin show only while it's open (focus mode).
+const IS_PATCH=IS_MINI&&new URLSearchParams(location.search).has('patch');document.documentElement.classList.toggle('patch',IS_PATCH);
+const PATCH=(q=>({z:Math.max(0.25,Math.min(4,+q.get('z')||1)),x:+q.get('vx')||0,y:+q.get('vy')||0,focus:false}))(new URLSearchParams(location.search));
 const db=new Dexie('patchwork-page');
 db.version(3).stores({projects:'++id,created',pages:'pid',strokes:'++id,pid,t',marks:'++id,pid,type,created',meta:'id',info:'id'});
 // v4 only ADDS tables (existing data untouched): content-addressed images + paragraphs, page history snapshots, highlight types + profiles
@@ -79,30 +83,63 @@ function keepCaretVisible(){const s=window.getSelection();if(!s||!s.rangeCount)r
   const mx=40;if(r.right>w.right-mx)wrap.scrollLeft+=r.right-(w.right-mx);else if(r.left<w.left+gutter+mx)wrap.scrollLeft=Math.max(0,wrap.scrollLeft-((w.left+gutter+mx)-r.left));}
 function esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
 function markById(id){id=typeof id==='string'?+id:id;return marks.find(m=>m.id===id);}
+// the projects people see in lists (a patch's page belongs to its patch, see patches.js)
+function userProjects(){return projects.filter(p=>!p.patchOf);}
 function projName(id){const p=projects.find(x=>x.id===id);return p?p.name:'?';}
 function pageMarks(){return marks.filter(m=>m.pid===pid);}
 function getMarkStyle(id){const m=markById(id);if(!m)return null;if(!typeOn(m.type))return null;const t=mtype(m.type);return{color:m.done?'#5a5a72':t.c,bg:t.bg,fx:t.fx};}
 
 /* coords */
-function ptFromEvent(e){const r=wrap.getBoundingClientRect();const cx=e.clientX-r.left,cy=e.clientY-r.top;const xn=Math.min(1,Math.max(0,(cx-gutter+wrap.scrollLeft)/drawW));const yn=(cy+scrollTop())/drawW;return{cx,cy,xn,yn};}
+function ptFromEvent(e){const r=wrap.getBoundingClientRect();const cx=e.clientX-r.left,cy=e.clientY-r.top;const xn=Math.min(IS_PATCH?50:1,Math.max(0,(cx-gutter+wrap.scrollLeft)/drawW));const yn=(cy+scrollTop())/drawW;return{cx,cy,xn,yn};}
 function sx(xn){return gutter+xn*drawW-wrap.scrollLeft;}
 function sy(yn){return yn*drawW-scrollTop();}
 
 /* layout */
 function layout(){
   W=stage.clientWidth;H=stage.clientHeight;
-  gutter=gutterW>0?Math.max(GUT_MIN,Math.min(340,gutterW)):(W<560?GUT_MIN:86);_paraStampCache=null;
+  gutter=IS_PATCH&&!PATCH.focus?0:gutterW>0?Math.max(GUT_MIN,Math.min(340,gutterW)):(W<560?GUT_MIN:86);_paraStampCache=null;
   const fitW=Math.max(40,W-gutter-12);
   if(!IS_MINI&&!(typeof CLS!=='undefined'&&CLS.role)){try{localStorage.setItem('pw-ww',String(Math.round(fitW)));}catch(e){}}
-  const k=1;drawW=pageWW||fitW;pad.style.width=(gutter+drawW+12)+'px';if(pageBgEl.parentNode!==pad)pad.prepend(pageBgEl);pageBgEl.className=pageBg?'bg-'+pageBg:'';pageBgEl.style.left=gutter+'px';pageBgEl.style.width=(drawW+12)+'px';wrap.style.overflowX=drawW>fitW+1?'auto':'hidden';
+  const k=IS_PATCH?PATCH.z:1;drawW=(pageWW||fitW)*k;   // (k = 1: real size; only a patch's page is zoomed)
+  pad.style.width=(gutter+drawW+12)+'px';if(pageBgEl.parentNode!==pad)pad.prepend(pageBgEl);pageBgEl.className=pageBg?'bg-'+pageBg:'';pageBgEl.style.left=gutter+'px';pageBgEl.style.width=(drawW+12)+'px';wrap.style.overflowX=drawW>fitW+1?'auto':'hidden';
   dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+'px';cv.style.height=H+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);
   // text size, padding and ink scale with the page (k = 1 at real size), so lines wrap at the same words on every screen
   inkW=PAGE_REF*k;_paraTops=null;noteEd.style.fontSize=(15*k)+'px';noteEd.style.paddingTop=(18*k)+'px';noteEd.style.paddingRight=(12+8*k)+'px';
-  noteEd.style.paddingLeft=(gutter+10*k)+'px';gut.style.width=gutter+'px';const _gt=document.getElementById('gut-tools');if(_gt&&_gt.parentNode&&_gt.parentNode.id==='bar2')_gt.style.width=gutter+'px';var _b2=document.getElementById('bar2');if(_b2)_b2.style.paddingLeft=(gutter+10)+'px';
+  noteEd.style.paddingLeft=(gutter+10*k)+'px';if(IS_PATCH)noteEd.style.width=(gutter+drawW+12)+'px';   // (a patch's page box may reach further right for its ink; the text keeps its width)
+  gut.style.width=gutter+'px';const _gt=document.getElementById('gut-tools');if(_gt&&_gt.parentNode&&_gt.parentNode.id==='bar2')_gt.style.width=gutter+'px';var _b2=document.getElementById('bar2');if(_b2)_b2.style.paddingLeft=(gutter+10)+'px';
   updatePad();redrawInk();
 }
+/* ===== inside a patch (IS_PATCH): the page around it (patches.js) zooms it, moves its view and opens it in focus mode =====
+   The view is the zoom plus the page point (px at real size) at the top-left of what you see, just right of the margin.
+   Zooming only changes k in layout(): nothing stored on the page changes. */
+function patchClampZ(z){return Math.max(0.25,Math.min(4,+z||1));}
+function patchView(){const k=PATCH.z;return{z:k,x:wrap.scrollLeft/k,y:wrap.scrollTop/k};}
+function patchSetView(z,x,y){PATCH.z=patchClampZ(z);layout();const k=PATCH.z;wrap.scrollLeft=Math.max(0,x*k);wrap.scrollTop=Math.max(0,y*k);redrawInk();patchTell();}
+// zoom keeping the point at (cx,cy) (px from the top-left of the page area) where it is; none = the middle of what you see
+function patchZoomAt(z,cx,cy){const k1=PATCH.z;if(cx==null){cx=gutter+(wrap.clientWidth-gutter)/2;cy=wrap.clientHeight/2;}
+  const X=(wrap.scrollLeft+cx-gutter)/k1,Y=(wrap.scrollTop+cy)/k1;PATCH.z=patchClampZ(z);layout();const k2=PATCH.z;
+  wrap.scrollLeft=Math.max(0,X*k2+gutter-cx);wrap.scrollTop=Math.max(0,Y*k2-cy);redrawInk();patchTell();}
+// Fit: zoom and move so everything on the patch's page (text, ink, pictures) fills the window
+function patchFit(){const k=PATCH.z,wr=wrap.getBoundingClientRect(),sl=wrap.scrollLeft,st=wrap.scrollTop;let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  const add=(l,t,r,b)=>{x0=Math.min(x0,l/k);y0=Math.min(y0,t/k);x1=Math.max(x1,r/k);y1=Math.max(y1,b/k);};
+  const rg=document.createRange();noteEd.querySelectorAll(':scope > .line').forEach(l=>{if(!l.textContent.replace(/\u200B/g,'').trim()&&!l.querySelector('img'))return;rg.selectNodeContents(l);const r=rg.getBoundingClientRect();
+    if(r.width||r.height)add(r.left-wr.left+sl-gutter,r.top-wr.top+st,r.right-wr.left+sl-gutter,r.bottom-wr.top+st);});
+  for(const s of strokes){const U=inkU(s),d=inkDy(s);let a=Infinity,b=-Infinity;for(const q of s.pts){a=Math.min(a,q.xn-q.wn/2);b=Math.max(b,q.xn+q.wn/2);}add(a*U,s.minYn*U+d,b*U,s.maxYn*U+d);}
+  for(const p of pics)if(!p.pin){const d=inkDy(p);add(p.x*inkW,p.y*inkW+d,(p.x+p.w)*inkW,(p.y+p.h)*inkW+d);}
+  if(!(x1>x0)){patchSetView(1,0,0);return;}
+  const aw=wrap.clientWidth-gutter,ah=wrap.clientHeight,m=14,bw=x1-x0,bh=Math.max(1,y1-y0),z=patchClampZ(Math.min((aw-2*m)/bw,(ah-2*m)/bh));
+  patchSetView(z,Math.max(0,x0+bw/2-aw/2/z),Math.max(0,y0+bh/2-ah/2/z));}
+function patchFocus(on){PATCH.focus=!!on;document.documentElement.classList.toggle('patch-focus',PATCH.focus);if(!on){if(mode!=='text')setMode('text');hideTagbar();}layout();redrawInk();if(on)noteEd.focus({preventScroll:true});}
+// positions (px at real size, as on screen) of what's on this page, for the page around it (moving things in or out)
+function patchItems(){const k=PATCH.z,tops={};for(const [id,t] of paraTops())tops[id]=t/k;return{tops,strokes:strokes.map(s=>({id:s.id,dy:inkDy(s)/k})),pics:pics.map(p=>({id:p.id,dy:inkDy(p)/k}))};}
+async function patchReload(){strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);await picsLoad();marks=await db.marks.toArray();redrawInk();updatePad();updateHint();}
+function patchTell(kind){if(!IS_PATCH)return;try{if(parent!==window&&typeof parent.ptChanged==='function')parent.ptChanged(window,patchView(),kind);}catch(e){}}
+// Esc closes this page's own popups first; then it goes back to the page around the patch
+function patchEsc(){for(const el of document.querySelectorAll('.panel,.pic-menu,.ctx-menu,.cls-modal,.ins-pop.open,.color-pop.open,#explorer,#hwlab'))if(el.getClientRects().length)return;try{parent.ptEsc(window);}catch(e){}}
+if(IS_PATCH){wrap.addEventListener('scroll',()=>patchTell(),{passive:true});
+  stage.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();e.stopPropagation();const wr=wrap.getBoundingClientRect();patchZoomAt(PATCH.z*Math.exp(-e.deltaY*(e.deltaMode?0.05:0.0025)),e.clientX-wr.left,e.clientY-wr.top);},{capture:true,passive:false});}
 /* ink placement. New strokes (u:1) are stored in page units, the same scale as the text (inkW screen px per unit), so ink and
    text grow and shrink together (class page vs normal view, window size). Older strokes are relative to the page width
    (drawW), as before. A stroke anchored to a paragraph (a={p:id,top}) moves with it when text above re-wraps or changes. */
@@ -121,7 +158,10 @@ function addViewStroke(s){inkToUnits(s);reanchor(s);commitStroke(s);saveMeta();}
 function inkBottomPx(){let mx=typeof picsBottomPx==='function'?picsBottomPx():0;for(const s of strokes){const b=s.maxYn*inkU(s)+inkDy(s);if(b>mx)mx=b;}return mx;}
 // padGrow: blank space added by Page Down at the end of the page (for this visit; drawing there keeps it via the ink)
 let padGrow=0;
-function updatePad(){pad.style.minHeight=Math.ceil(Math.max(noteEd.scrollHeight+20,inkBottomPx()+H*0.5,H,padGrow))+'px';}
+function updatePad(){pad.style.minHeight=Math.ceil(Math.max(noteEd.scrollHeight+20,inkBottomPx()+H*0.5,H,padGrow))+'px';
+  // a patch is a window you can draw anywhere in: its page reaches as far right as its ink and pictures (and what you see)
+  if(IS_PATCH){let r=0;for(const s of strokes){const U=inkU(s);for(const q of s.pts)r=Math.max(r,(q.xn+q.wn/2)*U);}for(const p of pics)if(!p.pin)r=Math.max(r,(p.x+p.w)*inkW);
+    const w=Math.ceil(Math.max(gutter+drawW+12,r?gutter+r+W*0.3:0,wrap.clientWidth));pad.style.width=w+'px';wrap.style.overflowX=w>wrap.clientWidth+1?'auto':'hidden';}}
 
 /* ink */
 function styleFor(s){ctx.lineCap='round';ctx.lineJoin='round';if(s.tool==='eraser'){ctx.globalCompositeOperation='destination-out';ctx.strokeStyle='#000';ctx.fillStyle='#000';ctx.globalAlpha=1;}else if(s.tool==='hl'){ctx.globalCompositeOperation='source-over';ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.globalAlpha=.30;}else{ctx.globalCompositeOperation='source-over';ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.globalAlpha=1;}}
@@ -147,8 +187,8 @@ function sessionStamps(){const raw=paraStamps().slice();for(const s of strokes)r
 function isLegacyAutoStamp(m){return m.anchor&&m.anchor.kind==='time'&&m.auto&&!searchable(m);}
 function drawGutter(){
   ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
-  // the page is narrower than the window: shade what lies beyond its right edge
-  const pe=sx(1)+12;if(pe<W-1){ctx.fillStyle='rgba(0,0,0,.32)';ctx.fillRect(pe,0,W-pe,H);ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(pe)+.5,0);ctx.lineTo(Math.round(pe)+.5,H);ctx.stroke();}
+  // the page is narrower than the window: shade what lies beyond its right edge (not in a patch: you draw anywhere in it)
+  const pe=sx(1)+12;if(pe<W-1&&!IS_PATCH){ctx.fillStyle='rgba(0,0,0,.32)';ctx.fillRect(pe,0,W-pe,H);ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(pe)+.5,0);ctx.lineTo(Math.round(pe)+.5,H);ctx.stroke();}
   ctx.fillStyle='rgba(16,13,22,.86)';ctx.fillRect(0,0,gutter,H);
   ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gutter-.5,0);ctx.lineTo(gutter-.5,H);ctx.stroke();
   const st=scrollTop(),tY=textMarkY(),labels=[];pinHits=[];
@@ -264,13 +304,17 @@ function grabDown(e){if(e.button!==undefined&&e.button!==0)return;e.preventDefau
     if(!e.shiftKey)grabSel.clear();grabMode='box';grabBox={x0:px,y0:py,x1:px,y1:py};}redrawInk();drawGrabOverlay();}
 // the picture under a screen point (the ink layer sits on top of the page, so look underneath it)
 function imageAt(x,y){for(const el of document.elementsFromPoint(x,y)){const w=el.closest&&el.closest('.img-run');if(w&&noteEd.contains(w))return w;}return null;}
-function grabMove(e){if(!grabActive)return;e.preventDefault();const p=ptFromEvent(e),px=p.cx,py=p.cy;grabMoved=true;if(grabMode==='move'){for(const s of grabSel){const U=inkU(s),dxn=(px-grabStart.px)/U,dyn=(py-grabStart.py)/U;for(const pt of s.pts){pt.xn+=dxn;pt.yn+=dyn;}s.minYn+=dyn;s.maxYn+=dyn;}grabStart={px,py};}else if(grabMode==='box'){grabBox.x1=px;grabBox.y1=py;const x0=Math.min(grabBox.x0,px),x1=Math.max(grabBox.x0,px),y0=Math.min(grabBox.y0,py),y1=Math.max(grabBox.y0,py);grabSel.clear();for(const s of strokes){const bb=strokeBBox(s);if(bb.x1>=x0&&bb.x0<=x1&&bb.y1>=y0&&bb.y0<=y1)grabSel.add(s);}}redrawInk();drawGrabOverlay();}
-function grabUp(e){if(!grabActive)return;grabActive=false;try{cv.releasePointerCapture(e.pointerId);}catch(_){}if(grabMode==='move'&&grabMoved){const now=Date.now();for(const s of grabSel){retireStroke(s,now);s.born=now;inkDy(s);reanchor(s);persistStroke(s);}saveMeta();schedulePrune();}grabMode=null;grabBox=null;redrawInk();drawGrabOverlay();}
+function grabMove(e){if(!grabActive)return;e.preventDefault();const p=ptFromEvent(e),px=p.cx,py=p.cy;grabMoved=true;if(grabMode==='move'){for(const s of grabSel){const U=inkU(s),dxn=(px-grabStart.px)/U,dyn=(py-grabStart.py)/U;for(const pt of s.pts){pt.xn+=dxn;pt.yn+=dyn;}s.minYn+=dyn;s.maxYn+=dyn;}grabStart={px,py};if(typeof ptDropHint==='function')ptDropHint(ptUnder(e.clientX,e.clientY));}else if(grabMode==='box'){grabBox.x1=px;grabBox.y1=py;const x0=Math.min(grabBox.x0,px),x1=Math.max(grabBox.x0,px),y0=Math.min(grabBox.y0,py),y1=Math.max(grabBox.y0,py);grabSel.clear();for(const s of strokes){const bb=strokeBBox(s);if(bb.x1>=x0&&bb.x0<=x1&&bb.y1>=y0&&bb.y0<=y1)grabSel.add(s);}}redrawInk();drawGrabOverlay();}
+function grabUp(e){if(!grabActive)return;grabActive=false;try{cv.releasePointerCapture(e.pointerId);}catch(_){}
+  if(grabMode==='move'&&grabMoved&&typeof ptUnder==='function'){const t=ptUnder(e.clientX,e.clientY);if(t){const list=[...grabSel];grabSel.clear();grabMode=null;grabBox=null;ptTakeInk(list,t);drawGrabOverlay();return;}}   // dropped on a patch: it goes in
+  if(grabMode==='move'&&grabMoved){const now=Date.now();for(const s of grabSel){retireStroke(s,now);s.born=now;inkDy(s);reanchor(s);persistStroke(s);}saveMeta();schedulePrune();}grabMode=null;grabBox=null;redrawInk();drawGrabOverlay();}
 
 let _lastHTML=null;
 function checkText(){if(!editor)return;const html=editor.getHTML();if(html!==_lastHTML){const first=_lastHTML===null;_lastHTML=html;updatePad();if(!first){if(typeof schedulePrune==='function')schedulePrune();}saveMeta();}}
 async function switchProject(npid){
   if(npid===pid&&editor)return;
+  if(IS_PATCH&&editor){toast('A patch keeps its own page \u2014 open other projects from the page around it','info');return;}
+  const _pc=projects.find(x=>x.id===npid);if(_pc&&_pc.patchOf&&editor){if(typeof ptOpenChild==='function')ptOpenChild(_pc);return;}   // a patch's page opens in its patch
   if(editor&&projectOpenElsewhere(npid)){toast('That project is open in another editor window \u2014 close it there first','err');return;}
   if((IS_CLASS||(typeof clsMainIsClass==='function'&&clsMainIsClass()))&&editor&&!isShared(npid)){const p=projects.find(x=>x.id===npid);if(!p||!await setShared(p,true))return;}   // the CLASS side only opens sharable projects
   if(typeof historyFlush==='function')await historyFlush();
@@ -294,8 +338,8 @@ function renameProject(p,name){p.name=(name||p.name).slice(0,60);db.projects.upd
 // a project's name shows in several places (toolbar, pop-up editor titles, panels): refresh them all
 function projNamesChanged(){const pr=projects.find(x=>x.id===pid);document.getElementById('proj-name').textContent=pr?pr.name:'';renderProjects();miniTitles();if(typeof updateBackupLabels==='function')updateBackupLabels();if(typeof aiRender==='function')aiRender();if(typeof clsRender==='function')clsRender();}
 async function deleteProject(p){
-  if(projects.length<=1){toast('Keep at least one project','err');return;}
-  const others=projects.filter(x=>x.id!==p.id);
+  if(userProjects().length<=1){toast('Keep at least one project','err');return;}
+  const others=userProjects().filter(x=>x.id!==p.id);
   const snapProj={id:p.id,name:p.name,created:p.created};
   const snapPage=(await db.pages.get(p.id))||null;
   const snapStrokes=await db.strokes.where('pid').equals(p.id).toArray();const snapPics=await db.pics.where('pid').equals(p.id).toArray();
@@ -488,7 +532,7 @@ function folderById(id){return folders.find(f=>f.id===id);}
 function folderPath(id){const out=[];let f=folderById(id),g=0;while(f&&g++<100){out.unshift(f);f=folderById(f.parent);}return out;}
 function projPath(id){const p=projects.find(x=>x.id===id);if(!p)return '?';const fp=folderPath(p.folder).map(f=>f.name);return fp.length?fp.join(' / ')+' / '+p.name:p.name;}
 function folderInside(id,anc){return folderPath(id).some(f=>f.id===anc);}
-function folderCount(id){let n=projects.filter(p=>(p.folder||null)===id).length;for(const f of folders)if((f.parent||null)===id)n+=1+folderCount(f.id);return n;}
+function folderCount(id){let n=userProjects().filter(p=>(p.folder||null)===id).length;for(const f of folders)if((f.parent||null)===id)n+=1+folderCount(f.id);return n;}
 async function newFolder(name,parent){await db.folders.add({name:name.slice(0,60),parent:parent===undefined?curFolder:parent,created:Date.now()});await loadFolders();syncPing('projects');renderProjects();}
 async function moveItem(kind,id,to){to=to||null;if(kind==='folder'){if(id===to||(to!=null&&folderInside(to,id))){toast('A folder can’t go inside itself','err');return;}await db.folders.update(id,{parent:to});}else await db.projects.update(id,{folder:to});
   projects=await db.projects.toArray();await loadFolders();syncPing('projects');renderProjects();toast('Moved to '+(to?folderPath(to).map(f=>f.name).join(' / '):'Home'),'ok');}
@@ -533,9 +577,11 @@ function onRowMenu(row,items){row.addEventListener('contextmenu',e=>{e.preventDe
 // project search: names and the text on each page (pages read once per search, from this browser only)
 let _projText=null;
 async function projTexts(){if(_projText)return _projText;const m=new Map(),d=document.createElement('div');for(const pg of await db.pages.toArray()){d.innerHTML=DOMPurify.sanitize(pg.html||'');m.set(pg.pid,d.textContent.replace(/\u200b/g,'').replace(/\s+/g,' ').trim());}
-  if(editor&&pid!=null)m.set(pid,editor.getPlainText().replace(/\s+/g,' ').trim());_projText=m;setTimeout(()=>{_projText=null;},60e3);return m;}
+  if(editor&&pid!=null)m.set(pid,editor.getPlainText().replace(/\s+/g,' ').trim());
+  for(const p of projects)if(p.patchOf&&m.has(p.id)){m.set(p.patchOf,((m.get(p.patchOf)||'')+' '+m.get(p.id)).trim());m.delete(p.id);}   // a patch's text finds the page it's on
+  _projText=m;setTimeout(()=>{_projText=null;},60e3);return m;}
 async function renderProjSearch(q,v){const root=v.el(),list=root.querySelector('.pv-list');const ql=q.toLowerCase(),texts=await projTexts();if(root.querySelector('.pv-q').value.trim().toLowerCase()!==ql)return;   // a newer search won
-  list.innerHTML='';const hits=[];for(const p of projects){const n=p.name.toLowerCase().indexOf(ql),t=(texts.get(p.id)||''),ti=t.toLowerCase().indexOf(ql);if(n<0&&ti<0)continue;hits.push({p,n,t,ti,score:n>=0?0:1});}
+  list.innerHTML='';const hits=[];for(const p of userProjects()){const n=p.name.toLowerCase().indexOf(ql),t=(texts.get(p.id)||''),ti=t.toLowerCase().indexOf(ql);if(n<0&&ti<0)continue;hits.push({p,n,t,ti,score:n>=0?0:1});}
   hits.sort((a,b)=>a.score-b.score||a.p.name.localeCompare(b.p.name));
   for(const h of hits.slice(0,80)){const row=document.createElement('div');row.className='proj-row proj-hit'+(h.p.id===pid?' cur':'')+(v.busy&&v.busy(h.p)?' busy':'');const hl=(s,i)=>esc(s.slice(0,i))+'<b>'+esc(s.slice(i,i+q.length))+'</b>'+esc(s.slice(i+q.length));
     const path=folderPath(h.p.folder||null).map(f=>f.name).join(' / ');let snip='';if(h.ti>=0){const a=Math.max(0,h.ti-40),s=(a?'\u2026':'')+h.t.slice(a,h.ti+q.length+60);snip=hl(s,h.ti-a+(a?1:0));}
@@ -560,7 +606,7 @@ function renderProjView(v){const root=v.el();if(!root)return;
     const ren=rename(row,nm,f.name,v=>{if(v)db.folders.update(f.id,{name:v.slice(0,60)}).then(loadFolders).then(()=>{syncPing('projects');renderProjects();});else renderProjects();});
     onRowMenu(row,()=>[{label:'Rename',fn:()=>ren(new Event('x'))},{label:'Move to…',fn:()=>mover(row,'folder',f.id,f.parent||null)(new Event('x'))},null,{label:'Delete folder (its contents move up)',danger:true,fn:()=>deleteFolder(f)}]);
     row.onclick=()=>{if(row._longPress){row._longPress=false;return;}v.folder=f.id;renderProjView(v);};dragSource(row,'folder',f.id);dropTarget(row,f.id);[nm,cn].forEach(x=>row.appendChild(x));list.appendChild(row);});
-  projects.filter(p=>(p.folder||null)===v.folder).forEach(p=>{const shared=p.shared===true;
+  userProjects().filter(p=>(p.folder||null)===v.folder).forEach(p=>{const shared=p.shared===true;
     const row=document.createElement('div');row.className='proj-row'+(p.id===pid?' cur':'')+(v.busy&&v.busy(p)?' busy':'');if(v.busy&&v.busy(p))row.title='Already open';
     const nm=document.createElement('div');nm.className='pr-name';nm.textContent=p.name;
     const lk=document.createElement('button');lk.className='pr-lock'+(shared?' open':'');lk.textContent=shared?'\ud83d\udd13':'\ud83d\udd12';
@@ -590,7 +636,7 @@ function pageStep(d){if(drawing)return;const step=Math.max(40,wrap.clientHeight-
   wrap.scrollBy({top:d*step});}
 document.getElementById('pg-up').addEventListener('click',()=>pageStep(-1));document.getElementById('pg-dn').addEventListener('click',()=>pageStep(1));
 function setMode(m){if(mode!==m&&editor&&editor.hasPickedImage&&editor.hasPickedImage())editor.unpickImage();mode=m;document.body.classList.toggle('draw-tools',m!=='text');   // page up/down buttons in the margin
-  document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg');hideTagbar();if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>noteEd.focus());}else if(m==='hand'){document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='auto';noteEd.blur();}else{document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}cv.classList.toggle('pan',m==='hand');cv.classList.toggle('m-pen',m==='pen');cv.classList.toggle('m-hl',m==='hl');if(m!=='grab')grabSel.clear();}
+  document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg');hideTagbar();if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>{if(!IS_PATCH||document.hasFocus())noteEd.focus();});}else if(m==='hand'){document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='auto';noteEd.blur();}else{document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}cv.classList.toggle('pan',m==='hand');cv.classList.toggle('m-pen',m==='pen');cv.classList.toggle('m-hl',m==='hl');if(m!=='grab')grabSel.clear();}
 document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 
 /* ink controls */
@@ -632,7 +678,7 @@ document.getElementById('proj-btn').addEventListener('click',openProjects);
 addEventListener('keydown',e=>{
 if(mode==='grab'&&editor&&editor.hasPickedImage()&&!/^(INPUT|TEXTAREA)$/.test(e.target.tagName)&&!e.target.isContentEditable){if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();editor.deletePicked();return;}if(e.key==='Escape'){editor.unpickImage();return;}}
 if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INPUT|TEXTAREA)$/.test(e.target.tagName)&&!e.target.isContentEditable){e.preventDefault();for(const s of [...grabSel]){const i=strokes.indexOf(s);if(i>=0)strokes.splice(i,1);retireStroke(s);}grabSel.clear();redrawInk();schedulePrune();return;}
-  if(e.key==='Escape'){const _sd=document.getElementById('side');if(_sd&&_sd.classList.contains('open')){toggleSide(false);return;}if(picker&&picker.style.display!=='none'){picker.style.display='none';return;}if(projPanel&&projPanel.style.display!=='none'){projPanel.style.display='none';return;}if(popup&&popup.style.display!=='none'){closePopup();return;}hideTagbar();return;}
+  if(e.key==='Escape'){const _sd=document.getElementById('side');if(_sd&&_sd.classList.contains('open')){toggleSide(false);return;}if(picker&&picker.style.display!=='none'){picker.style.display='none';return;}if(projPanel&&projPanel.style.display!=='none'){projPanel.style.display='none';return;}if(popup&&popup.style.display!=='none'){closePopup();return;}hideTagbar();if(IS_PATCH)patchEsc();return;}
   const tag=(e.target&&e.target.tagName)||'';
   // full-screen views (Lab, Timeline, Explorer) own the keyboard: never undo or switch tools on the hidden page
   if(['hwlab','explorer'].some(id=>{const el=document.getElementById(id);return el&&el.style.display!=='none';}))return;
@@ -641,7 +687,7 @@ if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INP
   if(e.ctrlKey||e.metaKey||e.altKey)return;if(tag==='INPUT'||tag==='TEXTAREA')return;
   // Page Up / Page Down move the page by a screen in any tool (the page itself never has focus); ignored mid-stroke
   if(e.key==='PageDown'||e.key==='PageUp'){if(tag==='SELECT'||e.target.isContentEditable||(typeof tlOpen==='function'&&tlOpen()))return;e.preventDefault();pageStep(e.key==='PageDown'?1:-1);return;}
-  const mm={t:'text',p:'pen',h:'hand',g:'grab'}[e.key.toLowerCase()];if(mm)setMode(mm);
+  const mm={t:'text',p:'pen',h:'hand',g:'grab'}[e.key.toLowerCase()];if(mm&&!(IS_PATCH&&!PATCH.focus))setMode(mm);   // (a patch on its page only takes typing)
 });
 addEventListener('resize',()=>{const yn=scrollTop()/drawW;layout();wrap.scrollTop=yn*drawW;redrawInk();});
 
@@ -661,11 +707,12 @@ addEventListener('DOMContentLoaded',async function(){
     await db.strokes.toCollection().modify(s=>{if(s.pid==null)s.pid=id;});
     await db.marks.toCollection().modify(m=>{if(m.pid==null)m.pid=id;});
   }
+  if(typeof ptPurge==='function')await ptPurge();
   marks=await db.marks.toArray();
   updateBkStatus();setInterval(updateBkStatus,10*60e3);
   setTimeout(maybeWelcome,800);
   const meta=await db.meta.get('meta');
-  let active=(meta&&meta.activePid&&projects.find(p=>p.id===meta.activePid))?meta.activePid:projects[0].id;
+  let active=(meta&&meta.activePid&&userProjects().find(p=>p.id===meta.activePid))?meta.activePid:(userProjects()[0]||projects[0]).id;
   if(IS_MINI){const q=+new URLSearchParams(location.search).get('pid');if(projects.find(p=>p.id===q))active=q;}
   buildSwatches();setInkColor('#ece6da');buildFilterBar();
   editor=makeEditor('note-ed','note-tb','note-status','note-valign');
@@ -678,7 +725,7 @@ addEventListener('DOMContentLoaded',async function(){
   editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();
   document.getElementById('proj-name').textContent=projName(pid);
   layout();redrawInk();updatePad();setMode('text');if(typeof extAfterPageLoad==='function')extAfterPageLoad();
-  requestAnimationFrame(()=>{wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();});
+  requestAnimationFrame(()=>{if(IS_PATCH){wrap.scrollLeft=PATCH.x*PATCH.z;wrap.scrollTop=PATCH.y*PATCH.z;}else wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();if(IS_PATCH)patchTell('ready');});
   setInterval(checkText,1500);
   noteEd.addEventListener('blur',()=>{checkText();saveMeta();schedulePrune();});
   addEventListener('beforeunload',()=>{checkText();if(typeof historyFlush==='function')historyFlush();if(editor&&pid!=null)db.pages.put({pid,html:editor.getHTML(),scrollYn:scrollTop()/drawW,gutterW,ww:pageWW||undefined,bg:pageBg||undefined});if(!IS_MINI)db.meta.put({id:'meta',activePid:pid});});

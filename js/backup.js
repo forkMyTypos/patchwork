@@ -12,30 +12,35 @@ async function _impTypes(data){for(const t of (data.htypes||[]))if(t&&t.id&&!HT.
 function _mexp(m){return{oid:m.id,type:m.type,fields:m.fields||{},hover:m.hover||'',name:m.name||'',tags:m.tags||[],created:m.created,done:!!m.done,doneAt:m.doneAt||null,links:m.links||[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',vt:m.vt||undefined};}
 function _sexp(s){const o={t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn};if(s.u)o.u=1;if(s.a&&typeof s.a.p==='string')o.a={p:s.a.p,top:+s.a.top||0};return o;}
 // free pictures: exported with the picture itself inlined; imported back into this browser's image store
-async function _pexp(p){const o={src:p.yt?'':await inlineImagesForExport(p.src),x:p.x,y:p.y,w:p.w,h:p.h,t:p.t};if(p.yt){o.yt=p.yt;o.st=p.st||0;if(p.pin){o.pin=true;o.px=p.px;o.py=p.py;}}if(p.a&&typeof p.a.p==='string')o.a={p:p.a.p,top:+p.a.top||0};return o;}
-async function _pimp(o,np){if(!o||typeof o!=='object')return;const n=v=>(typeof v==='number'&&isFinite(v))?v:null;const x=n(o.x),y=n(o.y),w=n(o.w),h=n(o.h);if(x==null||y==null||!(w>0&&w<=50)||!(h>0&&h<=200)||x<-5||y<-5)return;
+async function _pexp(p){const o={src:p.yt||p.patch?'':await inlineImagesForExport(p.src),x:p.x,y:p.y,w:p.w,h:p.h,t:p.t};if(p.patch){o.patch=p.patch;o.z=+p.z||1;o.vx=+p.vx||0;o.vy=+p.vy||0;if(p.fz)o.fz=+p.fz;}if(p.yt){o.yt=p.yt;o.st=p.st||0;if(p.pin){o.pin=true;o.px=p.px;o.py=p.py;}}if(p.a&&typeof p.a.p==='string')o.a={p:p.a.p,top:+p.a.top||0};return o;}
+async function _pimp(o,np,cmap){if(!o||typeof o!=='object')return;const n=v=>(typeof v==='number'&&isFinite(v))?v:null;const x=n(o.x),y=n(o.y),w=n(o.w),h=n(o.h);if(x==null||y==null||!(w>0&&w<=50)||!(h>0&&h<=200)||x<-5||y<-5)return;
+  if(o.patch!=null){const c=cmap&&cmap[o.patch];if(c==null)return;const z=Math.max(0.25,Math.min(4,n(o.z)||1)),v={pid:np,kind:'pic',src:'',patch:c,z,vx:Math.max(0,n(o.vx)||0),vy:Math.max(0,n(o.vy)||0),u:1,x,y,w,h,minYn:y,maxYn:y+h,t:n(o.t)||Date.now()};   // a patch (patches.js)
+    if(n(o.fz))v.fz=Math.max(0.25,Math.min(4,o.fz));if(o.a&&typeof o.a.p==='string'&&/^[a-z0-9]{4,24}$/.test(o.a.p)&&isFinite(o.a.top))v.a={p:o.a.p,top:+o.a.top};await db.pics.add(v);return true;}
   if(typeof o.yt==='string'){if(!/^[A-Za-z0-9_-]{11}$/.test(o.yt))return;const v={pid:np,kind:'pic',src:'',yt:o.yt,st:Math.max(0,Math.floor(+o.st||0)),u:1,x,y,w,h,minYn:y,maxYn:y+h,t:n(o.t)||Date.now()};if(o.pin===true&&isFinite(o.px)&&isFinite(o.py)){v.pin=true;v.px=+o.px;v.py=+o.py;}await db.pics.add(v);return;}   // a YouTube video
   let src=typeof o.src==='string'?o.src:'';if(/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(src)&&src.length<=MAX_CARD_FIELD)src=await storeDataURL(src);else if(!/^https:\/\/[^\s"'<>]+$/.test(src))return;
   const p={pid:np,kind:'pic',src,u:1,x,y,w,h,minYn:y,maxYn:y+h,t:n(o.t)||Date.now()};if(o.a&&typeof o.a.p==='string'&&/^[a-z0-9]{4,24}$/.test(o.a.p)&&isFinite(o.a.top))p.a={p:o.a.p,top:+o.a.top};await db.pics.add(p);}
 function _vt(v){return v&&typeof v==='object'&&/^[A-Za-z0-9_-]{11}$/.test(v.v||'')&&isFinite(v.s)?{v:v.v,s:Math.max(0,Math.floor(+v.s)),o:isFinite(v.o)?+v.o:undefined}:null;}   // video moment on a mark
 function _simp(s){const o={t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn};if(s.u===1)o.u=1;if(s.a&&typeof s.a.p==='string'&&/^[a-z0-9]{4,24}$/.test(s.a.p)&&isFinite(s.a.top))o.a={p:s.a.p,top:+s.a.top};return o;}
 // one project as a backup object (also what a student hands in as a page)
-async function projectExport(id){if(id===pid)await savePageNow();
+async function projectExport(id,inner){if(id===pid)await savePageNow();if(!inner&&typeof ptFlush==='function')await ptFlush();
   const pg=(await db.pages.get(id))||{};
+  const kids=inner?[]:(await db.pics.where('pid').equals(id).toArray()).filter(p=>p.patch&&!p.del&&projects.some(x=>x.id===p.patch));
   return{app:'patchwork',type:'patchwork-backup',version:1,scope:'project',exportedAt:new Date().toISOString(),
     project:{name:projName(id)},page:{html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined,bg:PAGE_BGS.includes(pg.bg)?pg.bg:undefined},
     marks:marks.filter(m=>m.pid===id).map(_mexp),htypes:_typesFor(marks.filter(m=>m.pid===id)),strokes:(await db.strokes.where('pid').equals(id).toArray()).filter(s=>!s.del).map(_sexp),
-    pics:await Promise.all((await db.pics.where('pid').equals(id).toArray()).filter(p=>!p.del).map(_pexp))};}
+    pics:await Promise.all((await db.pics.where('pid').equals(id).toArray()).filter(p=>!p.del).map(_pexp)),
+    patches:kids.length?await Promise.all(kids.map(async p=>({oid:p.patch,data:await projectExport(p.patch,true)}))):undefined};}
 async function backupProject(){
   const data=await projectExport(pid);
   _download(data,'patchwork-'+_slug(projName(pid))+'-'+_today()+'.json');
   toast('Backed up this project: \u201c'+projName(pid)+'\u201d','ok');db.info.update('info',{lastBackupAt:Date.now()}).then(()=>{if(typeof updateBkStatus==='function')updateBkStatus();}).catch(()=>{});
 }
 async function allBackupData(){
-  await savePageNow();
+  await savePageNow();if(typeof ptFlush==='function')await ptFlush();
+  const live=new Set((await db.pics.toArray()).filter(p=>p.patch&&!p.del).map(p=>p.patch)),pr=projects.filter(p=>!p.patchOf||live.has(p.id));
   const pgs=await db.pages.toArray();const allS=(await db.strokes.toArray()).filter(s=>!s.del);
   const data={app:'patchwork',type:'patchwork-backup',version:1,scope:'all',exportedAt:new Date().toISOString(),
-    projects:projects.map(p=>({oid:p.id,name:p.name,created:p.created,folder:p.folder||null})),folders:folders.map(f=>({oid:f.id,name:f.name,parent:f.parent||null})),
+    projects:pr.map(p=>({oid:p.id,name:p.name,created:p.created,folder:p.folder||null,patchOf:p.patchOf||undefined})),folders:folders.map(f=>({oid:f.id,name:f.name,parent:f.parent||null})),
     pages:await Promise.all(pgs.map(async pg=>({poid:pg.pid,html:await inlineImagesForExport(pg.html||''),scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined,bg:PAGE_BGS.includes(pg.bg)?pg.bg:undefined}))),
     marks:marks.map(m=>{const oo=_mexp(m);oo.poid=m.pid;return oo;}),
     strokes:allS.map(s=>{const oo=_sexp(s);oo.poid=s.pid;return oo;}),
@@ -45,7 +50,7 @@ async function allBackupData(){
 async function backupAll(){
   const data=await allBackupData();
   _download(data,'patchwork-all-'+_today()+'.json');
-  toast('Backed up everything ('+projects.length+' project'+(projects.length!==1?'s':'')+')','ok');db.info.update('info',{lastBackupAt:Date.now()}).then(()=>{if(typeof updateBkStatus==='function')updateBkStatus();}).catch(()=>{});
+  toast('Backed up everything ('+userProjects().length+' project'+(userProjects().length!==1?'s':'')+')','ok');db.info.update('info',{lastBackupAt:Date.now()}).then(()=>{if(typeof updateBkStatus==='function')updateBkStatus();}).catch(()=>{});
 }
 function _sani(h){try{return DOMPurify.sanitize(String(h||''));}catch(e){return '';}}
 async function importFile(file,opt){
@@ -63,30 +68,36 @@ async function importFile(file,opt){
     toast('Imported '+summary,'ok');return goTo;
   }catch(e){console.error(e);toast('Import failed: '+(e.message||'error'),'err');}
 }
-async function _impProject(data){
+async function _impProject(data,inner){
   const np=await db.projects.add({name:((data.project&&data.project.name)||'Imported').slice(0,60),created:Date.now()});
+  const cmap={};if(!inner)for(const c of (Array.isArray(data.patches)?data.patches:[]).slice(0,100))if(c&&c.data&&typeof c.data==='object'&&c.oid!=null){const cid=await _impProject(c.data,true);await db.projects.update(cid,{patchOf:np});cmap[c.oid]=cid;}   // its patches' pages
   const map={};
   for(const m of (data.marks||[])){const nid=await db.marks.add({pid:np,type:m.type||'note',name:m.name||'',tags:m.tags||[],created:m.created||Date.now(),done:!!m.done,doneAt:m.doneAt||null,links:[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',fields:m.fields||{},hover:m.hover||'',vt:_vt(m.vt)});map[m.oid]=nid;}
   for(const m of (data.marks||[]))if(m.links&&m.links.length&&map[m.oid]){const mm=m.links.map(x=>map[x]).filter(Boolean);if(mm.length)await db.marks.update(map[m.oid],{links:mm});}
   if(data.page){const h=_remapMarkIds(_sani(data.page.html),map);if(h.length<=MAX_CARD_FIELD)await db.pages.put({pid:np,html:h,scrollYn:data.page.scrollYn||0,gutterW:data.page.gutterW||0,ww:cleanWW(data.page.ww)||undefined,bg:PAGE_BGS.includes(data.page.bg)?data.page.bg:undefined});}
   for(const s of (data.strokes||[]))await db.strokes.add({pid:np,..._simp(s)});
-  for(const o of (Array.isArray(data.pics)?data.pics:[]).slice(0,500))await _pimp(o,np);
+  const used=new Set();for(const o of (Array.isArray(data.pics)?data.pics:[]).slice(0,500))if(await _pimp(o,np,cmap))used.add(cmap[o.patch]);
+  await _ptLoose(cmap,used);
   return np;
 }
 async function _impAll(data){
   const pmap={};
   const fmap={};for(const f of (data.folders||[]))fmap[f.oid]=await db.folders.add({name:(f.name||'Folder').slice(0,60),parent:null,created:Date.now()});for(const f of (data.folders||[]))if(f.parent!=null&&fmap[f.parent])await db.folders.update(fmap[f.oid],{parent:fmap[f.parent]});
   for(const p of (data.projects||[])){const nid=await db.projects.add({name:(p.name||'Imported').slice(0,60),created:p.created||Date.now(),folder:p.folder!=null&&fmap[p.folder]?fmap[p.folder]:null});pmap[p.oid]=nid;}
+  const kids={};for(const p of (data.projects||[]))if(p.patchOf!=null&&pmap[p.patchOf]!=null&&pmap[p.oid]!=null&&p.patchOf!==p.oid){await db.projects.update(pmap[p.oid],{patchOf:pmap[p.patchOf]});kids[p.oid]=pmap[p.oid];}   // patches' pages
   const map={};
   for(const m of (data.marks||[])){const np=pmap[m.poid];if(np==null)continue;const nid=await db.marks.add({pid:np,type:m.type||'note',name:m.name||'',tags:m.tags||[],created:m.created||Date.now(),done:!!m.done,doneAt:m.doneAt||null,links:[],anchor:m.anchor||{kind:'time',yn:0},snippet:m.snippet||'',fields:m.fields||{},hover:m.hover||'',vt:_vt(m.vt)});map[m.oid]=nid;}
   for(const m of (data.marks||[]))if(m.links&&m.links.length&&map[m.oid]){const mm=m.links.map(x=>map[x]).filter(Boolean);if(mm.length)await db.marks.update(map[m.oid],{links:mm});}
   for(const pg of (data.pages||[]))if(pmap[pg.poid]!=null){const h=_remapMarkIds(_sani(pg.html),map);if(h.length<=MAX_CARD_FIELD)await db.pages.put({pid:pmap[pg.poid],html:h,scrollYn:pg.scrollYn||0,gutterW:pg.gutterW||0,ww:cleanWW(pg.ww)||undefined,bg:PAGE_BGS.includes(pg.bg)?pg.bg:undefined});}
   for(const s of (data.strokes||[])){const np=pmap[s.poid];if(np!=null)await db.strokes.add({pid:np,..._simp(s)});}
-  for(const o of (Array.isArray(data.pics)?data.pics:[]).slice(0,5000)){const np=o&&pmap[o.poid];if(np!=null)await _pimp(o,np);}
+  const used=new Set();for(const o of (Array.isArray(data.pics)?data.pics:[]).slice(0,5000)){const np=o&&pmap[o.poid];if(np!=null&&await _pimp(o,np,kids))used.add(kids[o.patch]);}
+  await _ptLoose(kids,used);
   if(data.colors){if(Array.isArray(data.colors.favorites))COLOR_FAVORITES=Array.from(new Set([...COLOR_FAVORITES,...data.colors.favorites])).slice(0,18);if(Array.isArray(data.colors.recents))COLOR_RECENTS=(data.colors.recents||COLOR_RECENTS).slice(0,8);DB_saveColors();}
-  return Object.values(pmap)[0];
+  return pmap[((data.projects||[]).find(p=>pmap[p.oid]!=null&&kids[p.oid]==null)||{}).oid];
 }
-function updateBackupLabels(){const a=document.getElementById('bk-proj');if(a)a.textContent='\u2913 this project ('+projName(pid)+')';const e=document.getElementById('bk-all');if(e)e.textContent='\u2913 everything ('+projects.length+' project'+(projects.length!==1?'s':'')+')';}
+// a patch's page whose patch didn't come in becomes an ordinary project (never tidied away unseen)
+async function _ptLoose(cmap,used){for(const cid of Object.values(cmap))if(!used.has(cid))await db.projects.update(cid,{patchOf:undefined});}
+function updateBackupLabels(){const a=document.getElementById('bk-proj');if(a)a.textContent='\u2913 this project ('+projName(pid)+')';const e=document.getElementById('bk-all');if(e)e.textContent='\u2913 everything ('+userProjects().length+' project'+(userProjects().length!==1?'s':'')+')';}
 document.getElementById('proj-btn').addEventListener('click',()=>setTimeout(updateBackupLabels,0));
 
 // A PDF becomes a new private page: each PDF page is an image you can write beside and draw on. pdf.js (js/vendor/pdfjs,

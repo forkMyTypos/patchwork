@@ -132,7 +132,7 @@ async function tlOpenAsNew(){const T=TL.T,si=tlSnapAt(T);const paras=si>=0?TL.sn
   paras.forEach(p=>p.runs.forEach(r=>{if(r.mark)r.mark=null;}));   // highlights belong to the original page
   const name=(projName(TL.pid)+' · '+new Date(T).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})).slice(0,60);
   const np=await db.projects.add({name,created:Date.now()});await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0,ww:TL.ww||undefined});
-  for(const p of tlPicsAt(T)){const c={pid:np,kind:'pic',src:p.src,u:1,x:p.x,y:p.y,w:p.w,h:p.h,minYn:p.minYn,maxYn:p.maxYn,t:p.t};if(p.a)c.a=p.a;await db.pics.add(c);}
+  for(const p of tlPicsAt(T)){if(p.patch)continue;const c={pid:np,kind:'pic',src:p.src,u:1,x:p.x,y:p.y,w:p.w,h:p.h,minYn:p.minYn,maxYn:p.maxYn,t:p.t};if(p.a)c.a=p.a;await db.pics.add(c);}
   for(const s of tlStrokesAt(T))await db.strokes.add(Object.assign({pid:np,t:s.t,tool:s.tool,color:s.color,pts:s.pts,minYn:s.minYn,maxYn:s.maxYn},s.u?{u:1}:{},s.a?{a:s.a}:{}));
   projects=await db.projects.toArray();closeTimeline();await switchProject(np);renderProjects();toast('Opened “'+name+'” — the original is untouched','ok');}
 document.getElementById('timeline-btn').addEventListener('click',()=>{if(tlOpen())closeTimeline();else openTimeline();});

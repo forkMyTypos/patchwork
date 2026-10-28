@@ -649,3 +649,31 @@ body.yt-mode .pic-yt.yt-on{border-color:#f87171;box-shadow:0 0 0 1px #f87171;}
 body.pic-dragging .pic iframe{pointer-events:none;}
 #yt-mode.on{border-color:#f87171;color:#f87171;}
 .proj-row.busy{opacity:.45;cursor:default;}
+/* ===== patches (patches.js): a window on the page with a page of its own inside ===== */
+.pic.pic-pt{box-sizing:border-box;border:1px solid #34344a;border-radius:6px;background:#111;display:flex;flex-direction:column;}
+.pt-bar{height:24px;flex:0 0 24px;display:flex;align-items:center;gap:5px;padding:0 6px 0 8px;cursor:grab;font-size:11px;color:#a8a8c0;background:#15151f;border-bottom:1px solid #26263a;border-radius:5px 5px 0 0;user-select:none;overflow:hidden;white-space:nowrap;}
+.pt-ic{color:#f59e0b;font-size:12px;}.pt-name{overflow:hidden;text-overflow:ellipsis;min-width:0;}.pt-sp{flex:1;}.pt-zl{color:#6a6a86;font-size:10.5px;}
+.pt-back,.pt-zm{display:none;}.pt-zm{gap:4px;align-items:center;}
+.pt-box{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:0 0 5px 5px;}
+.pt-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#111;pointer-events:none;}
+.pic-pt.on .pt-box iframe,.pic-pt.focus .pt-box iframe{pointer-events:auto;}   /* picked: you work inside it */
+.pic-pt .pic-h.t,.pic-pt .pic-h.b{left:50%;margin-left:-8px;cursor:ns-resize;}.pic-pt .pic-h.t{top:-8px;}.pic-pt .pic-h.b{bottom:-8px;}
+.pic-pt .pic-h.l,.pic-pt .pic-h.r{top:50%;margin-top:-8px;cursor:ew-resize;}.pic-pt .pic-h.l{left:-8px;}.pic-pt .pic-h.r{right:-8px;}
+/* focus mode: the same patch fills the window */
+body.pt-focus #wrap{z-index:9000;}body.pt-focus #pics{z-index:50;}
+.pic-pt.focus{position:fixed!important;left:0!important;top:0!important;width:100%!important;height:100%!important;border:0;border-radius:0;outline:none!important;z-index:9000;}
+.pic-pt.focus .pt-bar{height:38px;flex-basis:38px;cursor:default;font-size:13px;color:#e0e0e0;padding:0 10px;gap:8px;border-radius:0;background:#0e0e15;}
+.pic-pt.focus .pt-back,.pic-pt.focus .pt-zm{display:flex;}.pic-pt.focus .pt-zl,.pic-pt.focus .pic-h{display:none!important;}.pic-pt.focus .pt-box{border-radius:0;}
+.pt-bar button{height:26px;padding:0 10px;border-radius:6px;border:1px solid #2a2a3a;background:#15151f;color:#c0c0d8;font-size:12px;cursor:pointer;align-items:center;}
+.pt-bar button:hover{border-color:#5a4a2b;color:#fbbf24;}.pt-bar .pt-back{color:#fbbf24;border-color:#5a4a2b;}.pt-zv{min-width:54px;}
+/* drawing a new patch */
+.pt-draw{position:absolute;left:0;top:0;width:100%;height:100%;z-index:8;cursor:crosshair;touch-action:none;}
+.pt-band{position:absolute;display:none;border:2px dashed #f59e0b;background:rgba(245,158,11,.08);border-radius:6px;pointer-events:none;}
+.pt-ask .pt-opts{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px;}
+.pt-ask .pt-opts .pbtn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:9px 12px;height:auto;line-height:1.3;}
+.pt-ask .pt-opts .pbtn span{font-size:11.5px;color:#8a8aa6;}.pt-ask .pt-o-all b{color:#f87171;}
+/* inside a patch's frame: just the page until it's opened (focus mode), and never a way to other projects */
+html.patch:not(.patch-focus) #bar1,html.patch:not(.patch-focus) #bar2,html.patch:not(.patch-focus) #gut,html.patch #hint,html.patch #proj-btn,html.patch #mini-btn,html.patch #mini-tabs,html.patch #brand,html.patch #class-btn,html.patch #bk-status{display:none!important;}
+html.patch:not(.patch-focus) #wrap{scrollbar-width:none;}html.patch:not(.patch-focus) #wrap::-webkit-scrollbar{display:none;}
+.pic-pt.pt-drop{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.35);}   /* let go here and it goes into the patch */
+html.patch #bar1>.bsep:first-of-type{display:none;}

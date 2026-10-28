@@ -173,7 +173,7 @@ async function clsViewStart(mode){CLS.switching=true;try{
       const prev=pid;if(prev!==X){if(!isShared(prev))CLS.privPid=prev;await clsCloseMiniFor(X);await switchProject(X);if(CLS.privPid===prev)openMiniEditor(prev);}
       try{localStorage.setItem('pw-class-pid',String(X));}catch(e){}CLS.boardPid=X;}
     else{let X=was==='default'?pid:null;
-      if(X!=null){let P=CLS.privPid&&CLS.privPid!==X&&projects.find(p=>p.id===CLS.privPid)?CLS.privPid:(projects.find(p=>p.shared!==true&&p.id!==X)||{}).id;
+      if(X!=null){let P=CLS.privPid&&CLS.privPid!==X&&projects.find(p=>p.id===CLS.privPid)?CLS.privPid:(userProjects().find(p=>p.shared!==true&&p.id!==X)||{}).id;
         if(P==null)P=await db.projects.add({name:'My notes',created:Date.now(),folder:null});projects=await db.projects.toArray();
         await clsCloseMiniFor(P);await switchProject(P);await clsCloseMiniFor(X);try{localStorage.setItem('pw-class-pid',String(X));}catch(e){}}
       await clsPaneOpen();}}
@@ -338,7 +338,7 @@ async function clsHandIn(f){if(CLS.role!=='student'){toast('Not in a classroom',
   if(!rtcOpen(CLS.peer)){toast('Not connected directly to the teacher yet','err');return;}const data=(await _blobToDataURL(f)).split(',')[1]||'';toast('Sending\u2026','info');rtcSend(CLS.peer,JSON.stringify({t:'handin',file:{name:f.name.slice(0,120),type:CLS_TYPES[ext],data}}));}
 function clsHandInPage(){if(CLS.role!=='student'||!CLS.homework){toast('Hand-ins are closed','err');return;}
   const m=document.createElement('div');m.className='cls-modal';m.innerHTML='<div class="panel cls-notice" role="dialog" aria-modal="true"><div class="panel-h"><div class="panel-t">Hand in a page</div></div><div class="panel-b"><p>Pick one of your projects. Only the teacher receives it. Private projects must be made sharable first.</p><div class="mini-list"></div><div class="hw-row"><button class="pbtn hp-no">Cancel</button></div></div></div>';
-  const list=m.querySelector('.mini-list');projects.forEach(p=>{const b=document.createElement('button');b.className='mini-pick';b.textContent=(p.shared===true?'\ud83d\udd13 ':'\ud83d\udd12 ')+p.name;
+  const list=m.querySelector('.mini-list');userProjects().forEach(p=>{const b=document.createElement('button');b.className='mini-pick';b.textContent=(p.shared===true?'\ud83d\udd13 ':'\ud83d\udd12 ')+p.name;
     b.onclick=async()=>{m.remove();if(p.shared!==true&&!await setShared(p,true))return;let data;try{data=await projectExport(p.id);}catch(e){toast('Could not read that page','err');return;}
       await clsHandIn(new File([JSON.stringify(data)],_slug(p.name)+'.patchwork.json',{type:'application/json'}));};list.appendChild(b);});
   m.querySelector('.hp-no').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove();};document.body.appendChild(m);}

@@ -8,9 +8,9 @@
 let pics=[],picSel=null,_picU=[],_picR=[],_picDrag=null;
 const picLayer=document.createElement('div');picLayer.id='pics';pad.appendChild(picLayer);
 const _picEl=new WeakMap();
-const PIC_KEYS=['pid','src','x','y','w','h','u','minYn','maxYn','a','t','del','kind','yt','st','pin','px','py'];   // yt/st/pin/px/py: YouTube objects (youtube.js)
+const PIC_KEYS=['pid','src','x','y','w','h','u','minYn','maxYn','a','t','del','kind','yt','st','pin','px','py','patch','z','vx','vy','fz'];   // yt/st/pin/px/py: YouTube objects (youtube.js); patch/z/vx/vy/fz: patches (patches.js)
 function picClean(p){const o={};for(const k of PIC_KEYS)if(p[k]!==undefined)o[k]=p[k];if(p.id!=null)o.id=p.id;return o;}
-function picSnap(p){return{x:p.x,y:p.y,w:p.w,h:p.h,minYn:p.minYn,maxYn:p.maxYn,a:p.a?{...p.a}:undefined,pin:p.pin,px:p.px,py:p.py};}
+function picSnap(p){return{x:p.x,y:p.y,w:p.w,h:p.h,minYn:p.minYn,maxYn:p.maxYn,a:p.a?{...p.a}:undefined,pin:p.pin,px:p.px,py:p.py,vx:p.vx,vy:p.vy};}
 function picFix(p){p.minYn=p.y;p.maxYn=p.y+p.h;}
 async function picsLoad(){pics=(await db.pics.where('pid').equals(pid).toArray()).filter(p=>!p.del);picSel=null;_picU=[];_picR=[];picLayer.textContent='';}
 function savePic(p){db.pics.put(picClean(p)).catch(e=>console.error(e));}
@@ -18,9 +18,10 @@ function savePic(p){db.pics.put(picClean(p)).catch(e=>console.error(e));}
 /* ---- drawing (DOM images in the page, so they scroll with it) ---- */
 function renderPics(){const U=inkW,keep=new Set();
   for(const p of pics){let el=_picEl.get(p);if(!el&&p.yt&&typeof ytBuild==='function'){el=document.createElement('div');el.className='pic';ytBuild(el,p);_picEl.set(p,el);el._pic=p;}
+    if(!el&&p.patch&&typeof ptBuild==='function'){el=document.createElement('div');el.className='pic';ptBuild(el,p);_picEl.set(p,el);el._pic=p;}
     if(!el){el=document.createElement('div');el.className='pic';el.innerHTML='<img alt="" draggable="false">'+['tl','tr','bl','br'].map(c=>'<div class="pic-h '+c+'" data-c="'+c+'" title="Drag to resize"></div>').join('');_picEl.set(p,el);el._pic=p;}
-    keep.add(el);if(el.parentNode!==picLayer)picLayer.appendChild(el);if(!p.yt){const img=el.firstChild,src=picSrc(p);if(src&&img.getAttribute('src')!==src)img.setAttribute('src',src);}
-    if(p.pin){el.style.left=(wrap.scrollLeft+p.px)+'px';el.style.top=(wrap.scrollTop+p.py)+'px';el.classList.add('pinned');}else{el.classList.remove('pinned');el.style.left=(gutter+p.x*U)+'px';el.style.top=(p.y*U+inkDy(p))+'px';}el.style.width=(p.w*U)+'px';el.style.height=(p.h*U)+'px';el.classList.toggle('on',p===picSel);}
+    keep.add(el);if(el.parentNode!==picLayer)picLayer.appendChild(el);if(!p.yt&&!p.patch){const img=el.firstChild,src=picSrc(p);if(src&&img.getAttribute('src')!==src)img.setAttribute('src',src);}
+    if(p.pin){el.style.left=(wrap.scrollLeft+p.px)+'px';el.style.top=(wrap.scrollTop+p.py)+'px';el.classList.add('pinned');}else{el.classList.remove('pinned');el.style.left=(gutter+p.x*U)+'px';el.style.top=(p.y*U+inkDy(p))+'px';}el.style.width=(p.w*U)+'px';el.style.height=(p.h*U)+'px';el.classList.toggle('on',p===picSel);if(p.patch)ptRender(el,p);}
   for(const el of [...picLayer.children])if(!keep.has(el))el.remove();picMenuPos();if(typeof ytSync==='function')ytSync();}
 const _picAsked=new Set();
 function picSrc(p){const h=imgHashOf(p.src);if(!h)return p.src;const u=IMG_URLS.get(h);if(u)return u;if(!_picAsked.has(h)){_picAsked.add(h);loadImages([h]).then(()=>{if(IMG_URLS.has(h))renderPics();});}return null;}   // ask once per picture
@@ -51,20 +52,32 @@ let picMenu=null;
 function picPick(p){picSel=p;if(document.activeElement===noteEd)noteEd.blur();if(editor&&editor.hasPickedImage())editor.unpickImage();renderPics();}
 function picUnpick(){if(!picSel)return;picSel=null;renderPics();}
 function picMenuPos(){if(!picSel){if(picMenu)picMenu.style.display='none';return;}const el=_picEl.get(picSel);if(!el)return;
-  if(!picMenu){picMenu=document.createElement('div');picMenu.className='pic-menu';picMenu.innerHTML='<button class="pm-inline" title="Make it part of the text, where it is">In line</button><button class="pm-del" title="Delete (Del)">Delete</button>';
+  if(!picMenu){picMenu=document.createElement('div');picMenu.className='pic-menu';picMenu.innerHTML='<span class="pm-pt"><button class="pm-zo" title="Zoom out (Ctrl+wheel over the patch)">\u2212</button><button class="pm-zv" title="Back to 100%">100%</button><button class="pm-zi" title="Zoom in">+</button><button class="pm-fit" title="Fit everything in the patch into its window">Fit</button><button class="pm-open" title="Open it full size to work in it (or double-click its bar)">\u2922 Open</button><button class="pm-name" title="Name this patch">Name\u2026</button></span>'+
+      '<button class="pm-inline" title="Make it part of the text, where it is">In line</button><button class="pm-del" title="Delete (Del)">Delete</button>';
+    const pt=f=>()=>{if(picSel&&picSel.patch)f(picSel);};picMenu.querySelector('.pm-zo').onclick=pt(p=>ptZoom(p,1/1.25));picMenu.querySelector('.pm-zi').onclick=pt(p=>ptZoom(p,1.25));picMenu.querySelector('.pm-zv').onclick=pt(p=>ptZoom(p,0));
+    picMenu.querySelector('.pm-fit').onclick=pt(ptFit);picMenu.querySelector('.pm-open').onclick=pt(ptFocus);picMenu.querySelector('.pm-name').onclick=pt(ptRename);
     picMenu.addEventListener('pointerdown',e=>e.stopPropagation());picMenu.querySelector('.pm-del').onclick=()=>picDelete();picMenu.querySelector('.pm-inline').onclick=()=>picToInline();}
-  picMenu.querySelector('.pm-inline').style.display=picSel.yt?'none':'';   // a video can't go in line
+  picMenu.querySelector('.pm-inline').style.display=picSel.yt||picSel.patch?'none':'';   // a video or a patch can't go in line
+  picMenu.querySelector('.pm-pt').style.display=picSel.patch?'contents':'none';if(picSel.patch)picMenu.querySelector('.pm-zv').textContent=Math.round((+picSel.z||1)*100)+'%';
   if(picMenu.parentNode!==document.body)document.body.appendChild(picMenu);const r=el.getBoundingClientRect(),vt=wrap.getBoundingClientRect().top;
-  if(r.bottom<vt||r.top>innerHeight){picMenu.style.display='none';return;}picMenu.style.display='flex';picMenu.style.left=Math.max(4,r.left)+'px';picMenu.style.top=(r.top-34<vt+4?Math.max(vt+4,r.top+6):r.top-34)+'px';}
-function picDelete(){const p=picSel;if(!p)return;const b=picSnap(p);picUnpick();p.del=Date.now();pics=pics.filter(q=>q!==p);savePic(p);picRecord(p,b);renderPics();updatePad();updateHint();}
+  if(r.bottom<vt||r.top>innerHeight){picMenu.style.display='none';return;}picMenu.style.display='flex';picMenu.style.left=Math.max(4,r.left)+'px';const up=picSel.patch?48:34;picMenu.style.top=(r.top-up<vt+4?Math.max(vt+4,r.top+6):r.top-up)+'px';}   // (above a patch's resize handles)
+function picDelete(force){const p=picSel;if(!p)return;if(p.patch&&force!==true){ptDelete(p);return;}   // a patch with things in it asks first (patches.js)
+  const b=picSnap(p);picUnpick();p.del=Date.now();pics=pics.filter(q=>q!==p);savePic(p);picRecord(p,b);renderPics();updatePad();updateHint();}
 function picAt(x,y){for(const el of document.elementsFromPoint(x,y)){const d=el.closest&&el.closest('.pic');if(d&&d._pic&&picLayer.contains(d)){const h=el.closest('.pic-h');return{p:d._pic,handle:h?h.dataset.c:null};}}return null;}
 function picStartDrag(p,e,handle){picPick(p);_picDrag={p,x:e.clientX,y:e.clientY,orig:picSnap(p),handle,moved:false};document.body.classList.add('pic-dragging');}
-picLayer.addEventListener('pointerdown',e=>{const d=e.target.closest('.pic');if(!d||!d._pic||(e.button!==undefined&&e.button!==0)||e.target.closest('button'))return;e.preventDefault();e.stopPropagation();const h=e.target.closest('.pic-h');picStartDrag(d._pic,e,h?h.dataset.c:null);});
+picLayer.addEventListener('pointerdown',e=>{const d=e.target.closest('.pic');if(!d||!d._pic||(e.button!==undefined&&e.button!==0)||e.target.closest('button'))return;e.preventDefault();e.stopPropagation();const h=e.target.closest('.pic-h');
+  if(d._pic.patch&&!h&&!e.target.closest('.pt-bar')){if(!d.classList.contains('focus'))picPick(d._pic);return;}   // a patch moves by its bar: a press in its window picks it (then you work inside it)
+  picStartDrag(d._pic,e,h?h.dataset.c:null);});
 document.addEventListener('pointermove',e=>{const g=_picDrag;if(!g)return;const U=inkW,dx=(e.clientX-g.x)/U,dy=(e.clientY-g.y)/U;if(!g.moved&&Math.hypot(e.clientX-g.x,e.clientY-g.y)<3)return;g.moved=true;const p=g.p,o=g.orig;
   // resize from any corner, keeping proportions; the opposite corner stays put
-  if(g.handle){const c=g.handle,w=Math.max(16/U,o.w+(c[1]==='r'?dx:-dx)),h=w*o.h/o.w;p.w=w;p.h=h;p.x=c[1]==='l'?o.x+o.w-w:o.x;p.y=c[0]==='t'?o.y+o.h-h:o.y;if(p.pin){p.px=o.px+(p.x-o.x)*U;p.py=o.py+(p.y-o.y)*U;}}
-  else if(p.pin){p.px=o.px+dx*U;p.py=o.py+dy*U;}else{p.x=Math.max(0,o.x+dx);p.y=o.y+dy;}picFix(p);renderPics();});
-document.addEventListener('pointerup',()=>{const g=_picDrag;if(!g)return;_picDrag=null;document.body.classList.remove('pic-dragging');if(!g.moved)return;const p=g.p;p._dy=inkDy(p);reanchor(p);savePic(p);picRecord(p,g.orig);renderPics();updatePad();});
+  if(g.handle&&p.patch){const c=g.handle,mw=PT.MINW/U,mh=PT.MINH/U;let x=o.x,y=o.y,w=o.w,h=o.h;
+    if(c.includes('l')){w=Math.max(mw,o.w-dx);x=o.x+o.w-w;}if(c.includes('r'))w=Math.max(mw,o.w+dx);if(c.includes('t')){h=Math.max(mh,o.h-dy);y=o.y+o.h-h;}if(c.includes('b'))h=Math.max(mh,o.h+dy);
+    p.x=x;p.y=y;p.w=w;p.h=h;const z=+p.z||1;p.vx=Math.max(0,(+o.vx||0)+(x-o.x)*U/z);p.vy=Math.max(0,(+o.vy||0)+(y-o.y)*U/z);}   // (resizing changes the window, not what's in it)
+  else if(g.handle){const c=g.handle,w=Math.max(16/U,o.w+(c[1]==='r'?dx:-dx)),h=w*o.h/o.w;p.w=w;p.h=h;p.x=c[1]==='l'?o.x+o.w-w:o.x;p.y=c[0]==='t'?o.y+o.h-h:o.y;if(p.pin){p.px=o.px+(p.x-o.x)*U;p.py=o.py+(p.y-o.y)*U;}}
+  else if(p.pin){p.px=o.px+dx*U;p.py=o.py+dy*U;}else{p.x=Math.max(0,o.x+dx);p.y=o.y+dy;}picFix(p);renderPics();
+  if(!g.handle&&!p.patch&&!p.pin)ptDropHint(ptUnder(e.clientX,e.clientY,p));});   // (dropped on a patch's window, it goes in)
+document.addEventListener('pointerup',e=>{const g=_picDrag;if(!g)return;_picDrag=null;document.body.classList.remove('pic-dragging');if(!g.moved)return;const p=g.p;
+  if(!g.handle&&!p.patch&&!p.pin){const t=ptUnder(e.clientX,e.clientY,p);if(t){ptTakePic(p,t,g.orig);return;}}p._dy=inkDy(p);reanchor(p);savePic(p);picRecord(p,g.orig);renderPics();updatePad();});
 // a press anywhere else unpicks; Del removes the picked picture, Esc unpicks
 document.addEventListener('pointerdown',e=>{if(!picSel||(e.target.closest&&(e.target.closest('.pic')||e.target.closest('.pic-menu'))))return;const h=picAt(e.clientX,e.clientY);if(h&&h.p===picSel)return;picUnpick();},true);   // (under the ink layer in Select & move, so look at what's under the pointer)
 addEventListener('keydown',e=>{if(!picSel||/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||e.target.isContentEditable)return;

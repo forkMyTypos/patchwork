@@ -651,10 +651,15 @@ body.pic-dragging .pic iframe{pointer-events:none;}
 .proj-row.busy{opacity:.45;cursor:default;}
 /* ===== patches (patches.js): a window on the page with a page of its own inside ===== */
 .pic.pic-pt{box-sizing:border-box;border:1px solid #34344a;border-radius:6px;background:#111;display:flex;flex-direction:column;}
-.pt-bar{height:24px;flex:0 0 24px;display:flex;align-items:center;gap:5px;padding:0 6px 0 8px;cursor:grab;font-size:11px;color:#a8a8c0;background:#15151f;border-bottom:1px solid #26263a;border-radius:5px 5px 0 0;user-select:none;overflow:hidden;white-space:nowrap;}
-.pt-ic{color:#f59e0b;font-size:12px;}.pt-name{overflow:hidden;text-overflow:ellipsis;min-width:0;}.pt-sp{flex:1;}
-.pt-bar .pt-back,.pt-bar .pt-fit{display:none;}.pt-zm{display:flex;gap:3px;align-items:center;}
-.pt-box{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:0 0 5px 5px;}
+.pt-bar{position:absolute;left:-1px;bottom:100%;min-width:calc(100% + 2px);width:max-content;height:24px;display:flex;align-items:center;gap:5px;padding:0 6px 0 8px;cursor:grab;font-size:11px;color:#a8a8c0;background:#15151f;border:1px solid #34344a;border-bottom:0;border-radius:6px 6px 0 0;user-select:none;overflow:hidden;white-space:nowrap;box-sizing:border-box;}
+/* the bar floats above the patch (never over its contents): shown while the mouse is over it, or it's picked / resizing; gone ~1s after you leave */
+.pic-pt .pt-bar{visibility:hidden;opacity:0;transition:opacity .2s ease .7s,visibility 0s linear .9s;}
+.pic-pt:hover .pt-bar,.pic-pt.on .pt-bar,.pic-pt.pt-resize .pt-bar,.pic-pt.focus .pt-bar{visibility:visible;opacity:1;transition:opacity .12s,visibility 0s;}
+@media (hover:none){.pic-pt.pt-active .pt-bar{visibility:visible;opacity:1;transition:none;}}   /* touch: while you work in it */
+.pic-pt:hover,.pic-pt.on{z-index:3;}.pic-pt.pt-low .pt-bar{bottom:auto;top:0;border:0;border-bottom:1px solid #26263a;}   /* (no room above: over its top edge) */
+.pt-ic{color:#f59e0b;font-size:12px;}.pt-name{overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:180px;}.pt-sp{flex:1;}
+.pt-bar .pt-back{display:none;}.pt-zm{display:flex;gap:3px;align-items:center;}
+.pt-box{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:5px;}
 .pt-box iframe{position:absolute;left:0;top:0;width:100%;height:100%;border:0;display:block;background:#111;}   /* always ready to type in */
 /* a cover over the page inside while it's being moved or resized (or something is dragged over it), so the drag never stalls */
 .pt-cover{position:absolute;inset:0;display:none;cursor:move;}
@@ -667,19 +672,37 @@ body.pic-dragging .pic iframe{pointer-events:none;}
 /* focus mode: the same patch fills the window */
 body.pt-focus #wrap{z-index:9000;}body.pt-focus #pics{z-index:50;}
 .pic-pt.focus{position:fixed!important;left:0!important;top:0!important;width:100%!important;height:100%!important;border:0;border-radius:0;outline:none!important;z-index:9000;}
-.pic-pt.focus .pt-bar{height:38px;flex-basis:38px;cursor:default;font-size:13px;color:#e0e0e0;padding:0 10px;gap:8px;border-radius:0;background:#0e0e15;}
-.pic-pt.focus .pt-back,.pic-pt.focus .pt-fit{display:flex;}.pic-pt.focus .pt-rs,.pic-pt.focus .pt-op,.pic-pt.focus .pic-h,.pic-pt.focus .pt-cover{display:none!important;}.pic-pt.focus .pt-box{border-radius:0;}
+.pic-pt.focus .pt-bar{position:static;width:auto;min-width:0;flex:0 0 38px;height:38px;border:0;border-bottom:1px solid #26263a;cursor:default;font-size:13px;color:#e0e0e0;padding:0 10px;gap:8px;border-radius:0;background:#0e0e15;}
+.pic-pt.focus .pt-back{display:flex;}.pic-pt.focus .pt-rs,.pic-pt.focus .pt-op,.pic-pt.focus .pt-mo,.pic-pt.focus .pic-h,.pic-pt.focus .pt-cover{display:none!important;}.pic-pt.focus .pt-box{border-radius:0;}
 .pt-bar button{display:inline-flex;height:18px;padding:0 5px;border-radius:5px;border:1px solid #2a2a3a;background:#15151f;color:#a8a8c0;font-size:11px;line-height:1;cursor:pointer;align-items:center;flex-shrink:0;}
 .pt-bar button:hover{border-color:#5a4a2b;color:#fbbf24;}.pt-bar .pt-zv{min-width:38px;}.pic-pt.pt-resize .pt-rs{border-color:#4caf50;color:#7ddc80;}
 .pic-pt.focus .pt-bar button{height:26px;padding:0 10px;border-radius:6px;font-size:12px;color:#c0c0d8;}.pic-pt.focus .pt-bar .pt-back{color:#fbbf24;border-color:#5a4a2b;}.pic-pt.focus .pt-bar .pt-zv{min-width:54px;}
 /* drawing a new patch */
 .pt-draw{position:absolute;left:0;top:0;width:100%;height:100%;z-index:8;cursor:crosshair;touch-action:none;}
 .pt-band{position:absolute;display:none;border:2px dashed #f59e0b;background:rgba(245,158,11,.08);border-radius:6px;pointer-events:none;}
+/* the bar's ⋯ menu */
+.pt-more-pop{position:fixed;z-index:9700;min-width:150px;}
 .pt-ask .pt-opts{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px;}
 .pt-ask .pt-opts .pbtn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:9px 12px;height:auto;line-height:1.3;}
 .pt-ask .pt-opts .pbtn span{font-size:11.5px;color:#8a8aa6;}.pt-ask .pt-o-all b{color:#f87171;}
 /* inside a patch's frame: just the page until it's opened (focus mode), and never a way to other projects */
 html.patch:not(.patch-focus) #bar1,html.patch:not(.patch-focus) #bar2,html.patch:not(.patch-focus) #gut,html.patch #hint,html.patch #patch-btn,html.patch #proj-btn,html.patch #mini-btn,html.patch #mini-tabs,html.patch #brand,html.patch #class-btn,html.patch #bk-status{display:none!important;}
-html.patch:not(.patch-focus) #wrap{scrollbar-width:none;}html.patch:not(.patch-focus) #wrap::-webkit-scrollbar{display:none;}
+html.patch:not(.patch-focus) #wrap{overflow-y:auto;scrollbar-width:none;}html.patch:not(.patch-focus):not(:hover) #wrap::-webkit-scrollbar{display:none;}
+html.patch:not(.patch-focus):hover #wrap{scrollbar-width:thin;scrollbar-color:#5a4a6a transparent;}   /* thin scrollbars while the mouse is over a patch (only if there's more to see) */
 .pic-pt.pt-drop{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.35);}   /* let go here and it goes into the patch */
 html.patch #bar1>.bsep:first-of-type{display:none;}
+/* ===== page list (pagelist.js): the page counter opens a list of everything on the page ===== */
+#page-ind{cursor:pointer;border-radius:6px;padding:4px 7px;}#page-ind:hover{color:#fbbf24;background:#1a1a24;}#page-ind::after{content:' \25be';font-size:9px;opacity:.7;}
+.pl-pop{position:fixed;z-index:10000;width:min(380px,calc(100vw - 16px));max-height:min(70vh,560px);display:none;flex-direction:column;background:#1c1c28;border:1px solid #3a3a4a;border-radius:10px;padding:8px;box-shadow:0 8px 28px rgba(0,0,0,.5);}
+.pl-pop.open{display:flex;}
+.pl-head{display:flex;gap:6px;}.pl-q{flex:1;min-width:0;height:28px;background:#12121a;border:1px solid #2a2a3a;border-radius:7px;color:#e0e0e0;padding:0 9px;font-size:12px;outline:none;}.pl-q:focus{border-color:#5a4a2b;}
+.pl-sort{height:28px;padding:0 9px;border-radius:7px;border:1px solid #2a2a3a;background:#15151f;color:#a8a8c0;font-size:11px;cursor:pointer;white-space:nowrap;}.pl-sort:hover{border-color:#5a4a2b;color:#fbbf24;}
+.pl-chips{display:flex;flex-wrap:wrap;gap:4px;margin:7px 0 6px;}
+.pl-chip{font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid #2a2a3a;background:#15151f;color:#a8a8c0;cursor:pointer;}.pl-chip.on{border-color:#5a4a2b;color:#fbbf24;background:#1f1a12;}
+.pl-list{overflow-y:auto;min-height:0;flex:1;}
+.pl-row{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12px;color:#c0c0d8;}.pl-row:hover{background:#26263a;}
+.pl-ic{width:18px;flex-shrink:0;text-align:center;color:#f59e0b;font-size:12px;}.pl-ic i{display:inline-block;width:9px;height:9px;border-radius:50%;}
+.pl-nm{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}.pl-nm i{font-style:normal;color:#7a7a92;margin-left:7px;}
+.pl-tm{flex-shrink:0;color:#6a6a86;font-size:11px;white-space:nowrap;}.pl-empty{padding:14px 6px;color:#6a6a86;font-size:12px;}
+.pl-flash{position:absolute;z-index:6;pointer-events:none;border:2px solid #f59e0b;border-radius:6px;box-shadow:0 0 0 4px rgba(245,158,11,.22);animation:plflash 1.4s ease forwards;}
+@keyframes plflash{0%{opacity:0;}15%{opacity:1;}70%{opacity:1;}100%{opacity:0;}}

@@ -43,8 +43,10 @@
   project id, `z` zoom, `vx`/`vy` view = inner page point in px at real size at the window's top-left, `fz` focus-mode zoom), moved by
   its bar / resized in resize mode (bar's grip button: 8 handles + a `.pt-cover`; resizing changes the window, never the content; the
   frame keeps its size until you let go) / anchored / undone like a free picture. Made with the Patch button (main bar) or Insert ▸ Patch.
-  On the page it is always ready to type in (one click, no handles); a plain wheel over a patch you aren't working in scrolls the page;
-  − / + zoom from the top-left, Ctrl+wheel around the pointer. The inner page is a
+  On the page it is always ready to type in (one click, no handles); a plain wheel over a patch you aren't working in scrolls the page,
+  Shift+wheel pans it; − / + zoom from the top-left, Ctrl+wheel around the pointer, and whatever fits in the window stays in it; % = 100%
+  at the top-left; thin scrollbars only while hovered. Its bar (− % + Fit, resize, open, ⋯ Name/Delete) floats ABOVE it, shown on hover /
+  picked / resize mode (touch: while active), gone ~1s after the mouse leaves; no room above = over its top edge (`pt-low`). The inner page is a
   project with `patchOf` = the page it sits on: hidden from every list (`userProjects()`), its text finds the outer page in search,
   opening it from elsewhere opens the outer page + the patch. It runs live in a frame (`?mini=1&patch=1&pid=N`, `IS_PATCH`); `PATCH.z`
   is the ONLY place layout's k != 1, so zoom changes nothing stored. Toolbars + margin only in focus mode (`patchFocus`); a patch never
@@ -53,6 +55,10 @@
   width. Dropping a free picture or Select & move ink on a patch's window moves it in (Undo in the toast). Deleting one with contents
   asks: put onto this page / keep as a project / delete all (undoable; orphaned patch pages are purged by `ptPurge` on the next start).
   Backups carry them (`patches` in a project backup, `patchOf` in a full one). Not broadcast, not in the Timeline, none inside patches.
+- Page list (`js/pagelist.js`): the page counter (n / N ▾) lists everything on the page: text by line (paragraphs with content),
+  doodles = pen/highlighter strokes grouped by time (a group spans at most 30 s from its first stroke), pictures, videos, patches,
+  highlights/notes; names numbered in creation order (Text 3, Doodle 2), time made; filter chips, search, sort (top to bottom / newest).
+  Click = scroll there + flash + pick (text selected, doodle selected in Select & move, picture/patch picked, mark opened).
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.
@@ -103,6 +109,7 @@
 - `js/pics.js` - free pictures: render, pick/move/resize/delete, undo, In line <-> Free
 - `js/youtube.js` - YouTube objects (embed, pin), YT mode, video timestamps on marks, jump/seek
 - `js/patches.js` - patches: create (Patch button or Insert ▸ Patch, drag a rectangle), resize mode, window + frame, zoom/Fit, focus mode, drop-in, delete options, purge
+- `js/pagelist.js` - page list from the page counter: everything on the page, jump + pick
 - `js/highlights.js` - highlight types, profiles, Highlight Factory
 - `js/explorer.js` - highlight Explorer
 - `js/timeline.js` - history snapshots + Timeline view

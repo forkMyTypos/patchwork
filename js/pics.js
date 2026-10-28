@@ -51,15 +51,13 @@ function picRedo(){const a=_picR.pop();if(!a)return;_picU.push(a);picApply(a.p,a
 let picMenu=null;
 function picPick(p){picSel=p;if(document.activeElement===noteEd)noteEd.blur();if(editor&&editor.hasPickedImage())editor.unpickImage();renderPics();}
 function picUnpick(){if(!picSel)return;picSel=null;renderPics();}
-function picMenuPos(){if(!picSel){if(picMenu)picMenu.style.display='none';return;}const el=_picEl.get(picSel);if(!el)return;
-  if(!picMenu){picMenu=document.createElement('div');picMenu.className='pic-menu';picMenu.innerHTML='<span class="pm-pt"><button class="pm-fit" title="Fit everything in the patch into its window">Fit</button><button class="pm-open" title="Open it full size to work in it (or double-click its bar)">\u2922 Open</button><button class="pm-name" title="Name this patch">Name\u2026</button></span>'+
-      '<button class="pm-inline" title="Make it part of the text, where it is">In line</button><button class="pm-del" title="Delete (Del)">Delete</button>';
-    const pt=f=>()=>{if(picSel&&picSel.patch)f(picSel);};picMenu.querySelector('.pm-fit').onclick=pt(ptFit);picMenu.querySelector('.pm-open').onclick=pt(ptFocus);picMenu.querySelector('.pm-name').onclick=pt(ptRename);
+function picMenuPos(){if(!picSel||picSel.patch){if(picMenu)picMenu.style.display='none';return;}   // (a patch has its own bar)
+  const el=_picEl.get(picSel);if(!el)return;
+  if(!picMenu){picMenu=document.createElement('div');picMenu.className='pic-menu';picMenu.innerHTML='<button class="pm-inline" title="Make it part of the text, where it is">In line</button><button class="pm-del" title="Delete (Del)">Delete</button>';
     picMenu.addEventListener('pointerdown',e=>e.stopPropagation());picMenu.querySelector('.pm-del').onclick=()=>picDelete();picMenu.querySelector('.pm-inline').onclick=()=>picToInline();}
-  picMenu.querySelector('.pm-inline').style.display=picSel.yt||picSel.patch?'none':'';   // a video or a patch can't go in line
-  picMenu.querySelector('.pm-pt').style.display=picSel.patch?'contents':'none';
+  picMenu.querySelector('.pm-inline').style.display=picSel.yt?'none':'';   // a video can't go in line
   if(picMenu.parentNode!==document.body)document.body.appendChild(picMenu);const r=el.getBoundingClientRect(),vt=wrap.getBoundingClientRect().top;
-  if(r.bottom<vt||r.top>innerHeight){picMenu.style.display='none';return;}picMenu.style.display='flex';picMenu.style.left=Math.max(4,r.left)+'px';const up=picSel.patch?48:34;picMenu.style.top=(r.top-up<vt+4?Math.max(vt+4,r.top+6):r.top-up)+'px';}   // (above a patch's resize handles)
+  if(r.bottom<vt||r.top>innerHeight){picMenu.style.display='none';return;}picMenu.style.display='flex';picMenu.style.left=Math.max(4,r.left)+'px';picMenu.style.top=(r.top-34<vt+4?Math.max(vt+4,r.top+6):r.top-34)+'px';}
 function picDelete(force){const p=picSel;if(!p)return;if(p.patch&&force!==true){ptDelete(p);return;}   // a patch with things in it asks first (patches.js)
   const b=picSnap(p);picUnpick();p.del=Date.now();pics=pics.filter(q=>q!==p);savePic(p);picRecord(p,b);renderPics();updatePad();updateHint();}
 function picAt(x,y){for(const el of document.elementsFromPoint(x,y)){const d=el.closest&&el.closest('.pic');if(d&&d._pic&&picLayer.contains(d)){const h=el.closest('.pic-h');return{p:d._pic,handle:h?h.dataset.c:null};}}return null;}

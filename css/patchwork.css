@@ -651,12 +651,15 @@ body.pic-dragging .pic iframe{pointer-events:none;}
 .proj-row.busy{opacity:.45;cursor:default;}
 /* ===== patches (patches.js): a window on the page with a page of its own inside ===== */
 .pic.pic-pt{box-sizing:border-box;border:1px solid #34344a;border-radius:6px;background:#111;display:flex;flex-direction:column;}
-.pt-bar{position:absolute;left:-1px;bottom:100%;min-width:calc(100% + 2px);width:max-content;height:24px;display:flex;align-items:center;gap:5px;padding:0 6px 0 8px;cursor:grab;font-size:11px;color:#a8a8c0;background:#15151f;border:1px solid #34344a;border-bottom:0;border-radius:6px 6px 0 0;user-select:none;overflow:hidden;white-space:nowrap;box-sizing:border-box;}
+.pt-bar{position:absolute;left:-1px;bottom:100%;min-width:calc(100% + 2px);width:max-content;height:24px;display:flex;align-items:center;gap:5px;padding:0 6px 0 8px;cursor:grab;font-size:11px;color:#a8a8c0;background:#15151f;border:1px solid;border-color:inherit;border-radius:6px 6px 0 0;user-select:none;overflow:hidden;white-space:nowrap;box-sizing:border-box;}
 /* the bar floats above the patch (never over its contents): shown while the mouse is over it, or it's picked / resizing; gone ~1s after you leave */
 .pic-pt .pt-bar{visibility:hidden;opacity:0;transition:opacity .2s ease .7s,visibility 0s linear .9s;}
 .pic-pt:hover .pt-bar,.pic-pt.on .pt-bar,.pic-pt.pt-resize .pt-bar,.pic-pt.focus .pt-bar{visibility:visible;opacity:1;transition:opacity .12s,visibility 0s;}
 @media (hover:none){.pic-pt.pt-active .pt-bar{visibility:visible;opacity:1;transition:none;}}   /* touch: while you work in it */
-.pic-pt:hover,.pic-pt.on{z-index:3;}.pic-pt.pt-low .pt-bar{bottom:auto;top:0;border:0;border-bottom:1px solid #26263a;}   /* (no room above: over its top edge) */
+.pic-pt:hover,.pic-pt.on{z-index:3;}
+/* the bar and the patch are one piece: the bar takes the patch's edge colour, and the patch's top corners square off under it */
+.pic.pic-pt,.pic-pt .pt-box{transition:border-radius 0s linear .9s;}
+.pic-pt:not(.pt-low):hover,.pic-pt.on:not(.pt-low),.pic-pt.pt-resize:not(.pt-low),.pic-pt:not(.pt-low):hover .pt-box,.pic-pt.on:not(.pt-low) .pt-box,.pic-pt.pt-resize:not(.pt-low) .pt-box{border-top-left-radius:0;border-top-right-radius:0;transition-delay:0s;}.pic-pt.pt-low .pt-bar{bottom:auto;top:0;border:0;border-bottom:1px solid #26263a;}   /* (no room above: over its top edge) */
 .pt-ic{color:#f59e0b;font-size:12px;}.pt-name{overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:180px;}.pt-sp{flex:1;}
 .pt-bar .pt-back{display:none;}.pt-zm{display:flex;gap:3px;align-items:center;}
 .pt-box{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:5px;}
@@ -665,8 +668,8 @@ body.pic-dragging .pic iframe{pointer-events:none;}
 .pt-cover{position:absolute;inset:0;display:none;cursor:move;}
 .pic-pt.pt-resize .pt-cover,body.pic-dragging .pt-cover,body.img-dragging .pt-cover{display:block;}
 /* picked by its bar: a quiet outline; the green handles only in resize mode (the ⤡ button); amber edge while you work in it */
-.pic.pic-pt.on{outline:1px solid rgba(245,158,11,.75);outline-offset:1px;}.pic-pt.on .pic-h{display:none;}
-.pic.pic-pt.pt-resize{outline:2px solid #4caf50;}.pic-pt.pt-resize .pic-h{display:block;}.pic-pt.pt-active{border-color:rgba(245,158,11,.6);}
+.pic.pic-pt.on{outline:none;border-color:rgba(245,158,11,.75);}.pic-pt.on .pic-h{display:none;}
+.pic.pic-pt.pt-resize{outline:none;border-color:#4caf50;}.pic-pt.pt-resize .pic-h{display:block;}.pic-pt.pt-active{border-color:rgba(245,158,11,.6);}
 .pic-pt .pic-h.t,.pic-pt .pic-h.b{left:50%;margin-left:-8px;cursor:ns-resize;}.pic-pt .pic-h.t{top:-8px;}.pic-pt .pic-h.b{bottom:-8px;}
 .pic-pt .pic-h.l,.pic-pt .pic-h.r{top:50%;margin-top:-8px;cursor:ew-resize;}.pic-pt .pic-h.l{left:-8px;}.pic-pt .pic-h.r{right:-8px;}
 /* focus mode: the same patch fills the window */
@@ -686,7 +689,7 @@ body.pt-focus #wrap{z-index:9000;}body.pt-focus #pics{z-index:50;}
 .pt-ask .pt-opts .pbtn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:9px 12px;height:auto;line-height:1.3;}
 .pt-ask .pt-opts .pbtn span{font-size:11.5px;color:#8a8aa6;}.pt-ask .pt-o-all b{color:#f87171;}
 /* inside a patch's frame: just the page until it's opened (focus mode), and never a way to other projects */
-html.patch:not(.patch-focus) #bar1,html.patch:not(.patch-focus) #bar2,html.patch:not(.patch-focus) #gut,html.patch #hint,html.patch #patch-btn,html.patch #proj-btn,html.patch #mini-btn,html.patch #mini-tabs,html.patch #brand,html.patch #class-btn,html.patch #bk-status{display:none!important;}
+html.patch:not(.patch-focus) #bar1,html.patch:not(.patch-focus) #bar2,html.patch:not(.patch-focus) #gut,html.patch:not(.patch-focus) #side,html.patch #hint,html.patch #patch-btn,html.patch #proj-btn,html.patch #mini-btn,html.patch #mini-tabs,html.patch #brand,html.patch #class-btn,html.patch #bk-status{display:none!important;}
 html.patch:not(.patch-focus) #wrap{overflow-y:auto;scrollbar-width:none;}html.patch:not(.patch-focus):not(:hover) #wrap::-webkit-scrollbar{display:none;}
 html.patch:not(.patch-focus):hover #wrap{scrollbar-width:thin;scrollbar-color:#5a4a6a transparent;}   /* thin scrollbars while the mouse is over a patch (only if there's more to see) */
 .pic-pt.pt-drop{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.35);}   /* let go here and it goes into the patch */

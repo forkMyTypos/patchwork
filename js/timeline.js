@@ -73,8 +73,15 @@ async function openTimeline(){ensureTimeline();await historyFlush();await savePa
   if(need.size){const ks=[...need];const rows=await db.paras.bulkGet(ks);rows.forEach((r,i)=>{if(r)TL.paras.set(ks[i],r.p);});}
   const imgs=new Set();for(const p of TL.paras.values())p.runs.forEach(r=>{const h=r.type==='image'&&imgHashOf(r.src);if(h)imgs.add(h);});await loadImages([...imgs]);
   TL.strokes=await db.strokes.where('pid').equals(p0).toArray();TL.pics=await db.pics.where('pid').equals(p0).toArray();
+  // patches: each one's own page has its own history (text snapshots, ink, pictures)
+  TL.kids=new Map();for(const q of TL.pics){if(!q.patch||TL.kids.has(q.patch))continue;const cid=q.patch,pg=await db.pages.get(cid);
+    TL.kids.set(cid,{snaps:await db.snaps.where('pid').equals(cid).sortBy('t'),strokes:await db.strokes.where('pid').equals(cid).toArray(),pics:await db.pics.where('pid').equals(cid).toArray(),ww:cleanWW(pg&&pg.ww)||400});}
+  const need2=new Set();for(const k of TL.kids.values())k.snaps.forEach(s=>s.paras.forEach(h=>{if(!TL.paras.has(h))need2.add(h);}));
+  if(need2.size){const ks=[...need2];const rows=await db.paras.bulkGet(ks);rows.forEach((r,i)=>{if(r)TL.paras.set(ks[i],r.p);});}
+  const imgs2=new Set();for(const k of TL.kids.values())k.snaps.forEach(s=>s.paras.forEach(h=>{const p=TL.paras.get(h);if(p)p.runs.forEach(r=>{const x=r.type==='image'&&imgHashOf(r.src);if(x)imgs2.add(x);});}));if(imgs2.size)await loadImages([...imgs2]);
   // every moment something changed
   const ev=[];TL.snaps.forEach(s=>ev.push({t:s.t,k:'text',label:(s.sum&&s.sum.label)||'Edited'}));TL.strokes.forEach(s=>{ev.push({t:s.born||s.t,k:'ink',label:s.born?'Moved / restored a drawing':(s.tool==='eraser'?'Erased ink':s.tool==='hl'?'Highlighter stroke':'Drew a stroke')});if(s.del)ev.push({t:s.del,k:'ink',label:'Removed a drawing'});});
+  for(const k of TL.kids.values()){k.snaps.forEach(s=>ev.push({t:s.t,k:'text',label:'In a patch: '+((s.sum&&s.sum.label)||'Edited')}));k.strokes.forEach(s=>{ev.push({t:s.born||s.t,k:'ink',label:'In a patch: '+(s.tool==='eraser'?'erased ink':'drew a stroke')});if(s.del)ev.push({t:s.del,k:'ink',label:'In a patch: removed a drawing'});});}
   TL.events=ev.sort((a,b)=>a.t-b.t);
   TL.first=TL.events.length?TL.events[0].t:Date.now();
   TL.el.style.display='flex';tlLayout();TL.range=(Date.now()-TL.first<3600e3)?'all':(Date.now()-TL.first<86400e3?'today':'all');tlRange();TL.T=TL.t1;tlShow(true);}
@@ -93,12 +100,15 @@ function tlDensity(){const c=TL.dens,x=c.getContext('2d'),w=c.width,h=c.height;i
   const bins=Math.max(1,Math.floor(w/(3*TL.dpr)));const tb=new Array(bins).fill(0),ib=new Array(bins).fill(0);for(const e of TL.events){if(e.t<TL.t0||e.t>TL.t1)continue;const i=Math.min(bins-1,Math.floor((e.t-TL.t0)/span*bins));if(e.k==='ink')ib[i]++;else tb[i]++;}
   const bw=w/bins;for(let i=0;i<bins;i++){const n=tb[i]+ib[i];if(!n)continue;const hh=Math.min(h*.8,(3+Math.log2(1+n)*4)*TL.dpr);x.fillStyle=tb[i]?'rgba(251,191,36,.75)':'rgba(167,139,250,.75)';x.fillRect(i*bw+bw*.2,(h-hh)/2,Math.max(TL.dpr,bw*.6),hh);}}
 function tlSchedule(){cancelAnimationFrame(TL.raf);TL.raf=requestAnimationFrame(()=>tlShow(false));}
-function tlSnapAt(T){let lo=0,hi=TL.snaps.length-1,ans=-1;while(lo<=hi){const m=(lo+hi)>>1;if(TL.snaps[m].t<=T){ans=m;lo=m+1;}else hi=m-1;}return ans;}
+function tlSnapAt(T){return tlSnapIn(TL.snaps,T);}
+function tlSnapIn(snaps,T){let lo=0,hi=snaps.length-1,ans=-1;while(lo<=hi){const m=(lo+hi)>>1;if(snaps[m].t<=T){ans=m;lo=m+1;}else hi=m-1;}return ans;}
+const tlLive=T=>s=>(s.born||s.t)<=T&&(!s.del||s.del>T);
 function tlStrokesAt(T){return TL.strokes.filter(s=>(s.born||s.t)<=T&&(!s.del||s.del>T));}
 function tlPicsAt(T){return (TL.pics||[]).filter(p=>p.t<=T&&(!p.del||p.del>T));}
 // free pictures in the Timeline: drawn under the ink, where they are now (moves aren't replayed)
 const _tlImg=new Map();function tlPicImg(p){const src=picSrc(p);if(!src)return null;let im=_tlImg.get(src);if(!im){im=new Image();im.onload=()=>tlInk();im.src=src;_tlImg.set(src,im);}return im.complete&&im.naturalWidth?im:null;}
-function tlShow(force){const T=TL.T,si=tlSnapAt(T),vis=tlStrokesAt(T),vp=tlPicsAt(T);const key=si+':'+vis.map(s=>s.id).join(',')+'|'+vp.map(p=>p.id).join(',');
+function tlShow(force){const T=TL.T,si=tlSnapAt(T),vis=tlStrokesAt(T),vp=tlPicsAt(T);
+  const key=si+':'+vis.map(s=>s.id).join(',')+'|'+vp.map(p=>p.id).join(',')+'|'+[...(TL.kids||new Map())].map(([c,k])=>c+':'+tlSnapIn(k.snaps,T)+':'+k.strokes.filter(tlLive(T)).length+':'+k.pics.filter(q=>q.t<=T&&(!q.del||q.del>T)).length).join(';');
   // readout + thumb
   const f=(T-TL.t0)/Math.max(1,TL.t1-TL.t0);TL.thumb.style.left=(f*100)+'%';TL.fill.style.width=(f*100)+'%';
   const atNow=TL.t1-T<1500;TL.el.querySelector('.tl-big').textContent=atNow?'Now':fmtFull(T);
@@ -110,15 +120,26 @@ function tlShow(force){const T=TL.T,si=tlSnapAt(T),vis=tlStrokesAt(T),vp=tlPicsA
   editor.renderParas(paras,TL.ed);TL.vis=vis;TL.vp=vp;
   const emp=TL.el.querySelector('.tl-empty');emp.style.display=(!paras.some(p=>p.runs.some(r=>r.type==='image'||(r.text&&r.text.trim())))&&!vis.length)?'':'none';emp.textContent=TL.snaps.length<=1&&TL.strokes.length===0?'History starts now — keep working and come back here to travel through it.':'The page was empty at this moment.';
   let mx=0;for(const s of vis)mx=Math.max(mx,s.maxYn*(s.u?PAGE_REF*TL.k:TL.drawW));TL.pad.style.minHeight=Math.ceil(Math.max(TL.ed.scrollHeight+20,mx+TL.H*.5,TL.H))+'px';
-  tlInk();}
+  tlPatches(T);tlInk();}
+// patches in the Timeline: each window shows what was inside it at that moment, at its zoom and view (where it is now: moves aren't replayed)
+function tlPatches(T){TL.pad.querySelectorAll('.tl-pt').forEach(e=>e.remove());if(!TL.kids||!TL.kids.size)return;const U=PAGE_REF*TL.k,er=TL.wrap.getBoundingClientRect(),st=TL.wrap.scrollTop,tops=new Map(),R=PAGE_REF;
+  TL.ed.querySelectorAll(':scope > .line').forEach(l=>{if(l.dataset.id)tops.set(l.dataset.id,l.getBoundingClientRect().top-er.top+st);});
+  for(const p of (TL.vp||[]).filter(q=>q.patch)){const k=TL.kids.get(p.patch);if(!k)continue;const t=p.a?tops.get(p.a.p):null,d=t!=null?t-p.a.top*U:0,z=+p.z||1,vx=+p.vx||0,vy=+p.vy||0;
+    const box=document.createElement('div');box.className='tl-pt';box.style.cssText='left:'+(TL.gutter+p.x*U)+'px;top:'+(p.y*U+d)+'px;width:'+(p.w*U)+'px;height:'+(p.h*U)+'px';
+    const inn=document.createElement('div');inn.className='tl-pt-in';inn.style.transform='scale('+z+') translate('+(-vx)+'px,'+(-vy)+'px)';
+    const ed=document.createElement('div');ed.className='editor tl-pt-ed';ed.style.width=(k.ww+12)+'px';const si=tlSnapIn(k.snaps,T);
+    editor.renderParas(si>=0?k.snaps[si].paras.map(h=>TL.paras.get(h)||{align:'left',runs:[{type:'text',text:''}]}):[],ed);inn.appendChild(ed);box.appendChild(inn);TL.pad.appendChild(box);
+    // its ink and pictures, drawn in its own page's px under the zoom
+    const cw=(p.w*U-2)/z,ch=(p.h*U-2)/z,r=Math.min(4,TL.dpr*z),cv=document.createElement('canvas');cv.width=Math.ceil(cw*r);cv.height=Math.ceil(ch*r);cv.style.cssText='position:absolute;left:'+vx+'px;top:'+vy+'px;width:'+cw+'px;height:'+ch+'px;';inn.appendChild(cv);
+    const c=cv.getContext('2d');c.setTransform(r,0,0,r,-vx*r,-vy*r);const kt=new Map();ed.querySelectorAll(':scope > .line').forEach(l=>{if(l.dataset.id)kt.set(l.dataset.id,l.offsetTop);});
+    const dy=o=>{const tt=o.a?kt.get(o.a.p):null;return tt!=null?tt-o.a.top*(o.u||o.kind==='pic'?R:k.ww):0;};
+    for(const q of k.pics.filter(q=>q.t<=T&&(!q.del||q.del>T)&&!q.patch)){const im=tlPicImg(q);if(im)c.drawImage(im,q.x*R,q.y*R+dy(q),q.w*R,q.h*R);}
+    for(const s of k.strokes.filter(tlLive(T))){const u=s.u?R:k.ww,d2=dy(s);tlStroke(c,s,xn=>xn*u,yn=>yn*u+d2,u);}}}
 function tlInk(){if(!TL||!TL.vis)return;const c=TL.ctx,st=TL.wrap.scrollTop,dW=TL.drawW,g=TL.gutter;c.setTransform(TL.dpr,0,0,TL.dpr,0,0);c.clearRect(0,0,TL.W,TL.H);
   // same placement as the live page: page units for new ink, and anchored ink follows its paragraph in this view
   const tops=new Map(),er=TL.wrap.getBoundingClientRect();TL.ed.querySelectorAll(':scope > .line').forEach(l=>{if(l.dataset.id)tops.set(l.dataset.id,l.getBoundingClientRect().top-er.top+st);});
   for(const p of TL.vp||[]){const U=PAGE_REF*TL.k,t=p.a?tops.get(p.a.p):null,d=t!=null?t-p.a.top*U:0,im=tlPicImg(p);if(im)c.drawImage(im,g+p.x*U,p.y*U+d-st,p.w*U,p.h*U);}
-  for(const s of TL.vis){const U=s.u?PAGE_REF*TL.k:dW,t=s.a?tops.get(s.a.p):null,d=t!=null?t-s.a.top*U:0,X=xn=>g+xn*U,Y=yn=>yn*U+d-st;const top=s.minYn*U+d-st,bot=s.maxYn*U+d-st;if(bot<-14||top>TL.H+14)continue;c.lineCap='round';c.lineJoin='round';
-    if(s.tool==='eraser'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';c.fillStyle='#000';c.globalAlpha=1;}else{c.globalCompositeOperation='source-over';c.strokeStyle=s.color;c.fillStyle=s.color;c.globalAlpha=s.tool==='hl'?.30:1;}
-    const p=s.pts;if(p.length===1){c.beginPath();c.arc(X(p[0].xn),Y(p[0].yn),Math.max(.5,p[0].wn*U/2),0,7);c.fill();}else for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];c.lineWidth=Math.max(.5,(a.wn+b.wn)/2*U);c.beginPath();c.moveTo(X(a.xn),Y(a.yn));c.lineTo(X(b.xn),Y(b.yn));c.stroke();}}
-  c.globalCompositeOperation='source-over';c.globalAlpha=1;
+  for(const s of TL.vis){const U=s.u?PAGE_REF*TL.k:dW,t=s.a?tops.get(s.a.p):null,d=t!=null?t-s.a.top*U:0;const top=s.minYn*U+d-st,bot=s.maxYn*U+d-st;if(bot<-14||top>TL.H+14)continue;tlStroke(c,s,xn=>g+xn*U,yn=>yn*U+d-st,U);}
   // the margin as it was: session stamps from the historical paragraphs and strokes
   c.fillStyle='rgba(16,13,22,.86)';c.fillRect(0,0,g,TL.H);c.strokeStyle='#2a2233';c.lineWidth=1;c.beginPath();c.moveTo(g+.5,0);c.lineTo(g+.5,TL.H);c.stroke();
   const wr=TL.wrap.getBoundingClientRect(),raw=[];TL.ed.querySelectorAll(':scope > .line').forEach(le=>{const t=+le.dataset.t;if(!t||!le.textContent.replace(/​/g,'').trim()&&!le.querySelector('img'))return;const b=le.getBoundingClientRect();raw.push({t,y:(b.top-wr.top)+Math.min(12,b.height/2)});});
@@ -126,6 +147,10 @@ function tlInk(){if(!TL||!TL.vis)return;const c=TL.ctx,st=TL.wrap.scrollTop,dW=T
   for(const r of raw){const day=new Date(r.t).toDateString();if(lastT!=null&&Math.abs(r.t-lastT)<GAP_MS&&day===lastDay)continue;const nd=day!==lastDay;lastT=r.t;lastDay=day;if(r.y<-20||r.y>TL.H+20||r.y-lastY<(nd?26:15))continue;lastY=r.y;
     c.textBaseline='middle';c.textAlign='right';if(nd){c.font='600 9px Arial';c.fillStyle='#7a6a45';c.fillText(dayLabel(r.t).toUpperCase(),g-16,r.y-11);}c.font='10.5px Arial';c.fillStyle=r.ink?'#8a7f9a':'#9a8a6a';c.fillText((r.ink?'✎ ':'')+fmtTime(r.t),g-16,r.y+(nd?2:0));}
   c.textAlign='left';}
+function tlStroke(c,s,X,Y,U){c.lineCap='round';c.lineJoin='round';
+  if(s.tool==='eraser'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';c.fillStyle='#000';c.globalAlpha=1;}else{c.globalCompositeOperation='source-over';c.strokeStyle=s.color;c.fillStyle=s.color;c.globalAlpha=s.tool==='hl'?.30:1;}
+  const p=s.pts;if(p.length===1){c.beginPath();c.arc(X(p[0].xn),Y(p[0].yn),Math.max(.5,p[0].wn*U/2),0,7);c.fill();}else for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];c.lineWidth=Math.max(.5,(a.wn+b.wn)/2*U);c.beginPath();c.moveTo(X(a.xn),Y(a.yn));c.lineTo(X(b.xn),Y(b.yn));c.stroke();}
+  c.globalCompositeOperation='source-over';c.globalAlpha=1;}
 function tlStep(d){const ts=[...new Set(TL.events.map(e=>e.t))];if(!ts.length)return;let T;if(d<0){T=null;for(const t of ts)if(t<TL.T-500)T=t;if(T==null)T=TL.t0;}else{T=ts.find(t=>t>TL.T+500);if(T==null)T=TL.t1;}
   if(T<TL.t0){TL.range='all';tlRange();}TL.T=Math.max(TL.t0,Math.min(TL.t1,T));tlShow(false);}
 async function tlOpenAsNew(){const T=TL.T,si=tlSnapAt(T);const paras=si>=0?TL.snaps[si].paras.map(h=>JSON.parse(JSON.stringify(TL.paras.get(h)||{align:'left',runs:[]}))):[];

@@ -154,9 +154,11 @@ function ptAsk(p){return new Promise(res=>{const m=document.createElement('div')
   m.querySelector('.pt-o-no').onclick=()=>done(null);m.onclick=e=>{if(e.target===m)done(null);};m.querySelector('.pt-o-no').focus();});}
 // remove the patch record for good (its contents went somewhere else)
 async function ptDrop(p){if(picSel===p)picUnpick();pics=pics.filter(q=>q!==p);await db.pics.delete(p.id);renderPics();}
-async function ptKeep(p){const c=projects.find(x=>x.id===p.patch),par=projects.find(x=>x.id===pid);if(!c)return;
+async function ptKeep(p){const c=projects.find(x=>x.id===p.patch),par=projects.find(x=>x.id===pid);if(!c)return;const was={...c},rec=picClean(p),home=pid;
   delete c.patchOf;c.folder=(par&&par.folder)||null;await db.projects.put(c);await ptDrop(p);
-  projects=await db.projects.toArray();syncPing('projects');renderProjects();updatePad();toast('Kept as the project “'+c.name+'” (in Projects)','ok');}
+  projects=await db.projects.toArray();syncPing('projects');renderProjects();updatePad();
+  toast('Kept as the project \u201c'+c.name+'\u201d (in Projects)','ok',{label:'Undo',fn:async()=>{await db.projects.put(was);await db.pics.put(rec);projects=await db.projects.toArray();syncPing('projects');renderProjects();
+    if(pid===home){pics.push(await db.pics.get(rec.id));renderPics();updatePad();}toast('The patch is back','ok');}});}
 // Put what's in it onto this page. Text goes in after the paragraph beside the patch (paragraph ids kept, so ink and pictures
 // anchored to it come along). With no text, ink, pictures and margin notes land where they were seen (zoom included).
 async function ptUnpack(p){const cid=p.patch,w=ptWin(p),el=_picEl.get(p);if(!el)return;try{if(w)await w.savePageNow();}catch(e){}
@@ -165,6 +167,9 @@ async function ptUnpack(p){const cid=p.patch,w=ptWin(p),el=_picEl.get(p);if(!el)
   const wr=wrap.getBoundingClientRect(),fr=el.querySelector('iframe').getBoundingClientRect(),bx=fr.left-wr.left+wrap.scrollLeft,by=fr.top-wr.top+wrap.scrollTop;   // the window's top-left, in this page's px
   const z=+p.z||1,vx=+p.vx||0,vy=+p.vy||0,U=inkW,R=PAGE_REF;
   const ss=(await db.strokes.where('pid').equals(cid).toArray()).filter(s=>!s.del),ps=(await db.pics.where('pid').equals(cid).toArray()).filter(q=>!q.del),ms=marks.filter(m=>m.pid===cid);
+  // everything as it was, for Undo (the patch, its page, history, ink, pictures, where its notes were; the lines that go in)
+  const home=pid,sn={proj:{...projects.find(x=>x.id===cid)},page:pg.pid!=null?{...pg}:null,snaps:await db.snaps.where('pid').equals(cid).toArray(),ss:structuredClone(ss),ps:structuredClone(ps),
+    ms:ms.map(m=>({id:m.id,pid:m.pid,anchor:structuredClone(m.anchor)})),rec:picClean(p),paras:hasText?[...d.querySelectorAll('.line[data-id]')].map(l=>l.dataset.id):[]};
   const dyOf=(arr,id)=>{const o=arr.find(x=>x.id===id);return o?o.dy:0;};
   for(const s of ss)if(!s.u){const f=cw/R;for(const q of s.pts){q.xn*=f;q.yn*=f;q.wn*=f;}s.minYn*=f;s.maxYn*=f;s.u=1;}   // (older strokes: relative to the page width)
   let T0=null,C0=18;
@@ -178,7 +183,14 @@ async function ptUnpack(p){const cid=p.patch,w=ptWin(p),el=_picEl.get(p);if(!el)
   await db.pages.delete(cid);await db.snaps.where('pid').equals(cid).delete();await db.projects.delete(cid);await ptDrop(p);
   projects=await db.projects.toArray();marks=await db.marks.toArray();strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);await picsLoad();
   for(const s of strokes)if(!s.a)reanchor(s);for(const q of pics)if(!q.a)reanchor(q);
-  syncPing('marks');redrawInk();updatePad();updateHint();saveMeta();toast('The patch’s contents are on this page now','ok');}
+  syncPing('marks');redrawInk();updatePad();updateHint();saveMeta();toast('The patch\u2019s contents are on this page now','ok',{label:'Undo',fn:()=>ptUnpackUndo(sn,home)});}
+// Undo of "Put them onto this page": the patch, its page and everything in it come back as they were; the lines it added go
+async function ptUnpackUndo(sn,home){if(pid!==home){toast('Go back to that page to undo','info');return;}
+  if(sn.paras.length)editor.removeParas(sn.paras);
+  await db.projects.put(sn.proj);if(sn.page)await db.pages.put(sn.page);for(const x of sn.snaps)await db.snaps.put(x);
+  for(const s of sn.ss)await db.strokes.put(s);for(const q of sn.ps)await db.pics.put(q);for(const m of sn.ms)await db.marks.update(m.id,{pid:m.pid,anchor:m.anchor});await db.pics.put(sn.rec);
+  projects=await db.projects.toArray();marks=await db.marks.toArray();strokes=(await db.strokes.where('pid').equals(pid).toArray()).filter(s=>!s.del);await picsLoad();
+  syncPing('marks');redrawInk();updatePad();updateHint();saveMeta();toast('The patch is back','ok');}
 function stripUnder(s){const o={};for(const k in s)if(k[0]!=='_')o[k]=s[k];return o;}
 
 // the pages inside the patches save what was just typed (before a backup)

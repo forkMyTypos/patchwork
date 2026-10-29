@@ -53,12 +53,18 @@
   takes the keyboard by itself. Inner API: `patchView/patchSetView/patchZoomAt/patchFit/patchItems/patchReload` (reach the frame through
   functions: its const/let globals aren't window properties). Ink/pictures inside may go right of the inner page; its text keeps its
   width. Dropping a free picture or Select & move ink on a patch's window moves it in (Undo in the toast). Deleting one with contents
-  asks: put onto this page / keep as a project / delete all (undoable; orphaned patch pages are purged by `ptPurge` on the next start).
-  Backups carry them (`patches` in a project backup, `patchOf` in a full one). Not broadcast, not in the Timeline, none inside patches.
+  asks: put onto this page / keep as a project / delete all (all three undoable; orphaned patch pages are purged by `ptPurge` on the next
+  start). Backups carry them (`patches` in a project backup, `patchOf` in a full one). Timeline draws each patch with its page's own
+  history (`tlPatches`). Class broadcast: a patch's page is part of the page it sits on (shared with it); the snapshot's `patches` are
+  made by each patch's frame (`clsSnapshot(used)`, one picture budget), checked in `clsClean(b,lim,nested)` with ONE text/picture/point
+  budget for the page and its patches, drawn on the class page, and kept as real patches in a class copy. None inside patches.
 - Page list (`js/pagelist.js`): the page counter (n / N ▾) lists everything on the page: text by line (paragraphs with content),
   doodles = pen/highlighter strokes grouped by time (a group spans at most 30 s from its first stroke), pictures, videos, patches,
   highlights/notes; names numbered in creation order (Text 3, Doodle 2), time made; filter chips, search, sort (top to bottom / newest).
   Click = scroll there + flash + pick (text selected, doodle selected in Select & move, picture/patch picked, mark opened).
+- Offline / install: `sw.js` (network first; offline = the kept copy; only this site's own GET requests) + `manifest.webmanifest` +
+  `icons/`. Add new app files to `FILES` in sw.js. Light mode inverts the top page (`html.light`); frames (pop-ups, patches) get
+  `html.light-in` instead (no second inversion, only pictures turned back; `themeFrames` keeps them in step).
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.

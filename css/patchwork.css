@@ -715,3 +715,8 @@ html.patch #bar1>.bsep:first-of-type{display:none;}
 .tl-pt{position:absolute;overflow:hidden;box-sizing:border-box;border:1px solid #34344a;border-radius:6px;background:#111;pointer-events:none;}
 .tl-pt-in{position:absolute;left:0;top:0;transform-origin:0 0;}
 .tl-ed .tl-pt-ed,.tl-pt-ed{position:relative;box-sizing:border-box;padding:18px 20px 0 10px!important;min-height:0!important;font-size:15px!important;}
+/* patches on the class page (classroom.js): the window, and its page at its zoom and view */
+.cls-pts{position:absolute;left:0;top:0;}
+.cls-pt{position:absolute;overflow:hidden;box-sizing:border-box;border:1px solid #34344a;border-radius:6px;background:#111;pointer-events:none;}
+.cls-pt-in{position:absolute;left:0;top:0;transform-origin:0 0;}
+.cls-pt-ed{position:relative;box-sizing:border-box;padding:18px 20px 0 10px!important;min-height:0!important;font-size:15px!important;cursor:default;}

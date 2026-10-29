@@ -33,7 +33,8 @@ async function clsImage(src){const h=imgHashOf(src);if(!h)return /^data:image\/(
 function clsFocusX(){const s=getSelection(),wr=wrap.getBoundingClientRect();let x=null;
   if(s&&s.rangeCount&&noteEd.contains(s.anchorNode)){const r=s.getRangeAt(0).getClientRects()[0]||(s.anchorNode.nodeType===1?s.anchorNode:s.anchorNode.parentElement).getBoundingClientRect();x=r.left-wr.left+wrap.scrollLeft-gutter;}
   if(x==null)x=wrap.scrollLeft+(wr.width-gutter)/2;return +Math.min(1,Math.max(0,x/drawW)).toFixed(4);}
-async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Math.round(drawW),ww:Math.round(pageWW||drawW),scroll:+(scrollTop()/drawW).toFixed(4),fx:clsFocusX(),bg:pageBg||undefined,paras:[],marks:{},strokes:[]};let imgBytes=0;
+// used: picture bytes already taken (a patch's page is snapshotted by its own frame, inside the page's budget)
+async function clsSnapshot(used){const out={v:1,title:projName(pid).slice(0,80),w:Math.round(drawW),ww:Math.round(pageWW||drawW),scroll:+(scrollTop()/drawW).toFixed(4),fx:clsFocusX(),bg:pageBg||undefined,paras:[],marks:{},strokes:[]};let imgBytes=used||0;
   for(const p of editor.getDoc()){const runs=[];for(const r of p.runs){
     if(r.type==='image'){const u=await clsImage(r.src);if(u&&u.length<=CLS_MAX.img&&imgBytes+u.length<=CLS_MAX.imgs){imgBytes+=u.length;runs.push({img:u,w:r.width||100,bg:clsHex(r.bg)});}else runs.push({text:'[image not shared]',color:'#7a7a92',i:1});continue;}
     if(!r.text)continue;const x={text:r.text};if(r.bold)x.b=1;if(r.italic)x.i=1;if(r.underline)x.u=1;const c=clsHex(r.color);if(c)x.color=c;if(r.size)x.size=r.size;if(r.font&&CLS_FONTS.includes(r.font))x.font=r.font;if(r.link)x.href=r.link;
@@ -43,6 +44,12 @@ async function clsSnapshot(){const out={v:1,title:projName(pid).slice(0,80),w:Ma
   out.pics=[];for(const p of (typeof pics!=='undefined'?pics:[])){const u=await clsImage(p.src);if(!u||u.length>CLS_MAX.img||imgBytes+u.length>CLS_MAX.imgs)continue;imgBytes+=u.length;const U=inkW/drawW,d=inkDy(p)/drawW;
     out.pics.push({img:u,x:+(p.x*U).toFixed(4),y:+(p.y*U+d).toFixed(4),w:+(p.w*U).toFixed(4),h:+(p.h*U).toFixed(4)});}   // free pictures
   for(const s of strokes){const U=inkU(s)/drawW,d=inkDy(s)/drawW;out.strokes.push({tool:s.tool,color:clsHex(s.color)||'#ece6da',p:s.pts.map(q=>[+(q.xn*U).toFixed(4),+(q.yn*U+d).toFixed(4),+(q.wn*U).toFixed(5)])});}
+  // patches: a window (placed like a picture) showing its own page at its zoom and view; that page is part of this one,
+  // so it is shared with it. Its frame makes the snapshot (a patch scrolled far away loads now and goes with the next send).
+  if(used==null&&typeof ptWin==='function'){out.patches=[];for(const p of pics.filter(q=>q.patch)){const w=ptWin(p);if(!w||typeof w.clsSnapshot!=='function'){const f=_picEl.get(p)&&_picEl.get(p).querySelector('iframe');if(f&&f.loading!=='eager')f.loading='eager';continue;}
+    let body;try{body=await w.clsSnapshot(imgBytes);}catch(e){continue;}imgBytes=body._b||imgBytes;delete body._b;const U=inkW/drawW,d=inkDy(p)/drawW;
+    out.patches.push({x:+(p.x*U).toFixed(4),y:+(p.y*U+d).toFixed(4),w:+(p.w*U).toFixed(4),h:+(p.h*U).toFixed(4),z:+(+p.z||1).toFixed(3),vx:Math.round(+p.vx||0),vy:Math.round(+p.vy||0),name:ptName(p)!=='Patch'?ptName(p):'',body});}}
+  if(used!=null)out._b=imgBytes;
   return out;}
 async function clsTick(){if(CLS.role!=='teacher'||!CLS.broadcast)return;
   const bw=clsBoardWin(),bp=bw&&bw.currentPid(),pr=bp?await db.projects.get(bp):null;
@@ -96,20 +103,24 @@ function clsReset(closeView){
 function clsState(s){CLS.status=s;clsRender();}
 
 /* ---------- student: validate everything received ---------- */
-function clsClean(b){const fail=w=>{throw new Error(w);};if(!b||typeof b!=='object'||b.v!==1)fail('version');
+function clsClean(b,lim,nested){const fail=w=>{throw new Error(w);};if(!b||typeof b!=='object'||b.v!==1)fail('version');
   const str=(x,n)=>typeof x==='string'?x.slice(0,n):'',num=(x,lo,hi,d)=>(typeof x==='number'&&isFinite(x))?Math.min(hi,Math.max(lo,x)):d,hex=x=>(typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x))?x.toLowerCase():null;
-  const out={title:str(b.title,80),w:num(b.w,200,4000,800),ww:Math.round(num(b.ww,200,6000,PAGE_REF)),scroll:num(b.scroll,0,1e4,0),fx:num(b.fx,0,1,0),bg:PAGE_BGS.includes(b.bg)?b.bg:'',paras:[],marks:{},strokes:[]};let text=0,imgs=0,points=0;
+  const out={title:str(b.title,80),w:num(b.w,200,4000,800),ww:Math.round(num(b.ww,200,6000,PAGE_REF)),scroll:num(b.scroll,0,1e4,0),fx:num(b.fx,0,1,0),bg:PAGE_BGS.includes(b.bg)?b.bg:'',paras:[],marks:{},strokes:[]};const L=lim||{text:0,imgs:0,points:0};   // (one budget for the page and its patches)
   if(b.marks&&typeof b.marks==='object')for(const k of Object.keys(b.marks).slice(0,3000)){if(!/^\d{1,12}$/.test(k))continue;const m=b.marks[k]||{},c=hex(m.c)||'#818cf8',fx={};for(const f of ['bg','ul','b','i','s','tc'])if(m.fx&&m.fx[f]===true)fx[f]=true;out.marks[k]={color:c,bg:hexA(c,.16),fx};}
   for(const p of (Array.isArray(b.paras)?b.paras:[]).slice(0,5000)){const runs=[];for(const r of (Array.isArray(p&&p.r)?p.r:[]).slice(0,500)){if(!r||typeof r!=='object')continue;
-      if(typeof r.img==='string'){if(r.img.length<=CLS_MAX.img&&imgs+r.img.length<=CLS_MAX.imgs&&/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(r.img)){imgs+=r.img.length;runs.push({type:'image',src:r.img,width:Math.round(num(r.w,10,100,100)),bg:hex(r.bg)});}continue;}
-      const t=str(r.text,20000);if(!t||text+t.length>CLS_MAX.text)continue;text+=t.length;
+      if(typeof r.img==='string'){if(r.img.length<=CLS_MAX.img&&L.imgs+r.img.length<=CLS_MAX.imgs&&/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(r.img)){L.imgs+=r.img.length;runs.push({type:'image',src:r.img,width:Math.round(num(r.w,10,100,100)),bg:hex(r.bg)});}continue;}
+      const t=str(r.text,20000);if(!t||L.text+t.length>CLS_MAX.text)continue;L.text+=t.length;
       runs.push({type:'text',text:t,bold:r.b===1,italic:r.i===1,underline:r.u===1,color:hex(r.color),size:r.size==null?null:Math.round(num(r.size,8,96,15)),font:CLS_FONTS.includes(r.font)?r.font:null,link:(typeof r.href==='string'&&r.href.length<=2000&&/^(https?:\/\/[^\s<>"']+|mailto:[^\s<>"']+)$/i.test(r.href))?r.href:null,mark:(typeof r.mk==='string'&&out.marks[r.mk])?r.mk:null});}
     const q={align:['left','center','right'].includes(p&&p.a)?p.a:'left',t:null,runs:runs.length?runs:[{type:'text',text:''}]};if(p&&(p.ls==='ul'||p.ls==='ol')){q.ls=p.ls;q.lv=Math.round(num(p.lv,0,4,0));}if(p&&[1,2,3].includes(p.hd))q.hd=p.hd;out.paras.push(q);}
   for(const s of (Array.isArray(b.strokes)?b.strokes:[]).slice(0,8000)){if(!s||!Array.isArray(s.p)||!['pen','hl','eraser'].includes(s.tool))continue;const pts=[];
-    for(const q of s.p.slice(0,5000)){if(!Array.isArray(q)||points>=CLS_MAX.points)break;const x=num(q[0],-0.5,1.5,NaN),y=num(q[1],-1,5000,NaN),w=num(q[2],0,0.2,0.004);if(isNaN(x)||isNaN(y))continue;pts.push({xn:x,yn:y,wn:w});points++;}
+    for(const q of s.p.slice(0,5000)){if(!Array.isArray(q)||L.points>=CLS_MAX.points)break;const x=num(q[0],-0.5,1.5,NaN),y=num(q[1],-1,5000,NaN),w=num(q[2],0,0.2,0.004);if(isNaN(x)||isNaN(y))continue;pts.push({xn:x,yn:y,wn:w});L.points++;}
     if(pts.length)out.strokes.push({tool:s.tool,color:hex(s.color)||'#ece6da',pts});}
-  out.pics=[];for(const q of (Array.isArray(b.pics)?b.pics:[]).slice(0,60)){if(!q||typeof q.img!=='string'||q.img.length>CLS_MAX.img||imgs+q.img.length>CLS_MAX.imgs||!/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(q.img))continue;
-    const x=num(q.x,-0.5,1.5,NaN),y=num(q.y,-1,5000,NaN),w=num(q.w,0.005,3,NaN),h=num(q.h,0.005,50,NaN);if([x,y,w,h].some(isNaN))continue;imgs+=q.img.length;out.pics.push({src:q.img,x,y,w,h});}
+  out.pics=[];for(const q of (Array.isArray(b.pics)?b.pics:[]).slice(0,60)){if(!q||typeof q.img!=='string'||q.img.length>CLS_MAX.img||L.imgs+q.img.length>CLS_MAX.imgs||!/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(q.img))continue;
+    const x=num(q.x,-0.5,1.5,NaN),y=num(q.y,-1,5000,NaN),w=num(q.w,0.005,3,NaN),h=num(q.h,0.005,50,NaN);if([x,y,w,h].some(isNaN))continue;L.imgs+=q.img.length;out.pics.push({src:q.img,x,y,w,h});}
+  // patches: placed like pictures, each with its own page (checked the same way; nothing inside a patch is a patch)
+  out.patches=[];if(!nested)for(const q of (Array.isArray(b.patches)?b.patches:[]).slice(0,20)){if(!q||typeof q!=='object')continue;
+    const x=num(q.x,-0.5,1.5,NaN),y=num(q.y,-1,5000,NaN),w=num(q.w,0.01,3,NaN),h=num(q.h,0.01,50,NaN);if([x,y,w,h].some(isNaN))continue;
+    let body;try{body=clsClean(q.body,L,true);}catch(e){continue;}out.patches.push({x,y,w,h,z:num(q.z,0.25,4,1),vx:num(q.vx,0,1e5,0),vy:num(q.vy,0,1e6,0),name:str(q.name,60),body});}
   return out;}
 
 /* ---------- Teaching Mode: two editor spaces side by side, exactly 50:50 ----------
@@ -231,6 +242,11 @@ async function clsSaveCopy(snap,mine,ask){const s=snap||CLS.snap;mine=mine||CLS.
   for(const k of s.strokes)await add(k.tool,k.color,k.pts.map(q=>({xn:q.xn*f,yn:q.yn*f,wn:q.wn*f})));
   for(const q of s.pics||[]){const src=await storeDataURL(q.src);await db.pics.add({pid:np,kind:'pic',src,u:1,x:q.x*f,y:q.y*f,w:q.w*f,h:q.h*f,minYn:q.y*f,maxYn:(q.y+q.h)*f,t});}
   const G=24;for(const m of mine)await add('pen',m.color,m.pts.map(([x,y])=>({xn:(x-G)/s.w*f,yn:y/s.w*f,wn:3/s.w*f})));   // your marks, as ink you can edit
+  for(const q of s.patches||[]){const b=q.body,g=b.ww/PAGE_REF,cid=await db.projects.add({name:(q.name||'Patch').slice(0,60),created:Date.now(),patchOf:np});   // its patches, as patches of the copy
+    await db.pages.put({pid:cid,html:editor.parasToHTML(b.paras.map(p=>({...p,runs:p.runs.map(r=>r.type==='text'?{...r,mark:null}:{...r})}))),scrollYn:0,gutterW:0,ww:b.ww,bg:b.bg||undefined});
+    for(const k of b.strokes){const pts=k.pts.map(P=>({xn:P.xn*g,yn:P.yn*g,wn:P.wn*g}));let lo=Infinity,hi=-Infinity;for(const P of pts){lo=Math.min(lo,P.yn);hi=Math.max(hi,P.yn);}await db.strokes.add({pid:cid,kind:'stroke',tool:k.tool,color:k.color,t,pts,minYn:lo,maxYn:hi,u:1});}
+    for(const x of b.pics||[]){const src=await storeDataURL(x.src);await db.pics.add({pid:cid,kind:'pic',src,u:1,x:x.x*g,y:x.y*g,w:x.w*g,h:x.h*g,minYn:x.y*g,maxYn:(x.y+x.h)*g,t});}
+    await db.pics.add({pid:np,kind:'pic',src:'',patch:cid,z:q.z,vx:q.vx,vy:q.vy,u:1,x:q.x*f,y:q.y*f,w:q.w*f,h:q.h*f,minYn:q.y*f,maxYn:(q.y+q.h)*f,t});}
   projects=await db.projects.toArray();marks=await db.marks.toArray();syncPing('projects');syncPing('marks');renderProjects();
   if(CLS.role&&CLS.mode==='default')openMiniEditor(np);else if(!projectOpenElsewhere(np))await switchProject(np);
   toast('Saved \u201c'+name+'\u201d to your projects (private, only on this device)','ok');return np;}
@@ -273,11 +289,19 @@ function clsDrawView(){const w=CLS.view;if(!w)return;const s=CLS.snap,ed=w.query
   let bgl=page.querySelector('.cls-bg');if(!bgl){bgl=document.createElement('div');page.prepend(bgl);}bgl.className='cls-bg'+(s.bg?' bg-'+s.bg:'');bgl.style.left=G+'px';bgl.style.width=(s.w+12)+'px';
   let pl=page.querySelector('.cls-pics');if(!pl){pl=document.createElement('div');pl.className='cls-pics';ed.after(pl);}pl.textContent='';
   for(const q of s.pics||[]){const i=document.createElement('img');i.alt='';i.src=q.src;i.style.cssText='position:absolute;left:'+(G+q.x*s.w)+'px;top:'+(q.y*s.w)+'px;width:'+(q.w*s.w)+'px;height:'+(q.h*s.w)+'px;pointer-events:none;';pl.appendChild(i);}
-  let bottom=ed.offsetHeight;for(const q of s.pics||[])bottom=Math.max(bottom,(q.y+q.h)*s.w+40);for(const k of s.strokes)for(const q of k.pts)bottom=Math.max(bottom,q.yn*s.w+40);for(const m of CLS.mine||[])for(const q of m.pts)bottom=Math.max(bottom,q[1]+400);const H=Math.min(30000,Math.max(bottom,s.w*1.4));page.style.height=H+'px';
+  let pz=page.querySelector('.cls-pts');if(!pz){pz=document.createElement('div');pz.className='cls-pts';pl.after(pz);}pz.textContent='';const dpr0=Math.min(2,window.devicePixelRatio||1);
+  for(const q of s.patches||[]){const b=q.body,box=document.createElement('div');box.className='cls-pt';box.style.cssText='left:'+(G+q.x*s.w)+'px;top:'+(q.y*s.w)+'px;width:'+(q.w*s.w)+'px;height:'+(q.h*s.w)+'px;';   // a patch: its page at its zoom and view
+    const inn=document.createElement('div');inn.className='cls-pt-in';inn.style.transform='scale('+q.z+') translate('+(-q.vx)+'px,'+(-q.vy)+'px)';
+    const ped=document.createElement('div');ped.className='editor cls-pt-ed';ped.style.width=(b.ww+12)+'px';editor.renderParas(b.paras,ped,{markStyle:id=>b.marks[id]||null});ped.querySelectorAll('img').forEach(i=>{i.referrerPolicy='no-referrer';});inn.appendChild(ped);
+    for(const x of b.pics||[]){const i=document.createElement('img');i.alt='';i.src=x.src;i.style.cssText='position:absolute;left:'+(x.x*b.ww)+'px;top:'+(x.y*b.ww)+'px;width:'+(x.w*b.ww)+'px;height:'+(x.h*b.ww)+'px;pointer-events:none;';inn.appendChild(i);}
+    const cw=q.w*s.w/q.z,ch=q.h*s.w/q.z,r=Math.min(4,dpr0*q.z),pc=document.createElement('canvas');pc.width=Math.ceil(cw*r);pc.height=Math.ceil(ch*r);pc.style.cssText='position:absolute;left:'+q.vx+'px;top:'+q.vy+'px;width:'+cw+'px;height:'+ch+'px;';inn.appendChild(pc);
+    const x2=pc.getContext('2d');x2.setTransform(r,0,0,r,-q.vx*r,-q.vy*r);clsStrokes(x2,b.strokes,P=>P.xn*b.ww,P=>P.yn*b.ww,b.ww);box.appendChild(inn);pz.appendChild(box);}
+  let bottom=ed.offsetHeight;for(const q of s.pics||[])bottom=Math.max(bottom,(q.y+q.h)*s.w+40);for(const q of s.patches||[])bottom=Math.max(bottom,(q.y+q.h)*s.w+40);for(const k of s.strokes)for(const q of k.pts)bottom=Math.max(bottom,q.yn*s.w+40);for(const m of CLS.mine||[])for(const q of m.pts)bottom=Math.max(bottom,q[1]+400);const H=Math.min(30000,Math.max(bottom,s.w*1.4));page.style.height=H+'px';
   const dpr=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round((s.w+G+12)*dpr);cv.height=Math.round(H*dpr);cv.style.width=(s.w+G+12)+'px';cv.style.height=H+'px';const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,s.w+G+12,H);
-  for(const k of s.strokes){c.lineCap='round';c.lineJoin='round';if(k.tool==='eraser'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';c.fillStyle='#000';c.globalAlpha=1;}else{c.globalCompositeOperation='source-over';c.strokeStyle=k.color;c.fillStyle=k.color;c.globalAlpha=k.tool==='hl'?.3:1;}
-    const P=k.pts,X=q=>G+q.xn*s.w,Y=q=>q.yn*s.w;if(P.length===1){c.beginPath();c.arc(X(P[0]),Y(P[0]),Math.max(.5,P[0].wn*s.w/2),0,7);c.fill();}else for(let i=1;i<P.length;i++){c.lineWidth=Math.max(.5,(P[i-1].wn+P[i].wn)/2*s.w);c.beginPath();c.moveTo(X(P[i-1]),Y(P[i-1]));c.lineTo(X(P[i]),Y(P[i]));c.stroke();}}
-  c.globalCompositeOperation='source-over';c.globalAlpha=1;clsDrawMine();clsFit();}
+  clsStrokes(c,s.strokes,q=>G+q.xn*s.w,q=>q.yn*s.w,s.w);clsDrawMine();clsFit();}
+function clsStrokes(c,list,X,Y,W){for(const k of list){c.lineCap='round';c.lineJoin='round';if(k.tool==='eraser'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';c.fillStyle='#000';c.globalAlpha=1;}else{c.globalCompositeOperation='source-over';c.strokeStyle=k.color;c.fillStyle=k.color;c.globalAlpha=k.tool==='hl'?.3:1;}
+    const P=k.pts;if(P.length===1){c.beginPath();c.arc(X(P[0]),Y(P[0]),Math.max(.5,P[0].wn*W/2),0,7);c.fill();}else for(let i=1;i<P.length;i++){c.lineWidth=Math.max(.5,(P[i-1].wn+P[i].wn)/2*W);c.beginPath();c.moveTo(X(P[i-1]),Y(P[i-1]));c.lineTo(X(P[i]),Y(P[i]));c.stroke();}}
+  c.globalCompositeOperation='source-over';c.globalAlpha=1;}
 function clsFit(){const w=CLS.view,s=CLS.snap;if(!w||!s)return;const sc=w.querySelector('.cls-scroll'),page=w.querySelector('.cls-page');const k=1;   // real size on every screen: a page wider than this window scrolls sideways
   page.style.transform='scale('+k+')';page.style.marginBottom=(-(1-k)*page.offsetHeight)+'px';CLS.k=k;clsScroll();}
 function clsScroll(force){const w=CLS.view,s=CLS.snap;if(!w||!s||(!CLS.follow&&!force))return;const sc=w.querySelector('.cls-scroll');sc.scrollTop=s.scroll*s.w*(CLS.k||1);

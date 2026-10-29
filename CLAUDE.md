@@ -65,6 +65,8 @@
 - Offline / install: `sw.js` (network first; offline = the kept copy; only this site's own GET requests) + `manifest.webmanifest` +
   `icons/`. Add new app files to `FILES` in sw.js. Light mode inverts the top page (`html.light`); frames (pop-ups, patches) get
   `html.light-in` instead (no second inversion, only pictures turned back; `themeFrames` keeps them in step).
+- File history (`openRecent`, button `#hist-btn` right after Projects): projects you opened, newest first, each once, with when;
+  kept in db.meta `{id:'recent',list:[{pid,t}]}` (this browser only), recorded on every open (`recentNote`), never patch pages.
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.

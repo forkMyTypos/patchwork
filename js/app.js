@@ -337,7 +337,7 @@ async function switchProject(npid){
   if(editor){editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();}
   layout();if(typeof extAfterPageLoad==='function')extAfterPageLoad();
   const pr=projects.find(x=>x.id===pid);document.getElementById('proj-name').textContent=pr?pr.name:'';
-  if(!IS_MINI)db.meta.put({id:'meta',activePid:pid});syncPing('switch');
+  if(!IS_MINI)db.meta.put({id:'meta',activePid:pid});syncPing('switch');recentNote(pid);
   requestAnimationFrame(()=>{wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();});setTimeout(pruneOrphanTimestamps,500);
   setMode('text');
 }
@@ -521,6 +521,29 @@ async function jumpToMark(m){
   if(m.anchor&&m.anchor.kind==='time'){wrap.scrollTo({top:Math.max(0,m.anchor.yn*drawW-H*0.35),behavior:'smooth'});flashPin(m.id);setTimeout(()=>openMarkPopup(m),280);}
   else{const el=editor.markEl(m.id);if(el){const wr=wrap.getBoundingClientRect(),r=el.getBoundingClientRect();wrap.scrollTo({top:Math.max(0,scrollTop()+(r.top-wr.top)-H*0.35),behavior:'smooth'});el.classList.add('mark-flash');setTimeout(()=>el.classList.remove('mark-flash'),1100);}setTimeout(()=>openMarkPopup(m),280);}
 }
+
+/* ===== file history: the projects you opened, newest first (db.meta 'recent'; this browser only, never sent) ===== */
+const RECENT_MAX=50;
+async function recentNote(id){if(IS_PATCH||id==null)return;const p=projects.find(x=>x.id===id);if(!p||p.patchOf)return;
+  try{const r=(await db.meta.get('recent'))||{id:'recent',list:[]};r.list=[{pid:id,t:Date.now()},...(r.list||[]).filter(x=>x.pid!==id)].slice(0,RECENT_MAX);await db.meta.put(r);}catch(e){}}
+function recentWhen(t){const m=Math.round((Date.now()-t)/60e3);if(m<1)return 'just now';if(m<60)return m+' min ago';return (dayLabel(t)==='Today'?'':dayLabel(t)+' ')+fmtTime(t);}
+let _recentEl=null;
+async function openRecent(anchor){if(!_recentEl){_recentEl=document.createElement('div');_recentEl.className='pl-pop rc-pop';document.body.appendChild(_recentEl);
+    document.addEventListener('pointerdown',e=>{if(_recentEl.classList.contains('open')&&!_recentEl.contains(e.target)&&!e.target.closest('#hist-btn'))_recentEl.classList.remove('open');},true);
+    addEventListener('keydown',e=>{if(e.key==='Escape'&&_recentEl.classList.contains('open')){e.preventDefault();e.stopPropagation();_recentEl.classList.remove('open');}},true);}
+  if(_recentEl.classList.contains('open')){_recentEl.classList.remove('open');return;}
+  const r=(await db.meta.get('recent'))||{list:[]},rows=(r.list||[]).map(x=>({x,p:userProjects().find(p=>p.id===x.pid)})).filter(o=>o.p);
+  _recentEl.innerHTML='<div class="rc-head"><b>File history</b><span>projects you opened, newest first</span></div><div class="pl-list"></div><div class="rc-foot"><button class="fx-link rc-clear">Clear history</button></div>';
+  const list=_recentEl.querySelector('.pl-list');
+  for(const {x,p} of rows){const row=document.createElement('div');row.className='pl-row'+(p.id===pid?' cur':'');const path=folderPath(p.folder||null).map(f=>f.name).join(' / ');
+    row.innerHTML='<span class="pl-ic">'+(p.shared===true?'\ud83d\udd13':'\ud83d\udd12')+'</span><span class="pl-nm"></span><span class="pl-tm"></span>';row.querySelector('.pl-nm').textContent=p.name;
+    if(path){const i=document.createElement('i');i.textContent='\ud83d\udcc1 '+path;row.querySelector('.pl-nm').appendChild(i);}
+    row.querySelector('.pl-tm').textContent=p.id===pid?'open now':recentWhen(x.t);row.title=p.name+(path?' \u2014 '+path:'');
+    row.onclick=async()=>{_recentEl.classList.remove('open');if(p.id!==pid)await switchProject(p.id);};list.appendChild(row);}
+  if(!rows.length){const e=document.createElement('div');e.className='pl-empty';e.textContent='Nothing yet: the projects you open show up here.';list.appendChild(e);}
+  _recentEl.querySelector('.rc-clear').onclick=async()=>{await db.meta.put({id:'recent',list:pid!=null?[{pid,t:Date.now()}]:[]});_recentEl.classList.remove('open');toast('File history cleared','ok');};
+  _recentEl.classList.add('open');const a=anchor.getBoundingClientRect();_recentEl.style.left=Math.max(8,Math.min(a.left,innerWidth-_recentEl.offsetWidth-8))+'px';_recentEl.style.top=(a.bottom+6)+'px';}
+document.getElementById('hist-btn').addEventListener('click',e=>openRecent(e.currentTarget));
 
 /* projects panel */
 let projPanel=null;
@@ -731,7 +754,7 @@ addEventListener('DOMContentLoaded',async function(){
   gutterW=pg.gutterW||0;pageWW=pageWidthFor(pg,pid);pageBg=PAGE_BGS.includes(pg.bg)?pg.bg:'';
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();
-  document.getElementById('proj-name').textContent=projName(pid);
+  document.getElementById('proj-name').textContent=projName(pid);recentNote(pid);
   layout();redrawInk();updatePad();setMode('text');if(typeof extAfterPageLoad==='function')extAfterPageLoad();
   requestAnimationFrame(()=>{if(IS_PATCH){wrap.scrollLeft=PATCH.x*PATCH.z;wrap.scrollTop=PATCH.y*PATCH.z;}else wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();if(IS_PATCH)patchTell('ready');});
   setInterval(checkText,1500);

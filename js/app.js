@@ -345,10 +345,10 @@ async function newProject(name){const id=await db.projects.add(Object.assign({na
 function renameProject(p,name){p.name=(name||p.name).slice(0,60);db.projects.update(p.id,{name:p.name}).then(()=>syncPing('projects'));projNamesChanged();}
 // a project's name shows in several places (toolbar, pop-up editor titles, panels): refresh them all
 function projNamesChanged(){const pr=projects.find(x=>x.id===pid);document.getElementById('proj-name').textContent=pr?pr.name:'';renderProjects();miniTitles();if(typeof updateBackupLabels==='function')updateBackupLabels();if(typeof aiRender==='function')aiRender();if(typeof clsRender==='function')clsRender();}
-async function deleteProject(p){
-  if(userProjects().length<=1){toast('Keep at least one project','err');return;}
+async function deleteProject(p,opt){
+  if(userProjects().length<=1){toast('Keep at least one project','err');return null;}
   const others=userProjects().filter(x=>x.id!==p.id);
-  const snapProj={id:p.id,name:p.name,created:p.created};
+  const snapProj={...p};   // (its folder and sharing come back on Undo too)
   const snapPage=(await db.pages.get(p.id))||null;
   const snapStrokes=await db.strokes.where('pid').equals(p.id).toArray();const snapPics=await db.pics.where('pid').equals(p.id).toArray();
   const snapMarks=marks.filter(m=>m.pid===p.id).map(m=>JSON.parse(JSON.stringify(m)));
@@ -359,7 +359,7 @@ async function deleteProject(p){
   marks=marks.filter(m=>m.pid!==p.id);projects=projects.filter(x=>x.id!==p.id);
   if(pid===p.id)await switchProject(others[0].id);
   renderProjects();if(typeof updateBackupLabels==='function')updateBackupLabels();
-  toast('Project deleted','ok',{label:'Undo',fn:async()=>{
+  const undo=async noSwitch=>{
     await db.projects.put(snapProj);if(snapPage)await db.pages.put(snapPage);
     for(const m of snapMarks)await db.marks.put(m);
     if(snapHist.length)await db.snaps.bulkPut(snapHist);
@@ -367,9 +367,17 @@ async function deleteProject(p){
     for(const pk of snapPics){const c=Object.assign({},pk);delete c.id;c.pid=snapProj.id;await db.pics.add(c);}
     for(const {q,removed} of qedits)for(const id of removed)if(!q.links.includes(id)){q.links.push(id);saveMark(q);}
     projects=await db.projects.toArray();marks=await db.marks.toArray();
-    await switchProject(snapProj.id);renderProjects();if(typeof updateBackupLabels==='function')updateBackupLabels();
-  }});
+    if(!noSwitch)await switchProject(snapProj.id);renderProjects();if(typeof updateBackupLabels==='function')updateBackupLabels();
+  };
+  if(!(opt&&opt.quiet))toast('Project deleted','ok',{label:'Undo',fn:()=>undo()});return undo;
 }
+// several projects and folders at once: asks first, then one Undo for all of them
+async function deleteItems(items){const nP=items.filter(i=>i.kind==='project').length,nF=items.length-nP;
+  const what=[nP?nP+' project'+(nP>1?'s':''):'',nF?nF+' folder'+(nF>1?'s':'')+' (what they hold moves up; nothing in them is deleted)':''].filter(Boolean).join(' and ');
+  if(await clsAsk('Delete '+items.length+' items?','<p>'+esc(what)+'.</p><p>You can undo this until you reload.</p>',[['ok','Delete','fx-primary'],['','Cancel','pbtn']])!=='ok')return;
+  const undos=[];for(const it of items.filter(i=>i.kind==='project')){const u=await deleteProject(it.obj,{quiet:true});if(u)undos.push(u);}
+  for(const it of items.filter(i=>i.kind==='folder')){const f=folderById(it.id);if(f){const u=await deleteFolder(f,{quiet:true});if(u)undos.push(u);}}
+  renderProjects();if(undos.length)toast('Deleted '+undos.length+' item'+(undos.length>1?'s':''),'ok',{label:'Undo',fn:async()=>{for(const u of undos.slice().reverse())await u(true);renderProjects();}});}
 
 /* draggable panels */
 function makeDraggable(panel,handle){let sx0,sy0,l0,t0,on=false;handle.addEventListener('pointerdown',e=>{if(e.target.closest('.panel-x')||e.target.closest('input')||e.target.closest('button'))return;on=true;handle.classList.add('drag');const r=panel.getBoundingClientRect();panel.style.left=r.left+'px';panel.style.top=r.top+'px';panel.style.right='auto';sx0=e.clientX;sy0=e.clientY;l0=r.left;t0=r.top;handle.setPointerCapture(e.pointerId);});handle.addEventListener('pointermove',e=>{if(!on)return;panel.style.left=Math.max(4,Math.min(window.innerWidth-60,l0+e.clientX-sx0))+'px';panel.style.top=Math.max(4,Math.min(window.innerHeight-60,t0+e.clientY-sy0))+'px';});const end=()=>{on=false;handle.classList.remove('drag');};handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);}
@@ -525,7 +533,7 @@ async function jumpToMark(m){
 /* ===== file history: the projects you opened, newest first (db.meta 'recent'; this browser only, never sent) ===== */
 const RECENT_MAX=50;
 async function recentNote(id){if(IS_PATCH||id==null)return;const p=projects.find(x=>x.id===id);if(!p||p.patchOf)return;
-  try{const r=(await db.meta.get('recent'))||{id:'recent',list:[]};r.list=[{pid:id,t:Date.now()},...(r.list||[]).filter(x=>x.pid!==id)].slice(0,RECENT_MAX);await db.meta.put(r);}catch(e){}}
+  try{const r=(await db.meta.get('recent'))||{id:'recent',list:[]};r.list=[{pid:id,t:Date.now()},...(r.list||[]).filter(x=>x.pid!==id)].slice(0,RECENT_MAX);await db.meta.put(r);_recentT.set(id,Date.now());}catch(e){}}
 function recentWhen(t){const m=Math.round((Date.now()-t)/60e3);if(m<1)return 'just now';if(m<60)return m+' min ago';return (dayLabel(t)==='Today'?'':dayLabel(t)+' ')+fmtTime(t);}
 let _recentEl=null;
 async function openRecent(anchor){if(!_recentEl){_recentEl=document.createElement('div');_recentEl.className='pl-pop rc-pop';document.body.appendChild(_recentEl);
@@ -548,11 +556,12 @@ document.getElementById('hist-btn').addEventListener('click',e=>openRecent(e.cur
 /* projects panel */
 let projPanel=null;
 function ensureProjects(){if(projPanel)return projPanel;projPanel=document.createElement('div');projPanel.className='panel proj-panel';projPanel.style.display='none';
-  projPanel.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="panel-t">Projects</div><button class="panel-x">\u00d7</button></div><div class="panel-b"><div class="proj-search"><input class="pf-in pv-q" id="proj-q" placeholder="Search projects (names and text)\u2026" spellcheck="false"><button id="proj-q-x" class="pv-q-x" title="Clear">\u00d7</button></div><div id="proj-crumb" class="pv-crumb"></div><div id="proj-list" class="pv-list"></div><div class="proj-new"><input class="pf-in pv-new-in" id="proj-new-in" placeholder="New project name\u2026" maxlength="60"><button id="proj-new-go" title="New project here">+</button></div><div style="margin-top:10px;padding-top:10px;border-top:1px solid #20202e;display:flex;flex-direction:column;gap:7px;"><div class="pf-l">Backup &amp; restore</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="pbtn" id="bk-proj">⤓ this project</button><button class="pbtn" id="bk-all">⤓ everything</button><button class="pbtn" id="bk-imp">⤑ import…</button></div><div id="bk-auto" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"></div><div class="pf-time">Importing always adds — it never overwrites what you have.</div><input type="file" id="bk-file" accept=".json,application/json,.pdf,application/pdf" style="display:none"></div></div>';
+  projPanel.innerHTML='<div class="panel-h"><div class="panel-ic"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="panel-t">Projects</div><button class="panel-x">\u00d7</button></div><div class="panel-b"><div class="proj-search"><input class="pf-in pv-q" id="proj-q" placeholder="Search projects (names and text)\u2026" spellcheck="false"><button id="proj-q-x" class="pv-q-x" title="Clear">\u00d7</button></div><div id="proj-crumb" class="pv-crumb"></div><div id="proj-list" class="pv-list"></div><div class="proj-new"><input class="pf-in pv-new-in" id="proj-new-in" placeholder="New project name\u2026" maxlength="60"><button id="proj-new-go" title="New project here">+</button></div><details class="pv-bk"><summary class="pf-l">Backup &amp; restore</summary><div style="display:flex;flex-direction:column;gap:7px;margin-top:7px;"><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="pbtn" id="bk-proj">⤓ this project</button><button class="pbtn" id="bk-all">⤓ everything</button><button class="pbtn" id="bk-imp">⤑ import…</button></div><div id="bk-auto" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"></div><div class="pf-time">Importing always adds — it never overwrites what you have.</div><input type="file" id="bk-file" accept=".json,application/json,.pdf,application/pdf" style="display:none"></div></details></div>';
   document.body.appendChild(projPanel);
+  const bk=projPanel.querySelector('.pv-bk');try{bk.open=localStorage.getItem('pw-bk-open')==='1';}catch(e){}bk.ontoggle=()=>{try{localStorage.setItem('pw-bk-open',bk.open?'1':'0');}catch(e){}};   // (stays as you left it)
   projPanel.querySelector('.panel-x').onclick=()=>projPanel.style.display='none';
   const ni=projPanel.querySelector('#proj-new-in');const go=()=>{const v=ni.value.trim()||autoProjName();ni.value='';newProject(v);};   // no name typed: new-project-<date>
-  const pq=projPanel.querySelector('#proj-q');pq.oninput=()=>renderProjects();pq.onkeydown=e=>{if(e.key==='Escape'&&pq.value){e.stopPropagation();pq.value='';renderProjects();}else if(e.key==='Enter'){const r=projPanel.querySelector('.proj-hit');if(r)r.click();}};
+  const pq=projPanel.querySelector('#proj-q');pq.oninput=()=>renderProjects();pq.onkeydown=e=>{if(e.key==='Escape'&&pq.value){e.stopPropagation();pq.value='';renderProjects();}else if(e.key==='Enter'){e.preventDefault();pvOpenFirst(PROJ_VIEW);}};
   projPanel.querySelector('#proj-q-x').onclick=()=>{pq.value='';renderProjects();pq.focus();};
   projPanel.querySelector('#proj-new-go').onclick=go;ni.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();go();}};
   projPanel.querySelector('#bk-proj').onclick=()=>backupProject();projPanel.querySelector('#bk-all').onclick=()=>backupAll();const _bf=projPanel.querySelector('#bk-file');projPanel.querySelector('#bk-imp').onclick=()=>_bf.click();_bf.onchange=()=>{if(_bf.files[0]){importFile(_bf.files[0]);_bf.value='';}};if(typeof renderAutoBk==='function')renderAutoBk();makeDraggable(projPanel,projPanel.querySelector('.panel-h'));return projPanel;}
@@ -565,21 +574,24 @@ function projPath(id){const p=projects.find(x=>x.id===id);if(!p)return '?';const
 function folderInside(id,anc){return folderPath(id).some(f=>f.id===anc);}
 function folderCount(id){let n=userProjects().filter(p=>(p.folder||null)===id).length;for(const f of folders)if((f.parent||null)===id)n+=1+folderCount(f.id);return n;}
 async function newFolder(name,parent){await db.folders.add({name:name.slice(0,60),parent:parent===undefined?curFolder:parent,created:Date.now()});await loadFolders();syncPing('projects');renderProjects();}
-async function moveItem(kind,id,to){to=to||null;if(kind==='folder'){if(id===to||(to!=null&&folderInside(to,id))){toast('A folder can’t go inside itself','err');return;}await db.folders.update(id,{parent:to});}else await db.projects.update(id,{folder:to});
-  projects=await db.projects.toArray();await loadFolders();syncPing('projects');renderProjects();toast('Moved to '+(to?folderPath(to).map(f=>f.name).join(' / '):'Home'),'ok');}
+async function moveItem(kind,id,to){await moveItems([{kind,id}],to);}
+// move projects and folders into a folder (or Home); a folder never goes inside itself. Undo in the message.
+async function moveItems(items,to){to=to||null;const back=[];
+  for(const it of items){if(it.kind==='folder'){const f=folderById(it.id);if(!f||(f.parent||null)===to)continue;if(it.id===to||(to!=null&&folderInside(to,it.id))){toast('A folder can’t go inside itself','err');continue;}back.push(['folder',it.id,f.parent||null,f.name]);await db.folders.update(it.id,{parent:to});}
+    else{const p=projects.find(x=>x.id===it.id);if(!p||(p.folder||null)===to)continue;back.push(['project',it.id,p.folder||null,p.name]);await db.projects.update(it.id,{folder:to});}}
+  if(!back.length)return;projects=await db.projects.toArray();await loadFolders();syncPing('projects');renderProjects();
+  toast('Moved '+(back.length>1?back.length+' items':'“'+back[0][3]+'”')+' to '+(to?folderPath(to).map(f=>f.name).join(' / '):'Home'),'ok',{label:'Undo',fn:async()=>{
+    for(const [k,id,was] of back){if(k==='folder')await db.folders.update(id,{parent:was});else await db.projects.update(id,{folder:was});}projects=await db.projects.toArray();await loadFolders();syncPing('projects');renderProjects();}});}
 // deleting a folder never deletes pages: whatever it held moves up to its parent (with undo)
-async function deleteFolder(f){const kids=folders.filter(x=>(x.parent||null)===f.id).map(x=>x.id),pages=projects.filter(p=>(p.folder||null)===f.id).map(p=>p.id),up=f.parent||null,snap={...f};
+async function deleteFolder(f,opt){const kids=folders.filter(x=>(x.parent||null)===f.id).map(x=>x.id),pages=projects.filter(p=>(p.folder||null)===f.id).map(p=>p.id),up=f.parent||null,snap={...f};
   for(const k of kids)await db.folders.update(k,{parent:up});for(const p of pages)await db.projects.update(p,{folder:up});await db.folders.delete(f.id);
   projects=await db.projects.toArray();await loadFolders();syncPing('projects');renderProjects();
-  toast('Folder “'+f.name+'” removed'+(kids.length+pages.length?' — its '+(kids.length+pages.length)+' item'+(kids.length+pages.length>1?'s':'')+' moved up':''),'ok',{label:'Undo',fn:async()=>{await db.folders.put(snap);for(const k of kids)await db.folders.update(k,{parent:snap.id});for(const p of pages)await db.projects.update(p,{folder:snap.id});projects=await db.projects.toArray();await loadFolders();syncPing('projects');renderProjects();}});}
+  const undo=async()=>{await db.folders.put(snap);for(const k of kids)await db.folders.update(k,{parent:snap.id});for(const p of pages)await db.projects.update(p,{folder:snap.id});projects=await db.projects.toArray();await loadFolders();syncPing('projects');renderProjects();};
+  if(!(opt&&opt.quiet))toast('Folder “'+f.name+'” removed'+(kids.length+pages.length?' — its '+(kids.length+pages.length)+' item'+(kids.length+pages.length>1?'s':'')+' moved up':''),'ok',{label:'Undo',fn:undo});return undo;}
 function moveSelect(kind,id,cur,onDone){const sel=document.createElement('select');sel.className='fx-sel pr-move';const opt=(v,l,dis)=>{const o=document.createElement('option');o.value=v;o.textContent=l;if(dis)o.disabled=true;sel.appendChild(o);};
   opt('','Move to…',true);sel.value='';opt('home','Home',cur==null);
   const walk=(parent,depth)=>folders.filter(f=>(f.parent||null)===parent).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f=>{const bad=kind==='folder'&&(f.id===id||folderInside(f.id,id));opt(f.id,'  '.repeat(depth)+'📁 '+f.name,bad||f.id===cur);if(!bad)walk(f.id,depth+1);});walk(null,1);
   sel.onchange=()=>{moveItem(kind,id,sel.value==='home'?null:+sel.value);};sel.onblur=()=>onDone&&onDone();return sel;}
-// drag a project or folder onto a folder row, a breadcrumb item or the back row
-let _drag=null;
-function dragSource(row,kind,id){row.draggable=true;row.addEventListener('dragstart',e=>{_drag={kind,id};e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',kind+':'+id);}catch(_){}row.classList.add('dragging');});row.addEventListener('dragend',()=>{_drag=null;row.classList.remove('dragging');});}
-function dropTarget(el,folderId){el.addEventListener('dragover',e=>{if(!_drag||(_drag.kind==='folder'&&(_drag.id===folderId||(folderId!=null&&folderInside(folderId,_drag.id)))))return;e.preventDefault();el.classList.add('drop');});el.addEventListener('dragleave',()=>el.classList.remove('drop'));el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drop');const d=_drag;_drag=null;if(d)moveItem(d.kind,d.id,folderId);});}
 /* project privacy: every project is private unless its owner makes it sharable. Private projects can never be
    broadcast to a classroom, sent over the AI board link or shared in any other way. */
 function isShared(id){const p=projects.find(x=>x.id===id);return !!(p&&p.shared===true);}
@@ -617,38 +629,106 @@ async function renderProjSearch(q,v){const root=v.el(),list=root.querySelector('
   for(const h of hits.slice(0,80)){const row=document.createElement('div');row.className='proj-row proj-hit'+(h.p.id===pid?' cur':'')+(v.busy&&v.busy(h.p)?' busy':'');const hl=(s,i)=>esc(s.slice(0,i))+'<b>'+esc(s.slice(i,i+q.length))+'</b>'+esc(s.slice(i+q.length));
     const path=folderPath(h.p.folder||null).map(f=>f.name).join(' / ');let snip='';if(h.ti>=0){const a=Math.max(0,h.ti-40),s=(a?'\u2026':'')+h.t.slice(a,h.ti+q.length+60);snip=hl(s,h.ti-a+(a?1:0));}
     row.innerHTML='<div class="ph-main"><div class="pr-name">'+(h.n>=0?hl(h.p.name,h.n):esc(h.p.name))+'</div>'+(path?'<div class="ph-path">\ud83d\udcc1 '+esc(path)+'</div>':'')+(snip?'<div class="ph-snip">'+snip+'</div>':'')+'</div>';
-    row.onclick=()=>v.open(h.p);list.appendChild(row);}
-  if(!hits.length){const e=document.createElement('div');e.className='sr-empty';e.style.padding='14px';e.textContent='No project has \u201c'+q+'\u201d in its name or text.';list.appendChild(e);}}
+    row.dataset.key='p:'+h.p.id;list.appendChild(row);}
+  if(!hits.length){const e=document.createElement('div');e.className='sr-empty';e.style.padding='14px';e.textContent='No project has \u201c'+q+'\u201d in its name or text.';list.appendChild(e);}pvPaint(v);}
 // the Projects panel and the pop-up editor menu ("Open beside this page") show the same view of folders and projects;
 // v says where (el), which folder it shows (its own), what clicking a project does (open) and which can't be opened (busy)
 const PROJ_VIEW={el:()=>projPanel,get folder(){return curFolder;},set folder(f){curFolder=f;},open:p=>{switchProject(p.id).then(renderProjects);projPanel.style.display='none';}};
 function renderProjects(){if(projPanel)renderProjView(PROJ_VIEW);if(_miniMenu&&_miniMenu.style.display!=='none')renderProjView(MINI_VIEW);}
-function renderProjView(v){const root=v.el();if(!root)return;
-  const list=root.querySelector('.pv-list');const q=root.querySelector('.pv-q').value.trim();
+// The file view (Projects panel and the pop-up menu): click selects (Ctrl/Cmd and Shift add), double-click or Enter opens (a folder
+// opens into it; on touch, tap a selected item), a drag from anything not selected draws a selection box, and dragging the selection
+// onto a folder, the path or the back row moves it there. The selection bar, right-click and the keyboard (arrows, Enter, Delete,
+// F2, Ctrl+A, Esc) act on the selection.
+const PV_IC={folder:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="currentColor" fill-opacity=".2"/></svg>',
+  page:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" fill="currentColor" fill-opacity=".12"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>'};
+let _recentT=new Map();   // project id -> when you last opened it (file history), for the view's second line
+async function recentLoad(){try{const r=await db.meta.get('recent');_recentT=new Map(((r&&r.list)||[]).map(x=>[x.pid,x.t]));}catch(e){}}
+function pvItem(k){const id=+k.slice(2);if(k[0]==='f'){const f=folderById(id);return f?{kind:'folder',id,obj:f,name:f.name}:null;}const p=projects.find(x=>x.id===id);return p?{kind:'project',id,obj:p,name:p.name}:null;}
+function pvKeys(v){const r=v.el();return r?[...r.querySelectorAll('.pv-list .proj-row[data-key]')].map(x=>x.dataset.key):[];}
+function renderProjView(v){const root=v.el();if(!root)return;if(!v.sel)v.sel=new Set();
+  const list=root.querySelector('.pv-list');const q=root.querySelector('.pv-q').value.trim();pvWire(v,list);
+  const here=q?'?'+q:String(v.folder);if(v._here!==here){v._here=here;v.sel.clear();v.anchor=null;}   // somewhere new: nothing selected
   root.querySelector('.pv-crumb').style.display=q?'none':'';root.querySelector('.pv-q-x').style.visibility=q?'visible':'hidden';if(q){renderProjSearch(q,v);return;}
   list.innerHTML='';
   const crumb=root.querySelector('.pv-crumb');crumb.innerHTML='';const cs=[{id:null,name:'Home'},...folderPath(v.folder)];
-  cs.forEach((c,i)=>{if(i){const s=document.createElement('span');s.className='pc-sep';s.textContent='/';crumb.appendChild(s);}const b=document.createElement('button');b.className='pc-item'+(i===cs.length-1?' cur':'');b.textContent=c.name;b.onclick=()=>{v.folder=c.id;renderProjView(v);};dropTarget(b,c.id);crumb.appendChild(b);});const nf=document.createElement('button');nf.className='pc-new';nf.title='New folder here';nf.textContent='\ud83d\udcc1+';nf.onclick=()=>{const ni=root.querySelector('.pv-new-in');const nm=ni.value.trim()||'New folder';ni.value='';newFolder(nm,v.folder);};crumb.appendChild(nf);
-  const rename=(row,nm,cur,save)=>e=>{e.stopPropagation();const inp=document.createElement('input');inp.className='pf-in';inp.value=cur;inp.style.flex='1';row.replaceChild(inp,nm);inp.focus();inp.onclick=ev=>ev.stopPropagation();inp.onblur=()=>save(inp.value.trim());inp.onkeydown=ev=>{if(ev.key==='Enter')inp.blur();};};
-  const mover=(row,kind,id,cur)=>e=>{e.stopPropagation();const s=moveSelect(kind,id,cur,()=>renderProjects());row.appendChild(s);s.focus();s.onclick=ev=>ev.stopPropagation();};
-  if(v.folder!=null){const up=document.createElement('div');up.className='proj-row pr-up';up.textContent='← '+(folderPath(v.folder).length>1?folderPath(v.folder).slice(-2)[0].name:'Home');up.onclick=()=>{v.folder=folderById(v.folder).parent||null;renderProjView(v);};dropTarget(up,folderById(v.folder).parent||null);list.appendChild(up);}
-  folders.filter(f=>(f.parent||null)===v.folder).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f=>{const row=document.createElement('div');row.className='proj-row pr-folder';
-    const nm=document.createElement('div');nm.className='pr-name';nm.textContent='📁 '+f.name;const cn=document.createElement('span');cn.className='pr-cnt';cn.textContent=folderCount(f.id);cn.title='items inside (folders and projects)';
-    const ren=rename(row,nm,f.name,v=>{if(v)db.folders.update(f.id,{name:v.slice(0,60)}).then(loadFolders).then(()=>{syncPing('projects');renderProjects();});else renderProjects();});
-    onRowMenu(row,()=>[{label:'Rename',fn:()=>ren(new Event('x'))},{label:'Move to…',fn:()=>mover(row,'folder',f.id,f.parent||null)(new Event('x'))},null,{label:'Delete folder (its contents move up)',danger:true,fn:()=>deleteFolder(f)}]);
-    row.onclick=()=>{if(row._longPress){row._longPress=false;return;}v.folder=f.id;renderProjView(v);};dragSource(row,'folder',f.id);dropTarget(row,f.id);[nm,cn].forEach(x=>row.appendChild(x));list.appendChild(row);});
-  userProjects().filter(p=>(p.folder||null)===v.folder).forEach(p=>{const shared=p.shared===true;
-    const row=document.createElement('div');row.className='proj-row'+(p.id===pid?' cur':'')+(v.busy&&v.busy(p)?' busy':'');if(v.busy&&v.busy(p))row.title='Already open';
-    const nm=document.createElement('div');nm.className='pr-name';nm.textContent=p.name;
-    const lk=document.createElement('button');lk.className='pr-lock'+(shared?' open':'');lk.textContent=shared?'\ud83d\udd13':'\ud83d\udd12';
+  cs.forEach((c,i)=>{if(i){const s=document.createElement('span');s.className='pc-sep';s.textContent='/';crumb.appendChild(s);}const b=document.createElement('button');b.className='pc-item'+(i===cs.length-1?' cur':'');b.textContent=c.name;b.dataset.drop=c.id==null?'home':c.id;b.onclick=()=>{v.folder=c.id;renderProjView(v);};crumb.appendChild(b);});const nf=document.createElement('button');nf.className='pc-new';nf.title='New folder here';nf.textContent='📁+';nf.onclick=()=>{const ni=root.querySelector('.pv-new-in');const nm=ni.value.trim()||'New folder';ni.value='';newFolder(nm,v.folder);};crumb.appendChild(nf);
+  const rename=(row,nm,cur,save)=>e=>{e&&e.stopPropagation&&e.stopPropagation();const inp=document.createElement('input');inp.className='pf-in';inp.value=cur;inp.style.flex='1';row.replaceChild(inp,nm);inp.focus();inp.select();inp.onclick=ev=>ev.stopPropagation();inp.onpointerdown=ev=>ev.stopPropagation();inp.onblur=()=>save(inp.value.trim());inp.onkeydown=ev=>{ev.stopPropagation();if(ev.key==='Enter')inp.blur();else if(ev.key==='Escape'){inp.value=cur;inp.blur();}};};
+  const mover=(row,kind,id,cur)=>e=>{e.stopPropagation();const s=moveSelect(kind,id,cur,()=>renderProjects());row.appendChild(s);s.focus();s.onclick=ev=>ev.stopPropagation();s.onpointerdown=ev=>ev.stopPropagation();};
+  const mk=(key,ic,name,meta,cls)=>{const row=document.createElement('div');row.className='proj-row '+cls;row.dataset.key=key;row.innerHTML='<span class="pr-ic">'+ic+'</span>';const nm=document.createElement('div');nm.className='pr-name';const t=document.createElement('div');t.className='pr-t';t.textContent=name;const m=document.createElement('div');m.className='pr-meta';m.textContent=meta;nm.append(t,m);row.appendChild(nm);return{row,nm};};
+  if(v.folder!=null){const up=document.createElement('div');up.className='proj-row pr-up';up.textContent='← '+(folderPath(v.folder).length>1?folderPath(v.folder).slice(-2)[0].name:'Home');up.dataset.drop=folderById(v.folder).parent||'home';up.title='Back (drop here to move things up)';up.onclick=()=>{if(Date.now()-(v._openedAt||0)<500)return;v.folder=folderById(v.folder).parent||null;renderProjView(v);};list.appendChild(up);}   // (not the end of the double-click that opened this folder)
+  folders.filter(f=>(f.parent||null)===v.folder).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f=>{const n=folderCount(f.id),{row,nm}=mk('f:'+f.id,PV_IC.folder,f.name,n?n+' item'+(n>1?'s':''):'empty','pr-folder');row.dataset.drop=f.id;
+    row._ren=rename(row,nm,f.name,x=>{if(x)db.folders.update(f.id,{name:x.slice(0,60)}).then(loadFolders).then(()=>{syncPing('projects');renderProjects();});else renderProjects();});
+    onRowMenu(row,()=>pvMenu(v,row,[{label:'Open',fn:()=>pvOpen(v,row.dataset.key)},{label:'Rename',fn:()=>row._ren()},{label:'Move to…',fn:()=>mover(row,'folder',f.id,f.parent||null)(new Event('x'))},null,{label:'Delete folder (its contents move up)',danger:true,fn:()=>deleteFolder(f)}]));list.appendChild(row);});
+  userProjects().filter(p=>(p.folder||null)===v.folder).forEach(p=>{const shared=p.shared===true,busy=v.busy&&v.busy(p),seen=_recentT.get(p.id);
+    const {row,nm}=mk('p:'+p.id,PV_IC.page,p.name,p.id===pid?'open now':seen?'opened '+recentWhen(seen):'made '+fmtDay(p.created||Date.now()),'pr-page'+(p.id===pid?' cur':'')+(busy?' busy':''));if(busy)row.title='Already open';
+    const lk=document.createElement('button');lk.className='pr-lock'+(shared?' open':'');lk.textContent=shared?'🔓':'🔒';
     lk.title=shared?'Sharable: can be broadcast or used by the AI link. Click to make private':'Private: never shared. Click to make sharable';lk.onclick=e=>{e.stopPropagation();setShared(p,!shared);};
-    const ren=rename(row,nm,p.name,v=>renameProject(p,v));
-    row.onclick=e=>{if(row._longPress){row._longPress=false;return;}if(e.target.closest('.pr-lock,select,input'))return;v.open(p);};
-    onRowMenu(row,()=>[{label:shared?'\ud83d\udd12 Make private':'\ud83d\udd13 Make sharable\u2026',fn:()=>setShared(p,!shared)},null,{label:'Rename',fn:()=>ren(new Event('x'))},{label:'Move to…',fn:()=>mover(row,'project',p.id,p.folder||null)(new Event('x'))},null,{label:'Delete',danger:true,fn:()=>deleteProject(p)}]);
-    dragSource(row,'project',p.id);[nm,lk].forEach(x=>row.appendChild(x));list.appendChild(row);});
-  if(!list.children.length||(v.folder!=null&&list.children.length===1)){const e=document.createElement('div');e.className='sr-empty';e.style.padding='14px';e.textContent='Empty folder — add a project or folder below, or move one here.';list.appendChild(e);}
-}
-function openProjects(){ensureProjects();_projText=null;renderProjects();projPanel.style.display='flex';projPanel.style.left=Math.min(70,window.innerWidth-340)+'px';projPanel.style.top='70px';projPanel.style.right='auto';}
+    row._ren=rename(row,nm,p.name,x=>{if(x)renameProject(p,x);else renderProjects();});
+    onRowMenu(row,()=>pvMenu(v,row,[{label:'Open',fn:()=>pvOpen(v,row.dataset.key)},{label:shared?'🔒 Make private':'🔓 Make sharable…',fn:()=>setShared(p,!shared)},null,{label:'Rename',fn:()=>row._ren()},{label:'Move to…',fn:()=>mover(row,'project',p.id,p.folder||null)(new Event('x'))},null,{label:'Delete',danger:true,fn:()=>deleteProject(p)}]));
+    row.appendChild(lk);list.appendChild(row);});
+  if(!list.querySelector('.proj-row[data-key]')){const e=document.createElement('div');e.className='sr-empty';e.style.padding='14px';e.textContent=v.folder!=null?'Empty folder — add a project or folder below, or move one here.':'No projects yet — add one below.';list.appendChild(e);}
+  pvPaint(v);}
+// right-click on a row: on several selected rows, the menu acts on all of them; on one that isn't selected, it is selected first
+function pvMenu(v,row,single){const k=row.dataset.key;if(v.sel.size>1&&v.sel.has(k)){const n=v.sel.size;return[{label:'Move '+n+' items to…',fn:()=>pvMoveMenu(v,row)},null,{label:'Delete '+n+' items',danger:true,fn:()=>pvDelete(v)}];}
+  if(!v.sel.has(k)){v.sel=new Set([k]);v.anchor=k;pvPaint(v);}return single;}
+function pvPaint(v){const root=v.el();if(!root)return;for(const r of root.querySelectorAll('.pv-list .proj-row[data-key]'))r.classList.toggle('sel',v.sel.has(r.dataset.key));pvBar(v);}
+function pvBar(v){const root=v.el();let bar=root.querySelector('.pv-selbar');if(!bar){bar=document.createElement('div');bar.className='pv-selbar';root.querySelector('.pv-list').before(bar);}
+  const ks=[...v.sel].filter(k=>pvItem(k)),n=ks.length;bar.classList.toggle('on',n>0);   // (always there, so the list never jumps under the pointer)
+  if(!n){bar.innerHTML='<span class="ps-hint">Click to select \u00b7 double-click to open \u00b7 drag to select several</span>';return;}
+  bar.innerHTML='<span class="ps-n">'+n+' selected</span>'+(n===1?'<button data-a="open">Open</button><button data-a="ren">Rename</button>':'')+'<button data-a="move">Move to…</button><button data-a="del" class="ps-del">Delete</button><span class="ps-sp"></span><button data-a="x" title="Clear the selection (Esc)">×</button>';
+  bar.querySelectorAll('button').forEach(b=>{b.onpointerdown=e=>e.stopPropagation();b.onclick=()=>{const a=b.dataset.a;if(a==='open')pvOpen(v,ks[0]);else if(a==='ren')pvRename(v,ks[0]);else if(a==='move')pvMoveMenu(v,bar);else if(a==='del')pvDelete(v);else{v.sel.clear();pvPaint(v);}};});}
+function pvRename(v,k){const r=v.el().querySelector('.pv-list .proj-row[data-key="'+k+'"]');if(r&&r._ren)r._ren();}
+function pvOpen(v,k){const it=pvItem(k);if(!it)return;if(it.kind==='folder'){v.folder=it.id;v._openedAt=Date.now();renderProjView(v);return;}if(v.busy&&v.busy(it.obj)){toast('That project is already open','info');return;}v.open(it.obj);}
+// the selection goes into a folder: a menu of every folder (not into itself)
+function pvMoveMenu(v,host){const items=[...v.sel].map(pvItem).filter(Boolean);if(!items.length)return;const sel=document.createElement('select');sel.className='fx-sel pr-move';
+  const opt=(val,l,dis)=>{const o=document.createElement('option');o.value=val;o.textContent=l;if(dis)o.disabled=true;sel.appendChild(o);};opt('','Move '+(items.length>1?items.length+' items':'“'+items[0].name+'”')+' to…',true);sel.value='';opt('home','Home');
+  const bad=f=>items.some(it=>it.kind==='folder'&&(f.id===it.id||folderInside(f.id,it.id)));
+  const walk=(parent,depth)=>folders.filter(f=>(f.parent||null)===parent).sort((a,b)=>a.name.localeCompare(b.name)).forEach(f=>{const no=bad(f);opt(f.id,' '.repeat(depth)+'📁 '+f.name,no);if(!no)walk(f.id,depth+1);});walk(null,1);
+  sel.onchange=()=>{moveItems(items,sel.value==='home'?null:+sel.value);};sel.onblur=()=>sel.remove();sel.onpointerdown=e=>e.stopPropagation();host.appendChild(sel);sel.focus();try{sel.showPicker();}catch(e){}}
+function pvDelete(v){const items=[...v.sel].map(pvItem).filter(Boolean);if(!items.length)return;v.sel.clear();if(items.length===1){const it=items[0];if(it.kind==='folder')deleteFolder(it.obj);else deleteProject(it.obj);return;}deleteItems(items);}
+// pointer and keys, wired once per list
+function pvWire(v,list){if(list._pv)return;list._pv=true;list.tabIndex=0;
+  list.addEventListener('pointerdown',e=>{if((e.button!==undefined&&e.button!==0)||e.target.closest('.pr-lock,input,select,button,.pr-up'))return;const row=e.target.closest('.proj-row[data-key]'),k=row?row.dataset.key:null,add=e.ctrlKey||e.metaKey;
+    const st={x:e.clientX,y:e.clientY,k,row,moved:false,touch:e.pointerType==='touch',mode:k&&v.sel.has(k)&&!e.shiftKey&&!add?'move':'band',add,base:new Set(v.sel)};v._ptr=st;
+    if(!st.touch){e.preventDefault();try{list.setPointerCapture(e.pointerId);}catch(_){}list.focus({preventScroll:true});}});
+  list.addEventListener('pointermove',e=>{const st=v._ptr;if(!st||st.touch)return;if(!st.moved&&Math.hypot(e.clientX-st.x,e.clientY-st.y)<5)return;st.moved=true;if(st.mode==='band')pvBand(v,list,st,e);else pvDrag(v,st,e);});
+  const up=e=>{const st=v._ptr;if(!st)return;v._ptr=null;try{list.releasePointerCapture(e.pointerId);}catch(_){}if(e.type==='pointercancel'){if(st.band)st.band.remove();if(st.ghost)pvDragEnd(v,st,true);return;}
+    if(st.row&&st.row._longPress){st.row._longPress=false;return;}if(!st.moved){pvClick(v,st.k,e,st.touch);return;}if(st.band)st.band.remove();if(st.ghost)pvDragEnd(v,st,false);};
+  list.addEventListener('pointerup',up);list.addEventListener('pointercancel',up);
+  list.addEventListener('keydown',e=>pvKeydown(v,e));}
+function pvClick(v,k,e,touch){const now=Date.now(),add=e.ctrlKey||e.metaKey;
+  if(k&&!add&&!e.shiftKey&&((v._last&&v._last.k===k&&now-v._last.t<450)||(touch&&v.sel.size===1&&v.sel.has(k)))){v._last=null;pvOpen(v,k);return;}   // double-click (or tap a selected item): open
+  v._last=k?{k,t:now}:null;
+  if(!k){if(!add)v.sel.clear();}
+  else if(e.shiftKey&&v.anchor){const keys=pvKeys(v),a=keys.indexOf(v.anchor),b=keys.indexOf(k);if(!add)v.sel.clear();if(a>=0&&b>=0)for(let i=Math.min(a,b);i<=Math.max(a,b);i++)v.sel.add(keys[i]);}
+  else if(add){if(v.sel.has(k))v.sel.delete(k);else v.sel.add(k);v.anchor=k;}
+  else{v.sel=new Set([k]);v.anchor=k;}
+  pvPaint(v);}
+// drag from anything not selected: a selection box (it scrolls the list near its edges)
+function pvBand(v,list,st,e){const lr=list.getBoundingClientRect();if(!st.band){st.band=document.createElement('div');st.band.className='pv-band';list.appendChild(st.band);st.x0=st.x-lr.left;st.y0=st.y-lr.top+list.scrollTop;}
+  if(e.clientY>lr.bottom-16)list.scrollTop+=12;else if(e.clientY<lr.top+16)list.scrollTop-=12;
+  const x1=Math.max(0,Math.min(lr.width,e.clientX-lr.left)),y1=Math.max(0,Math.min(list.scrollHeight,e.clientY-lr.top+list.scrollTop)),L=Math.min(st.x0,x1),T=Math.min(st.y0,y1),R=Math.max(st.x0,x1),B=Math.max(st.y0,y1);
+  Object.assign(st.band.style,{left:L+'px',top:T+'px',width:(R-L)+'px',height:(B-T)+'px'});
+  v.sel=new Set(st.add?st.base:[]);for(const r of list.querySelectorAll('.proj-row[data-key]')){const rt=r.offsetTop,rb=rt+r.offsetHeight;if(rb>T&&rt<B)v.sel.add(r.dataset.key);}v.anchor=st.k||v.anchor;pvPaint(v);}
+// drag the selection onto a folder row, a part of the path or the back row
+function pvCanDrop(v,d){const to=d==='home'?null:+d;return [...v.sel].map(pvItem).filter(Boolean).every(it=>!(it.kind==='folder'&&(it.id===to||(to!=null&&folderInside(to,it.id)))));}
+function pvDrag(v,st,e){if(!st.ghost){const its=[...v.sel].map(pvItem).filter(Boolean);st.ghost=document.createElement('div');st.ghost.className='pv-ghost';st.ghost.textContent=its.length>1?'Move '+its.length+' items':'Move “'+(its[0]&&its[0].name)+'”';document.body.appendChild(st.ghost);document.body.classList.add('pv-moving');}
+  st.ghost.style.left=(e.clientX+14)+'px';st.ghost.style.top=(e.clientY+12)+'px';const el=document.elementFromPoint(e.clientX,e.clientY),t=el&&el.closest('[data-drop]'),ok=t&&v.el().contains(t)&&!(t.dataset.key&&v.sel.has(t.dataset.key))&&pvCanDrop(v,t.dataset.drop);
+  if(st.over&&st.over!==t)st.over.classList.remove('drop');st.over=ok?t:null;if(ok)t.classList.add('drop');}
+function pvDragEnd(v,st,cancel){st.ghost.remove();document.body.classList.remove('pv-moving');if(!st.over)return;st.over.classList.remove('drop');if(cancel)return;const d=st.over.dataset.drop;moveItems([...v.sel].map(pvItem).filter(Boolean),d==='home'?null:+d);}
+function pvKeydown(v,e){if(e.target!==e.currentTarget)return;const keys=pvKeys(v),k=e.key,add=e.ctrlKey||e.metaKey;let done=true;
+  if((k==='ArrowDown'||k==='ArrowUp')&&keys.length){const i=keys.indexOf(v.anchor),j=Math.max(0,Math.min(keys.length-1,i<0?(k==='ArrowDown'?0:keys.length-1):i+(k==='ArrowDown'?1:-1))),nk=keys[j];
+    if(e.shiftKey)v.sel.add(nk);else v.sel=new Set([nk]);v.anchor=nk;pvPaint(v);const r=v.el().querySelector('.pv-list .proj-row[data-key="'+nk+'"]');if(r)r.scrollIntoView({block:'nearest'});}
+  else if(k==='Enter'&&v.sel.size)pvOpen(v,v.sel.has(v.anchor)?v.anchor:[...v.sel][0]);
+  else if((k==='Delete'||k==='Backspace')&&v.sel.size)pvDelete(v);
+  else if(k==='F2'&&v.sel.size===1)pvRename(v,[...v.sel][0]);
+  else if(add&&k.toLowerCase()==='a'&&keys.length){v.sel=new Set(keys);pvPaint(v);}
+  else if(k==='Escape'&&v.sel.size){v.sel.clear();pvPaint(v);}
+  else done=false;
+  if(done){e.preventDefault();e.stopPropagation();}}
+// search: Enter opens the selected project, else the first one that can be opened
+function pvOpenFirst(v){const root=v.el(),k=[...(v.sel||[])].find(x=>x[0]==='p')||((root.querySelector('.pv-list .proj-row[data-key]:not(.busy)')||{}).dataset||{}).key;if(k)pvOpen(v,k);}
+async function openProjects(){ensureProjects();_projText=null;await recentLoad();renderProjects();projPanel.style.display='flex';projPanel.style.left=Math.min(70,window.innerWidth-340)+'px';projPanel.style.top='70px';projPanel.style.right='auto';}
 
 /* gutter interaction */
 let _pinDrag=null,_pinMoved=false,_suppressGut=false;
@@ -858,11 +938,11 @@ async function maybeWelcome(){if(IS_MINI||navigator.webdriver)return;   // (not 
 const MINI_VIEW={folder:null,_busy:new Set(),el:()=>_miniMenu,busy:p=>p.id===pid||MINI_VIEW._busy.has(p.id),open:p=>{if(MINI_VIEW.busy(p))return;_miniMenu.style.display='none';openMiniEditor(p.id);}};
 function openMiniMenu(anchor){if(IS_MINI)return;if(!_miniMenu){_miniMenu=document.createElement('div');_miniMenu.className='panel mini-menu';document.body.appendChild(_miniMenu);document.addEventListener('mousedown',e=>{if(_miniMenu.style.display!=='none'&&!_miniMenu.contains(e.target)&&!e.target.closest('#mini-btn,.ctx-menu,.cls-modal'))_miniMenu.style.display='none';});}
   _miniMenu.innerHTML='<div class="panel-h"><div class="panel-t">Open beside this page</div></div><div class="panel-b"><div class="proj-search"><input class="pf-in pv-q" placeholder="Search projects (names and text)\u2026" spellcheck="false"><button class="pv-q-x" title="Clear">\u00d7</button></div><div class="pv-crumb"></div><div class="pv-list"></div><div class="proj-new"><input class="pf-in pv-new-in" placeholder="New project\u2026" maxlength="60"><button title="Create">+</button></div></div>';
-  const pq=_miniMenu.querySelector('.pv-q');pq.oninput=()=>renderProjView(MINI_VIEW);pq.onkeydown=e=>{if(e.key==='Escape'&&pq.value){e.stopPropagation();pq.value='';renderProjView(MINI_VIEW);}else if(e.key==='Enter'){const r=_miniMenu.querySelector('.proj-hit:not(.busy)');if(r)r.click();}};
+  const pq=_miniMenu.querySelector('.pv-q');pq.oninput=()=>renderProjView(MINI_VIEW);pq.onkeydown=e=>{if(e.key==='Escape'&&pq.value){e.stopPropagation();pq.value='';renderProjView(MINI_VIEW);}else if(e.key==='Enter'){e.preventDefault();pvOpenFirst(MINI_VIEW);}};
   _miniMenu.querySelector('.pv-q-x').onclick=()=>{pq.value='';renderProjView(MINI_VIEW);pq.focus();};
   const ni=_miniMenu.querySelector('.pv-new-in'),go=async()=>{const v=ni.value.trim()||autoProjName();const id=await db.projects.add({name:v.slice(0,60),created:Date.now(),folder:MINI_VIEW.folder});projects=await db.projects.toArray();syncPing('projects');_miniMenu.style.display='none';openMiniEditor(id);};
   _miniMenu.querySelector('.proj-new button').onclick=go;ni.onkeydown=e=>{if(e.key==='Enter')go();};
-  _projText=null;MINI_VIEW._busy=new Set(editorWindows().map(w=>{try{return w.currentPid();}catch(e){return null;}}));renderProjView(MINI_VIEW);
+  _projText=null;MINI_VIEW._busy=new Set(editorWindows().map(w=>{try{return w.currentPid();}catch(e){return null;}}));renderProjView(MINI_VIEW);recentLoad().then(()=>{if(_miniMenu.style.display!=='none')renderProjView(MINI_VIEW);});
   const r=anchor.getBoundingClientRect();_miniMenu.style.display='flex';_miniMenu.style.left=Math.min(r.left,innerWidth-280)+'px';_miniMenu.style.top=(r.bottom+6)+'px';_miniMenu.style.right='auto';}
 function openMiniEditor(p){if(IS_MINI||projectOpenElsewhere(p)||p===pid)return;const w=document.createElement('div');w.className='panel mini-win';w.dataset.pid=p;const k=_miniN++%4;
   w.innerHTML='<div class="panel-h"><div class="panel-ic">\u29c9</div><div class="panel-t"></div><button class="panel-x mini-min" title="Minimise (it stays open: bring it back from its tab)">\u2013</button><button class="panel-x mini-close" title="Close (saves first)">\u00d7</button></div><iframe></iframe>';

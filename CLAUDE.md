@@ -67,6 +67,11 @@
   `html.light-in` instead (no second inversion, only pictures turned back; `themeFrames` keeps them in step).
 - File history (`openRecent`, button `#hist-btn` right after Projects): projects you opened, newest first, each once, with when;
   kept in db.meta `{id:'recent',list:[{pid,t}]}` (this browser only), recorded on every open (`recentNote`), never patch pages.
+- File view (`renderProjView`, shared by the Projects panel and the pop-up menu): click selects (Ctrl/Shift add), double-click or
+  Enter opens (folder opens into it; touch: tap a selected item), a drag from anything not selected draws a selection box, dragging the
+  selection onto a folder row / the path / the back row moves it (`[data-drop]`, pointer events, no HTML5 drag). The selection bar
+  (always shown, so the list never shifts), right-click and keys (arrows, Enter, Delete, F2, Ctrl+A, Esc) act on the selection;
+  `moveItems` / `deleteItems` do several at once with ONE Undo; a project's delete Undo restores its whole record (folder, sharing).
 - Database changes only ever ADD a Dexie version or table; never wipe or rewrite existing user data.
 - Work as a surgical builder: read only what the task needs, make the smallest change, test it, report briefly
   (DONE / Changed / Tested / Notes). No unrequested features, refactors or new files.

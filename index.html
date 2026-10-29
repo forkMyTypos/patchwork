@@ -12,7 +12,7 @@
 <script src="js/vendor/purify.min.js"></script>
 <script src="js/vendor/dexie.min.js"></script>
 <link rel="stylesheet" href="css/patchwork.css"/>
-<script>try{if(!/[?&]mini/.test(location.search)&&localStorage.getItem('pw-theme')==='light')document.documentElement.classList.add('light');}catch(e){}</script>
+<script>try{if(localStorage.getItem('pw-theme')==='light')document.documentElement.classList.add(/[?&]mini/.test(location.search)?'light-in':'light');}catch(e){}</script>
 </head>
 <body>
 <div id="bar1">

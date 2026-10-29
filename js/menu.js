@@ -23,5 +23,7 @@ function ensureMenu(){if(menuEl)return menuEl;menuEl=document.createElement('div
 function menuBgSync(){if(menuEl)menuEl.querySelectorAll('.mm-bg').forEach(b=>b.classList.toggle('on',b.dataset.bg===pageBg));}
 function openMenu(){ensureMenu().classList.add('open');menuBgSync();}
 // light mode = the dark theme inverted (pictures inverted back); remembered per browser
-function setTheme(t){document.documentElement.classList.toggle('light',t==='light');try{localStorage.setItem('pw-theme',t);}catch(e){}}
+function setTheme(t){document.documentElement.classList.toggle('light',t==='light');try{localStorage.setItem('pw-theme',t);}catch(e){}themeFrames(document,t==='light');}
+// pop-up editors and patches (frames, also inside each other) only turn their pictures back: the page around them is already inverted
+function themeFrames(doc,on){for(const f of doc.querySelectorAll('iframe')){let d=null;try{d=f.contentDocument;}catch(e){}if(!d||!d.documentElement)continue;d.documentElement.classList.toggle('light-in',on);themeFrames(d,on);}}
 const _logo=document.querySelector('#brand .mark');_logo.title='Menu';_logo.addEventListener('click',openMenu);

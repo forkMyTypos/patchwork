@@ -434,7 +434,9 @@ html.mini #mini-btn,html.mini #brand .name{display:none;}
 .mm-items{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:4px;}.mm-bottom{padding:10px;border-top:1px solid #20202e;}
 .mm-item{display:flex;align-items:center;justify-content:space-between;width:100%;height:40px;padding:0 12px;border-radius:9px;border:1px solid #20202e;background:#11111a;color:#e6e6f0;font-size:13px;cursor:pointer;font-family:inherit;text-align:left;}.mm-item:hover{border-color:#3a3a52;}
 html.light{filter:invert(1) hue-rotate(180deg);background:#fff;}
-html.light img,html.light .fx-swb,html.light .cp-sw,html.light .cp-fav,html.light input[type=color]{filter:invert(1) hue-rotate(180deg);}
+html.light img,html.light .fx-swb,html.light .cp-sw,html.light .cp-fav,html.light input[type=color],html.light .yt-box iframe{filter:invert(1) hue-rotate(180deg);}
+/* pop-up editors and patches are frames inside the inverted page: they don't invert again, they only turn their pictures back (light-in) */
+html.light-in img,html.light-in .fx-swb,html.light-in .cp-sw,html.light-in .cp-fav,html.light-in input[type=color],html.light-in .yt-box iframe{filter:invert(1) hue-rotate(180deg);}
 /* page indicator */
 #page-ind{font-size:11px;color:#8a8aa4;font-family:monospace;white-space:nowrap;padding:0 6px;}
 /* projects panel: resizable, folder button on the breadcrumb row, drag and drop */

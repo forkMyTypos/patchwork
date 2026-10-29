@@ -788,8 +788,8 @@ addEventListener('beforeprint',()=>{if(!editor||_printCv)return;const w=pad.offs
     const P=s.pts;if(P.length===1){x.beginPath();x.arc(X(P[0]),Y(P[0]),Math.max(.5,P[0].wn*U/2),0,7);x.fill();}else for(let i=1;i<P.length;i++){x.lineWidth=Math.max(.5,(P[i-1].wn+P[i].wn)/2*U);x.beginPath();x.moveTo(X(P[i-1]),Y(P[i-1]));x.lineTo(X(P[i]),Y(P[i]));x.stroke();}}
   pad.appendChild(c);_printCv=c;const pw=w-gutter,land=pw>760,st=document.createElement('style');st.id='print-page';st.textContent='@page{size:'+(land?'landscape':'portrait')+';margin:10mm;}';document.head.appendChild(st);
   const R=document.documentElement.style;R.setProperty('--print-zoom',String(Math.min(1,(land?1020:720)/pw)));R.setProperty('--print-gutter',gutter+'px');   // wide pages print landscape; the margin is left out
-  _printLight=!document.documentElement.classList.contains('light');if(_printLight)document.documentElement.classList.add('light');document.documentElement.classList.add('printing');});
-addEventListener('afterprint',()=>{if(_printCv){_printCv.remove();_printCv=null;}const ps=document.getElementById('print-page');if(ps)ps.remove();if(_printLight)document.documentElement.classList.remove('light');_printLight=false;document.documentElement.classList.remove('printing');});
+  _printLight=!document.documentElement.classList.contains('light');if(_printLight){document.documentElement.classList.add('light');if(typeof themeFrames==='function')themeFrames(document,true);}document.documentElement.classList.add('printing');});
+addEventListener('afterprint',()=>{if(_printCv){_printCv.remove();_printCv=null;}const ps=document.getElementById('print-page');if(ps)ps.remove();if(_printLight){document.documentElement.classList.remove('light');if(typeof themeFrames==='function')themeFrames(document,false);}_printLight=false;document.documentElement.classList.remove('printing');});
 function printPage(){window.print();}
 /* find & replace (Ctrl+H or main menu): matches are shown with the browser's highlight API, so typing stays in the box */
 let frPanel=null,frM=[],frI=-1;

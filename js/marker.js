@@ -9,7 +9,7 @@
 const MK={type:null,trail:null};
 const mkcv=document.createElement('canvas');mkcv.id='mkink';stage.insertBefore(mkcv,wrap);const mkx=mkcv.getContext('2d');
 function mkType(){const ids=activeTypeIds();let t=MK.type;if(!t){try{t=localStorage.getItem('pw-mk-type');}catch(e){}}if(!ids.includes(t))t=ids[0]||'note';MK.type=t;return t;}
-function mkPick(id){MK.type=id;try{localStorage.setItem('pw-mk-type',id);}catch(e){}mkBar();}
+function mkPick(id){MK.type=id;try{localStorage.setItem('pw-mk-type',id);}catch(e){}mkBar();if(typeof viewModeSync==='function')viewModeSync(mode);}
 
 /* ---- the bar: your profile's highlight types (keys 1-9) and the profile ---- */
 function mkBar(){const bar=document.getElementById('mkbar');if(!bar)return;const ids=activeTypeIds(),cur=mkType(),col=mtype(cur).c;

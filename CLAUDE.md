@@ -68,9 +68,12 @@
 - View modes (`js/views.js`, `#view-btn` in the top bar; `VIEW.mode` 'std' | 'dual' | 'slide', kept in localStorage `pw-view`; main
   window only, both off while in a class). Two pages ('dual'): the right page area is a frame `?mini=1&dual=1&pid=N` (`IS_DUAL`, in
   `.dual-pane`, counted by `editorWindows()` so one project is never open in both); a `.dual-split` divider sets `--dr` (ratio, `pw-dual`
-  {r,pid}). The page header (Projects, history, n / N, Latest) moves into `#dual-head` (the frame's bar1 shows only those). Tools are
-  shared: setMode / ink colour / size are passed to the other side (`viewModeSync` -> `viewTake`); Undo / Redo / Patch / Timeline in the
-  top bar go to the page last worked in (`VIEW.act` 'L' | 'R', amber line). Slides ('slide'): `#stage` is a centred card (`--sw`/`--sh`,
+  {r,pid}). ONE toolbar: bar1 + bar2 span the window and act on the page last worked in (`VIEW.act` 'L' | 'R', amber line; clicks
+  on the bars never change it). The page header (Projects, history, n / N, Latest) moves into `#dual-head` under bar2 (the frame's bar1
+  shows only those). setMode / ink colour / size / marker type are passed to the other side (`viewModeSync` -> `viewTake`); Undo / Redo /
+  Patch / Timeline go to the active page; the frame's own bar2 is hidden but laid exactly under the shared one (`--dbx/--dby/--dbw`), and
+  clicks / changes on the shared format bar, margin tools, Recognise and Clear ink are replayed on its twin (`dualTwin`), so its pop-ups
+  open there; the shared bar mirrors the frame's formatting (`viewMirror`; `editor.updateTb` when back on the left). Slides ('slide'): `#stage` is a centred card (`--sw`/`--sh`,
   `pw-slide` {w,h}, 8 `.sl-grip`s resize it symmetrically; it is a window onto the page, `ww` never changes). Vertical scrolling is
   replaced by slides: `slideStarts()` = slide tops (a card height after the last, or the top of the line the bottom edge would cut,
   covered by `.sl-mask`); wheel / keys / swipe / ‹ › / pageStep -> `slideStep`; any other scroll settles via `slideSnap`, the caret

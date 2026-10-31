@@ -2,10 +2,12 @@
 /* ===== view modes (the view button in the top bar): Standard / Two pages / Slides =====
    Standard: one page, scroll down (as before).
    Two pages ('dual'): this window's page on the left, a second page on the right (a frame: ?mini=1&dual=1&pid=N), with a
-     divider you drag to resize (double-click: half and half). The top bar's tools work on both pages: one tool at a time
-     (pick the pen and you can draw on either), same ink colour and size. Undo / Redo / Patch / Timeline go to the page you
-     last worked in (amber line on its header). Each page area has its own header (Projects, file history, page n / N ▾,
-     Latest) and its own format / ink bar.
+     divider you drag to resize (double-click: half and half). ONE toolbar for both: the top bars span the window and act on
+     the page you last worked in (amber line on its header); one tool at a time (pick the pen and you can draw on either),
+     same ink colour, size and marker type. The right page keeps its own toolbar hidden, laid exactly under the shared one:
+     clicks on the shared format bar / margin tools are passed to it (`dualTwin`), so its pop-ups open where you'd expect,
+     and the shared bar shows the right page's formatting (`viewMirror`). Each page area has its own header (Projects, file
+     history, page n / N ▾, Latest).
    Slides ('slide'): the page sits in the middle of the window as a card with room around it. Instead of scrolling down you
      slide left / right a card at a time (wheel or swipe, ← →, PgUp / PgDn, the ‹ › buttons, the margin's page buttons). A
      line cut by the card's bottom edge starts the next slide. Drag the card's edges to resize it (double-click an edge: back
@@ -53,9 +55,11 @@ async function dualPick(){const ok=id=>id!=null&&id!==pid&&projects.some(x=>x.id
 async function dualLoad(){if(!VIEW.pane)return;const f=VIEW.pane.querySelector('iframe');if(f.getAttribute('src'))return;const p=await dualPick();if(p==null||!VIEW.pane)return;f.src=location.pathname+'?mini=1&dual=1&pid='+p;}
 // the page's own header (Projects, file history, page n / N, Latest) moves out of the top bar to the top of its page area
 function dualHead(on){const $=id=>document.getElementById(id),pb=$('proj-btn'),hb=$('hist-btn'),pi=$('page-ind'),nw=$('now');
-  if(on){if(!VIEW.head){VIEW.head=document.createElement('div');VIEW.head.id='dual-head';}const sp=document.createElement('div');sp.className='dh-sp';VIEW.head.replaceChildren(pb,hb,sp,pi,nw);$('bar1').after(VIEW.head);return;}
+  if(on){if(!VIEW.head){VIEW.head=document.createElement('div');VIEW.head.id='dual-head';}const sp=document.createElement('div');sp.className='dh-sp';VIEW.head.replaceChildren(pb,hb,sp,pi,nw);$('bar2').after(VIEW.head);return;}
   if(!VIEW.head)return;const ch=$('class-chip');$('brand').after(pb);let a=pb;if(ch&&ch.parentNode===VIEW.head){a.after(ch);a=ch;}a.after(hb);$('bk-status').after(pi);pi.after(nw);VIEW.head.remove();VIEW.head.replaceChildren();}
-function dualPlace(){if(!VIEW.pane)return;document.body.style.setProperty('--dr',VIEW.r);const t=document.getElementById('bar1').getBoundingClientRect().bottom+'px';VIEW.pane.style.top=t;VIEW.split.style.top=t;}
+function dualPlace(){if(!VIEW.pane)return;document.body.style.setProperty('--dr',VIEW.r);const t=document.getElementById('bar2').getBoundingClientRect().bottom+'px';VIEW.pane.style.top=t;VIEW.split.style.top=t;dualFrameVars();}
+function dualFrameVars(){const w=dualFrame();let s=null;try{s=w&&w.document&&w.document.documentElement&&w.document.documentElement.style;}catch(e){}if(!s)return;
+  const b=document.getElementById('bar2').getBoundingClientRect(),f=VIEW.pane.getBoundingClientRect();s.setProperty('--dbx',(b.left-f.left)+'px');s.setProperty('--dby',(b.top-f.top+10)+'px');s.setProperty('--dbw',b.width+'px');}
 function dualSplitWire(sp){sp.addEventListener('pointerdown',e=>{if(e.button)return;e.preventDefault();sp.setPointerCapture(e.pointerId);sp.classList.add('on');const cov=document.createElement('div');cov.className='dual-cover';document.body.appendChild(cov);let raf=0;
     const mv=ev=>{VIEW.r=Math.max(.15,Math.min(.85,ev.clientX/innerWidth));if(!raf)raf=requestAnimationFrame(()=>{raf=0;dualPlace();dispatchEvent(new Event('resize'));});};
     const up=()=>{sp.removeEventListener('pointermove',mv);sp.removeEventListener('pointerup',up);sp.removeEventListener('pointercancel',up);sp.classList.remove('on');cov.remove();dualSave();};
@@ -67,18 +71,34 @@ async function dualOff(){if(!VIEW.pane)return;const w=dualFrame();dualSave();try
   VIEW.pane.remove();VIEW.split.remove();VIEW.pane=VIEW.split=null;dualHead(false);document.body.classList.remove('dual','dual-l');document.body.style.removeProperty('--dr');VIEW.act='L';}
 // which page you last worked in ('L' this window, 'R' the frame)
 function viewActive(){return VIEW.act;}
-function viewAct(s){VIEW.act=s;document.body.classList.toggle('dual-l',VIEW.mode==='dual'&&s==='L');const w=dualFrame();try{if(w&&w.document)w.document.documentElement.classList.toggle('dual-act',s==='R');}catch(e){}}
+function viewAct(s){const was=VIEW.act;VIEW.act=s;document.body.classList.toggle('dual-l',VIEW.mode==='dual'&&s==='L');const w=dualFrame();try{if(w&&w.document)w.document.documentElement.classList.toggle('dual-act',s==='R');}catch(e){}
+  dualFrameVars();if(s==='R')viewMirrorSoon();else if(was==='R'&&editor&&editor.updateTb)editor.updateTb();}
+// the same control in the right page's (hidden) toolbar
+function dualTwin(el){const root=el.closest('#note-tb,#gut-tools,#ink-recognize,#clearink');if(!root)return null;const path=[];for(let a=el;a!==root;a=a.parentElement)path.unshift([...a.parentElement.children].indexOf(a));
+  let t=null;try{t=dualFrame().document.getElementById(root.id);}catch(e){}for(const i of path){if(!t)return null;t=t.children[i];}return t||null;}
+// the shared format bar shows the right page's formatting (bold on, size, font, style, list, alignment, text colour)
+let _vmT=0;function viewMirrorSoon(){cancelAnimationFrame(_vmT);_vmT=requestAnimationFrame(()=>{_vmT=requestAnimationFrame(viewMirror);});}
+function viewMirror(){if(VIEW.mode!=='dual'||VIEW.act!=='R')return;let t2=null;try{t2=dualFrame().document.getElementById('note-tb');}catch(e){}const t1=document.getElementById('note-tb');if(!t1||!t2)return;
+  const a=t1.querySelectorAll('*'),b=t2.querySelectorAll('*');if(a.length!==b.length)return;
+  for(let i=0;i<a.length;i++){const x=a[i],y=b[i];if(x.classList.contains('on')!==y.classList.contains('on'))x.classList.toggle('on');
+    if((x.tagName==='INPUT'||x.tagName==='SELECT')&&x!==document.activeElement&&x.value!==y.value)x.value=y.value;if(x.classList.contains('cbar'))x.style.background=y.style.background;}}
 function viewMayFocus(){if(IS_DUAL){try{return parent.viewActive()==='R';}catch(e){return true;}}return VIEW.mode!=='dual'||VIEW.act==='L';}
 // one tool for both pages: a mode / ink colour / size change in either is passed to the other (called from setMode, setInkColor and the size slider)
 function viewCurMode(){return mode;}
 function viewInkNow(){return [inkColor,inkSize];}
-function viewModeSync(m){if(window._viewQuiet||(IS_DUAL?!VIEW.booted:VIEW.mode!=='dual'))return;try{const w=IS_DUAL?parent:dualFrame();if(w&&typeof w.viewTake==='function')w.viewTake(m,inkColor,inkSize);}catch(e){}}
-function viewTake(m,c,s){window._viewQuiet=true;try{if(c&&c!==inkColor)setInkColor(c);if(s&&s!==inkSize){inkSize=s;const el=document.getElementById('size'),v=document.getElementById('sizeval');if(el)el.value=s;if(v)v.textContent=s+' px';}if(m&&m!==mode)setMode(m);}finally{window._viewQuiet=false;}}
-if(IS_DUAL)document.addEventListener('pointerdown',()=>{try{parent.viewAct('R');}catch(e){}},true);
-else{document.addEventListener('pointerdown',e=>{if(VIEW.mode==='dual'&&!e.target.closest('#bar1,.dual-split,.view-pop'))viewAct('L');},true);
+function viewModeSync(m){if(window._viewQuiet||(IS_DUAL?!VIEW.booted:VIEW.mode!=='dual'))return;try{const w=IS_DUAL?parent:dualFrame();if(w&&typeof w.viewTake==='function')w.viewTake(m,inkColor,inkSize,typeof MK!=='undefined'?MK.type:null);}catch(e){}}
+function viewTake(m,c,s,mt){window._viewQuiet=true;try{if(mt&&typeof MK!=='undefined'&&MK.type!==mt)mkPick(mt);if(c&&c!==inkColor)setInkColor(c);if(s&&s!==inkSize){inkSize=s;const el=document.getElementById('size'),v=document.getElementById('sizeval');if(el)el.value=s;if(v)v.textContent=s+' px';}if(m&&m!==mode)setMode(m);}finally{window._viewQuiet=false;}}
+if(IS_DUAL){document.addEventListener('pointerdown',()=>{try{parent.viewAct('R');}catch(e){}},true);
+  for(const ev of ['selectionchange','keyup','mouseup'])document.addEventListener(ev,()=>{try{parent.viewMirrorSoon();}catch(e){}});}
+else{document.addEventListener('pointerdown',e=>{if(VIEW.mode==='dual'&&!e.target.closest('#bar1,#bar2,.dual-split,.view-pop,.color-pop'))viewAct('L');},true);
   // Undo / Redo / Patch / Timeline in the top bar act on the page you last worked in
   document.getElementById('bar1').addEventListener('click',e=>{if(VIEW.mode!=='dual'||VIEW.act!=='R')return;const b=e.target.closest('button');if(!b||!['undo','redo','patch-btn','timeline-btn'].includes(b.id))return;
     let t=null;try{t=dualFrame().document.getElementById(b.id);}catch(_){}if(!t)return;e.preventDefault();e.stopImmediatePropagation();t.click();},true);
+  const b2=document.getElementById('bar2'),routed=e=>VIEW.mode==='dual'&&VIEW.act==='R'&&e.target.closest&&dualTwin(e.target);
+  b2.addEventListener('mousedown',e=>{const t=routed(e);if(t)t.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}));},true);
+  b2.addEventListener('click',e=>{const t=routed(e);if(!t)return;e.preventDefault();e.stopImmediatePropagation();t.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));viewMirrorSoon();},true);
+  b2.addEventListener('change',e=>{const t=routed(e);if(!t)return;e.stopImmediatePropagation();t.value=e.target.value;t.dispatchEvent(new Event('change',{bubbles:true}));viewMirrorSoon();},true);
+  b2.addEventListener('blur',e=>{if(e.target.tagName!=='INPUT')return;const t=routed(e);if(!t)return;e.stopImmediatePropagation();t.value=e.target.value;t.dispatchEvent(new FocusEvent('blur'));viewMirrorSoon();},true);
   addEventListener('beforeunload',()=>{if(VIEW.pane)dualSave();});}
 
 /* ---- slides ---- */

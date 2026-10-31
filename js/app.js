@@ -166,7 +166,8 @@ function addViewStroke(s){inkToUnits(s);reanchor(s);commitStroke(s);saveMeta();}
 function inkBottomPx(){let mx=typeof picsBottomPx==='function'?picsBottomPx():0;for(const s of strokes){const b=s.maxYn*inkU(s)+inkDy(s);if(b>mx)mx=b;}return mx;}
 // padGrow: blank space added by Page Down at the end of the page (for this visit; drawing there keeps it via the ink)
 let padGrow=0;
-function updatePad(){pad.style.minHeight=Math.ceil(Math.max(noteEd.scrollHeight+20,inkBottomPx()+H*0.5,H,padGrow))+'px';
+function updatePad(){pad.style.minHeight=Math.ceil(Math.max(noteEd.scrollHeight+20,inkBottomPx()+H*0.5,H,padGrow,typeof slidePadMin==='function'?slidePadMin():0))+'px';   // (Slides: down to the last slide's bottom)
+
   // a patch is a window you can draw anywhere in: its page reaches as far right as its ink and pictures (and what you see)
   if(IS_PATCH){let r=0;for(const s of strokes){const U=inkU(s);for(const q of s.pts)r=Math.max(r,(q.xn+q.wn/2)*U);}for(const p of pics)if(!p.pin)r=Math.max(r,(p.x+p.w)*inkW);
     const w=Math.ceil(Math.max(gutter+drawW+12,r?gutter+r+W*0.3:0,wrap.clientWidth));pad.style.width=w+'px';wrap.style.overflowX=w>wrap.clientWidth+1?'auto':'hidden';}}
@@ -221,7 +222,7 @@ function drawGutter(){
   drawPages();
 }
 // pages: one page = one screen height of this window; faint breaks + a Page n / N readout
-function drawPages(){if(!H)return;const st=scrollTop(),total=Math.max(1,Math.ceil((contentBottomPx()+1)/H)),cur=Math.min(total,Math.floor((st+H*0.5)/H)+1);
+function drawPages(){if(!H||(typeof slideInd==='function'&&slideInd()))return;const st=scrollTop(),total=Math.max(1,Math.ceil((contentBottomPx()+1)/H)),cur=Math.min(total,Math.floor((st+H*0.5)/H)+1);
   ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';for(let k=1;k<total+1;k++){const y=k*H-st;if(y<-2||y>H+2)continue;ctx.strokeStyle='rgba(255,255,255,.09)';ctx.setLineDash([6,6]);ctx.beginPath();ctx.moveTo(gutter,y+.5);ctx.lineTo(W,y+.5);ctx.stroke();ctx.setLineDash([]);ctx.font='600 9px Arial';ctx.fillStyle='#5a5a72';ctx.textAlign='right';ctx.fillText('PAGE '+(k+1),W-18,y+12);}ctx.restore();
   const pi=document.getElementById('page-ind');if(pi)pi.textContent=cur+' / '+total;}
 function buildFilterBar(){const fb=document.getElementById('filterbar');if(!fb)return;fb.innerHTML='';
@@ -743,12 +744,12 @@ document.getElementById('gut-add').addEventListener('click',()=>{const bottom=co
 
 /* modes */
 // one screen up (-1) or down (1), minus a small overlap; never while a stroke is being drawn (Page Up/Down keys, margin buttons)
-function pageStep(d){if(drawing)return;const step=Math.max(40,wrap.clientHeight-40);
+function pageStep(d){if(drawing||(typeof slideStep==='function'&&slideStep(d)))return;const step=Math.max(40,wrap.clientHeight-40);
   if(d>0&&wrap.scrollTop+wrap.clientHeight>=wrap.scrollHeight-2){padGrow=wrap.scrollHeight+step;updatePad();}   // at the end: add a new blank page first
   wrap.scrollBy({top:d*step});}
 document.getElementById('pg-up').addEventListener('click',()=>pageStep(-1));document.getElementById('pg-dn').addEventListener('click',()=>pageStep(1));
 function setMode(m){if(mode!==m&&editor&&editor.hasPickedImage&&editor.hasPickedImage())editor.unpickImage();mode=m;document.body.classList.toggle('draw-tools',m!=='text');   // page up/down buttons in the margin
-  document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg'),mkb=document.getElementById('mkbar');hideTagbar();if(mkb)mkb.style.display=m==='marker'?'flex':'none';document.body.classList.toggle('mode-marker',m==='marker');if(m==='marker'){tb.style.display='none';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();if(typeof mkBar==='function')mkBar();}else if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>{if(!IS_PATCH||document.hasFocus())noteEd.focus();});}else if(m==='hand'){document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='auto';noteEd.blur();}else{document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}cv.classList.toggle('pan',m==='hand');cv.classList.toggle('m-pen',m==='pen');cv.classList.toggle('m-hl',m==='hl');cv.classList.toggle('m-marker',m==='marker');if(m!=='marker')cv.style.cursor='';if(m!=='grab')grabSel.clear();}
+  document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg'),mkb=document.getElementById('mkbar');hideTagbar();if(mkb)mkb.style.display=m==='marker'?'flex':'none';document.body.classList.toggle('mode-marker',m==='marker');if(m==='marker'){tb.style.display='none';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();if(typeof mkBar==='function')mkBar();}else if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>{if(IS_PATCH?document.hasFocus():typeof viewMayFocus!=='function'||viewMayFocus())noteEd.focus();});}else if(m==='hand'){document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='auto';noteEd.blur();}else{document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}cv.classList.toggle('pan',m==='hand');cv.classList.toggle('m-pen',m==='pen');cv.classList.toggle('m-hl',m==='hl');cv.classList.toggle('m-marker',m==='marker');if(m!=='marker')cv.style.cursor='';if(m!=='grab')grabSel.clear();if(typeof viewModeSync==='function')viewModeSync(m);}
 document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 
 /* ink controls */
@@ -771,9 +772,9 @@ function renderInkCP(){if(!_inkCP)return;const cur=inkColor;let h='';
   const add=_inkCP.querySelector('[data-add]');if(add)add.onclick=()=>{if(addFavoriteColor(inkColor))renderInkCP();};}
 function openInkColorPop(anchor){_inkCPEl();renderInkCP();_inkCP.classList.add('open');const r=anchor.getBoundingClientRect();const w=200;_inkCP.style.left=Math.max(6,Math.min(r.left,window.innerWidth-w-6))+'px';_inkCP.style.top='0px';const ph=_inkCP.offsetHeight||320;let top=r.bottom+6;if(top+ph>window.innerHeight-6)top=Math.max(6,r.top-ph-6);_inkCP.style.top=top+'px';}
 
-function setInkColor(hex){hex=normalizeHex(hex)||hex;inkColor=hex;const sw=document.querySelector('#ink-color .icb-sw');if(sw)sw.style.background=hex;if(mode==='eraser')setMode('pen');}
+function setInkColor(hex){hex=normalizeHex(hex)||hex;inkColor=hex;const sw=document.querySelector('#ink-color .icb-sw');if(sw)sw.style.background=hex;if(mode==='eraser')setMode('pen');if(typeof viewModeSync==='function')viewModeSync(mode);}
 
-document.getElementById('size').addEventListener('input',e=>{inkSize=+e.target.value;document.getElementById('sizeval').textContent=inkSize+' px';});
+document.getElementById('size').addEventListener('input',e=>{inkSize=+e.target.value;document.getElementById('sizeval').textContent=inkSize+' px';if(typeof viewModeSync==='function')viewModeSync(mode);});
 
 /* actions + keyboard */
 document.getElementById('undo').addEventListener('click',()=>hostUndo());
@@ -836,7 +837,7 @@ addEventListener('DOMContentLoaded',async function(){
   if(typeof extBeforePageLoad==='function')await extBeforePageLoad(pg);
   editor.setHTML(pg.html||'');_lastHTML=editor.getHTML();
   document.getElementById('proj-name').textContent=projName(pid);recentNote(pid);
-  layout();redrawInk();updatePad();setMode('text');if(typeof extAfterPageLoad==='function')extAfterPageLoad();
+  layout();redrawInk();updatePad();setMode('text');if(typeof extAfterPageLoad==='function')extAfterPageLoad();if(typeof viewBoot==='function')viewBoot();
   requestAnimationFrame(()=>{if(IS_PATCH){wrap.scrollLeft=PATCH.x*PATCH.z;wrap.scrollTop=PATCH.y*PATCH.z;}else wrap.scrollTop=(pg.scrollYn||0)*drawW;redrawInk();if(IS_PATCH)patchTell('ready');});
   setInterval(checkText,1500);
   noteEd.addEventListener('blur',()=>{checkText();saveMeta();schedulePrune();});
@@ -845,7 +846,7 @@ addEventListener('DOMContentLoaded',async function(){
 /* ===== extension lifecycle (called from the main script) ===== */
 async function extBoot(){const gt=document.getElementById('gut-tools'),b2=document.getElementById('bar2');if(gt&&b2)b2.appendChild(gt);await loadHighlightTypes();}
 async function extBeforePageLoad(pg){await loadImages(imageRefsIn(pg&&pg.html));}
-function extAfterPageLoad(){
+function extAfterPageLoad(){if(typeof viewPageLoaded==='function')viewPageLoaded();
   internImages().then(n=>{if(n)saveMeta();});
   requestAnimationFrame(()=>{adoptLegacyStamps();if(typeof historyStart==='function')historyStart();});
 }
@@ -860,7 +861,7 @@ function adoptLegacyStamps(){if(!editor||!editor.paraRects)return;const olds=pag
    Each window runs this same app in a frame, locked to its own project. Windows tell each other when highlights,
    types or projects change (BroadcastChannel), and a project can only be open in one window at a time. */
 function currentPid(){return pid;}
-function editorWindows(){const top=IS_MINI?window.parent:window;const w=[top];top.document.querySelectorAll('.mini-win iframe').forEach(f=>{if(f.contentWindow)w.push(f.contentWindow);});return w;}
+function editorWindows(){const top=IS_MINI?window.parent:window;const w=[top];top.document.querySelectorAll('.mini-win iframe,.dual-pane iframe').forEach(f=>{if(f.contentWindow)w.push(f.contentWindow);});return w;}
 function projectOpenElsewhere(n){try{return editorWindows().some(w=>w!==window&&typeof w.currentPid==='function'&&w.currentPid()===n);}catch(e){return false;}}
 const _sync=(()=>{try{return new BroadcastChannel('patchwork-sync');}catch(e){return null;}})();let _syncT=null,_syncTypes=false;
 function syncPing(kind){if(_sync)_sync.postMessage(kind);}

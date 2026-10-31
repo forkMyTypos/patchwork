@@ -65,6 +65,16 @@
   A swipe down the margin = whole paragraphs; Shift+swipe takes highlights off (`editor.unmarkSelection()`, one Undo; a highlight left
   with no words is deleted after 7 s); no words under the swipe = 'hl' ink. In marker mode the page never takes typing. `pen` travels
   with backups, class snapshots and copies.
+- View modes (`js/views.js`, `#view-btn` in the top bar; `VIEW.mode` 'std' | 'dual' | 'slide', kept in localStorage `pw-view`; main
+  window only, both off while in a class). Two pages ('dual'): the right page area is a frame `?mini=1&dual=1&pid=N` (`IS_DUAL`, in
+  `.dual-pane`, counted by `editorWindows()` so one project is never open in both); a `.dual-split` divider sets `--dr` (ratio, `pw-dual`
+  {r,pid}). The page header (Projects, history, n / N, Latest) moves into `#dual-head` (the frame's bar1 shows only those). Tools are
+  shared: setMode / ink colour / size are passed to the other side (`viewModeSync` -> `viewTake`); Undo / Redo / Patch / Timeline in the
+  top bar go to the page last worked in (`VIEW.act` 'L' | 'R', amber line). Slides ('slide'): `#stage` is a centred card (`--sw`/`--sh`,
+  `pw-slide` {w,h}, 8 `.sl-grip`s resize it symmetrically; it is a window onto the page, `ww` never changes). Vertical scrolling is
+  replaced by slides: `slideStarts()` = slide tops (a card height after the last, or the top of the line the bottom edge would cut,
+  covered by `.sl-mask`); wheel / keys / swipe / ‹ › / pageStep -> `slideStep`; any other scroll settles via `slideSnap`, the caret
+  via selectionchange; pad grows to the last slide (`slidePadMin`); drawPages shows slide n / N (`slideInd`).
 - Page list (`js/pagelist.js`): the page counter (n / N ▾) lists everything on the page: text by line (paragraphs with content),
   doodles = pen/highlighter strokes grouped by time (a group spans at most 30 s from its first stroke), pictures, videos, patches,
   highlights/notes; names numbered in creation order (Text 3, Doodle 2), time made; filter chips, search, sort (top to bottom / newest).
@@ -130,6 +140,7 @@
 - `js/youtube.js` - YouTube objects (embed, pin), YT mode, video timestamps on marks, jump/seek
 - `js/patches.js` - patches: create (Patch button or Insert ▸ Patch, drag a rectangle), resize mode, window + frame, zoom/Fit, focus mode, drop-in, delete options, purge
 - `js/pagelist.js` - page list from the page counter: everything on the page, jump + pick
+- `js/views.js` - view modes: Standard / Two pages (second page frame, shared tools, divider) / Slides (centred card, slide navigation, resize)
 - `js/highlights.js` - highlight types, profiles, Highlight Factory
 - `js/marker.js` - marker: swipe words -> highlight of the picked type, marker bands under the text, margin swipe, Shift erase
 - `js/explorer.js` - highlight Explorer

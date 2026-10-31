@@ -78,7 +78,7 @@ function ptChanged(w,v,kind){const p=ptByWin(w);if(!p||!v)return;
 function ptZoom(p,f){const w=ptWin(p);if(!w)return;if(!f){w.patchSetView(1,0,0);return;}w.patchZoomAt(Math.max(PT.ZMIN,Math.min(PT.ZMAX,w.patchView().z*f)));}   // (the % button: 100%, back to the top-left)
 function ptFit(p){const w=ptWin(p);if(w)w.patchFit();}
 // a plain wheel over a patch you aren't working in scrolls this page
-function ptWheel(dx,dy,m){const f=m===1?16:m===2?wrap.clientHeight:1;wrap.scrollBy(dx*f,dy*f);}
+function ptWheel(dx,dy,m){if(typeof slideWheel==='function'&&slideWheel(dx,dy,m))return;const f=m===1?16:m===2?wrap.clientHeight:1;wrap.scrollBy(dx*f,dy*f);}
 // ⤡: resize mode (handles; the page inside is covered, so the whole patch drags like a picture); again, Esc or a click elsewhere ends it
 function ptResize(p){if(PT.resize===p){PT.resize=null;renderPics();return;}PT.resize=p;picPick(p);}
 function ptSizeStart(p){const f=_picEl.get(p).querySelector('iframe'),r=f.getBoundingClientRect();PT.sizing={p,w:r.width,h:r.height,x:p.x,y:p.y};}

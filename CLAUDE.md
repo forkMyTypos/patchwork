@@ -58,6 +58,13 @@
   history (`tlPatches`). Class broadcast: a patch's page is part of the page it sits on (shared with it); the snapshot's `patches` are
   made by each patch's frame (`clsSnapshot(used)`, one picture budget), checked in `clsClean(b,lim,nested)` with ONE text/picture/point
   budget for the page and its patches, drawn on the class page, and kept as real patches in a class copy. None inside patches.
+- Marker (`js/marker.js`, mode 'marker', key M, button `#m-marker` after the pen): a highlighter you swipe. It snaps to whole words and
+  makes a REAL highlight (addMark + editor.applyMark) of the type picked in `#mkbar` (the active Highlight Factory profile's types, keys
+  1-9; profile select). Marks made with it carry `pen:1` (span class `mk-pen`): drawn as chisel marker bands on `#mkink`, a canvas
+  BELOW the text (`drawMarkerBands()`, called from redrawInk); CSS background where there is no canvas (Timeline, print, class page).
+  A swipe down the margin = whole paragraphs; Shift+swipe takes highlights off (`editor.unmarkSelection()`, one Undo; a highlight left
+  with no words is deleted after 7 s); no words under the swipe = 'hl' ink. In marker mode the page never takes typing. `pen` travels
+  with backups, class snapshots and copies.
 - Page list (`js/pagelist.js`): the page counter (n / N ▾) lists everything on the page: text by line (paragraphs with content),
   doodles = pen/highlighter strokes grouped by time (a group spans at most 30 s from its first stroke), pictures, videos, patches,
   highlights/notes; names numbered in creation order (Text 3, Doodle 2), time made; filter chips, search, sort (top to bottom / newest).
@@ -124,6 +131,7 @@
 - `js/patches.js` - patches: create (Patch button or Insert ▸ Patch, drag a rectangle), resize mode, window + frame, zoom/Fit, focus mode, drop-in, delete options, purge
 - `js/pagelist.js` - page list from the page counter: everything on the page, jump + pick
 - `js/highlights.js` - highlight types, profiles, Highlight Factory
+- `js/marker.js` - marker: swipe words -> highlight of the picked type, marker bands under the text, margin swipe, Shift erase
 - `js/explorer.js` - highlight Explorer
 - `js/timeline.js` - history snapshots + Timeline view
 - `js/handwriting-core.js`, `js/handwriting.js` - recogniser core; language modules + Handwriting Lab

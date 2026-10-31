@@ -38,7 +38,7 @@ async function clsSnapshot(used){const out={v:1,title:projName(pid).slice(0,80),
   for(const p of editor.getDoc()){const runs=[];for(const r of p.runs){
     if(r.type==='image'){const u=await clsImage(r.src);if(u&&u.length<=CLS_MAX.img&&imgBytes+u.length<=CLS_MAX.imgs){imgBytes+=u.length;runs.push({img:u,w:r.width||100,bg:clsHex(r.bg)});}else runs.push({text:'[image not shared]',color:'#7a7a92',i:1});continue;}
     if(!r.text)continue;const x={text:r.text};if(r.bold)x.b=1;if(r.italic)x.i=1;if(r.underline)x.u=1;const c=clsHex(r.color);if(c)x.color=c;if(r.size)x.size=r.size;if(r.font&&CLS_FONTS.includes(r.font))x.font=r.font;if(r.link)x.href=r.link;
-    if(r.mark){const ms=getMarkStyle(r.mark);if(ms){x.mk=String(r.mark);out.marks[x.mk]={c:clsHex(ms.color)||'#818cf8',fx:ms.fx||{}};}}runs.push(x);}
+    if(r.mark){const ms=getMarkStyle(r.mark);if(ms){x.mk=String(r.mark);out.marks[x.mk]={c:clsHex(ms.color)||'#818cf8',fx:ms.fx||{}};if(ms.pen)out.marks[x.mk].pen=1;}}runs.push(x);}
     const q={a:p.align,r:runs};if(p.ls){q.ls=p.ls;if(p.lv)q.lv=p.lv;}if(p.hd)q.hd=p.hd;out.paras.push(q);}
   // sent as seen on this page (relative to its width), whatever units/anchor the stroke is stored in
   out.pics=[];for(const p of (typeof pics!=='undefined'?pics:[])){const u=await clsImage(p.src);if(!u||u.length>CLS_MAX.img||imgBytes+u.length>CLS_MAX.imgs)continue;imgBytes+=u.length;const U=inkW/drawW,d=inkDy(p)/drawW;
@@ -106,7 +106,7 @@ function clsState(s){CLS.status=s;clsRender();}
 function clsClean(b,lim,nested){const fail=w=>{throw new Error(w);};if(!b||typeof b!=='object'||b.v!==1)fail('version');
   const str=(x,n)=>typeof x==='string'?x.slice(0,n):'',num=(x,lo,hi,d)=>(typeof x==='number'&&isFinite(x))?Math.min(hi,Math.max(lo,x)):d,hex=x=>(typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x))?x.toLowerCase():null;
   const out={title:str(b.title,80),w:num(b.w,200,4000,800),ww:Math.round(num(b.ww,200,6000,PAGE_REF)),scroll:num(b.scroll,0,1e4,0),fx:num(b.fx,0,1,0),bg:PAGE_BGS.includes(b.bg)?b.bg:'',paras:[],marks:{},strokes:[]};const L=lim||{text:0,imgs:0,points:0};   // (one budget for the page and its patches)
-  if(b.marks&&typeof b.marks==='object')for(const k of Object.keys(b.marks).slice(0,3000)){if(!/^\d{1,12}$/.test(k))continue;const m=b.marks[k]||{},c=hex(m.c)||'#818cf8',fx={};for(const f of ['bg','ul','b','i','s','tc'])if(m.fx&&m.fx[f]===true)fx[f]=true;out.marks[k]={color:c,bg:hexA(c,.16),fx};}
+  if(b.marks&&typeof b.marks==='object')for(const k of Object.keys(b.marks).slice(0,3000)){if(!/^\d{1,12}$/.test(k))continue;const m=b.marks[k]||{},c=hex(m.c)||'#818cf8',fx={};for(const f of ['bg','ul','b','i','s','tc'])if(m.fx&&m.fx[f]===true)fx[f]=true;out.marks[k]={color:c,bg:hexA(c,.16),fx,pen:m.pen===1};}
   for(const p of (Array.isArray(b.paras)?b.paras:[]).slice(0,5000)){const runs=[];for(const r of (Array.isArray(p&&p.r)?p.r:[]).slice(0,500)){if(!r||typeof r!=='object')continue;
       if(typeof r.img==='string'){if(r.img.length<=CLS_MAX.img&&L.imgs+r.img.length<=CLS_MAX.imgs&&/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(r.img)){L.imgs+=r.img.length;runs.push({type:'image',src:r.img,width:Math.round(num(r.w,10,100,100)),bg:hex(r.bg)});}continue;}
       const t=str(r.text,20000);if(!t||L.text+t.length>CLS_MAX.text)continue;L.text+=t.length;
@@ -235,7 +235,7 @@ async function clsSaveCopy(snap,mine,ask){const s=snap||CLS.snap;mine=mine||CLS.
   const byColor={};for(const t of HT.values()){const c=(normalizeHex(t.color)||'').toLowerCase();if(c&&!byColor[c])byColor[c]=t.id;}
   const text={};for(const p of s.paras)for(const r of p.runs)if(r.mark&&r.type==='text')text[r.mark]=(text[r.mark]||'')+r.text;
   const idMap={};for(const k of Object.keys(text)){const st=s.marks[k]||{},snip=text[k].trim().slice(0,200);
-    idMap[k]=await db.marks.add({pid:np,type:byColor[(st.color||'').toLowerCase()]||'note',name:snip.slice(0,80),snippet:snip,tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'text'}});}
+    idMap[k]=await db.marks.add({pid:np,type:byColor[(st.color||'').toLowerCase()]||'note',name:snip.slice(0,80),snippet:snip,tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'text'},pen:st.pen?1:undefined});}
   const paras=s.paras.map(p=>({ls:p.ls,lv:p.lv,hd:p.hd,align:p.align,t:null,runs:p.runs.map(r=>r.type==='text'?{...r,mark:r.mark?idMap[r.mark]||null:null}:{...r})}));
   await db.pages.put({pid:np,html:editor.parasToHTML(paras),scrollYn:0,gutterW:0,ww:s.ww,bg:s.bg||undefined});
   const f=s.ww/PAGE_REF,t=Date.now(),add=async(tool,color,pts)=>{if(!pts.length)return;let lo=Infinity,hi=-Infinity;for(const q of pts){lo=Math.min(lo,q.yn);hi=Math.max(hi,q.yn);}await db.strokes.add({pid:np,kind:'stroke',tool,color,t,pts,minYn:lo,maxYn:hi,u:1});};   // view-relative -> page units (the page's own width)

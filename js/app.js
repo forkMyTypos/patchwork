@@ -87,7 +87,7 @@ function markById(id){id=typeof id==='string'?+id:id;return marks.find(m=>m.id==
 function userProjects(){return projects.filter(p=>!p.patchOf);}
 function projName(id){const p=projects.find(x=>x.id===id);return p?p.name:'?';}
 function pageMarks(){return marks.filter(m=>m.pid===pid);}
-function getMarkStyle(id){const m=markById(id);if(!m)return null;if(!typeOn(m.type))return null;const t=mtype(m.type);return{color:m.done?'#5a5a72':t.c,bg:t.bg,fx:t.fx};}
+function getMarkStyle(id){const m=markById(id);if(!m)return null;if(!typeOn(m.type))return null;const t=mtype(m.type);return{color:m.done?'#5a5a72':t.c,bg:t.bg,fx:t.fx,pen:!!m.pen};}
 
 /* coords */
 function ptFromEvent(e){const r=wrap.getBoundingClientRect();const cx=e.clientX-r.left,cy=e.clientY-r.top;const xn=Math.min(IS_PATCH?50:1,Math.max(0,(cx-gutter+wrap.scrollLeft)/drawW));const yn=(cy+scrollTop())/drawW;return{cx,cy,xn,yn};}
@@ -173,7 +173,8 @@ function updatePad(){pad.style.minHeight=Math.ceil(Math.max(noteEd.scrollHeight+
 
 /* ink */
 function styleFor(s){ctx.lineCap='round';ctx.lineJoin='round';if(s.tool==='eraser'){ctx.globalCompositeOperation='destination-out';ctx.strokeStyle='#000';ctx.fillStyle='#000';ctx.globalAlpha=1;}else if(s.tool==='hl'){ctx.globalCompositeOperation='source-over';ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.globalAlpha=.30;}else{ctx.globalCompositeOperation='source-over';ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.globalAlpha=1;}}
-function drawStroke(s){const U=inkU(s),d=inkDy(s),st=scrollTop(),sl=wrap.scrollLeft,X=q=>gutter+q.xn*U-sl,Y=q=>q.yn*U+d-st,top=s.minYn*U+d-st,bot=s.maxYn*U+d-st;if(bot<-14||top>H+14)return;styleFor(s);const p=s.pts;if(p.length===1){const a=p[0];ctx.beginPath();ctx.arc(X(a),Y(a),Math.max(.5,a.wn*U/2),0,7);ctx.fill();}else for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];ctx.lineWidth=Math.max(.5,(a.wn+b.wn)/2*U);ctx.beginPath();ctx.moveTo(X(a),Y(a));ctx.lineTo(X(b),Y(b));ctx.stroke();}ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;}
+function drawStroke(s){const U=inkU(s),d=inkDy(s),st=scrollTop(),sl=wrap.scrollLeft,X=q=>gutter+q.xn*U-sl,Y=q=>q.yn*U+d-st,top=s.minYn*U+d-st,bot=s.maxYn*U+d-st;if(bot<-14||top>H+14)return;styleFor(s);const p=s.pts;if(p.length===1){const a=p[0];ctx.beginPath();ctx.arc(X(a),Y(a),Math.max(.5,a.wn*U/2),0,7);ctx.fill();}else if(s.tool==='hl'){let w=0;for(const q of p)w+=q.wn;ctx.lineWidth=Math.max(.5,w/p.length*U);ctx.lineCap='butt';ctx.beginPath();ctx.moveTo(X(p[0]),Y(p[0]));for(let i=1;i<p.length;i++)ctx.lineTo(X(p[i]),Y(p[i]));ctx.stroke();}   // marker ink: one even, flat-ended band (no darker blots where pieces overlap)
+  else for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];ctx.lineWidth=Math.max(.5,(a.wn+b.wn)/2*U);ctx.beginPath();ctx.moveTo(X(a),Y(a));ctx.lineTo(X(b),Y(b));ctx.stroke();}ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;}
 
 /* gutter ledger (current project's marks) */
 function fmtTime(t){return new Date(t).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});}
@@ -248,7 +249,7 @@ function refreshSideLive(){const sd=document.getElementById('side');if(!sd||!sd.
 function toggleSide(open){const sd=document.getElementById('side'),sc=document.getElementById('side-scrim');const will=open===undefined?!sd.classList.contains('open'):open;sd.classList.toggle('open',will);sc.classList.toggle('open',will);if(will){buildFilterBar();const q=document.getElementById('side-q');renderSideResults(q.value);}else{hideFly();}}
 function applyFilter(){if(editor)editor.refresh();redrawInk();}
 function updateFilter(){const fb=document.getElementById('filterbar');if(!fb||!fb.children.length)return;const counts={};let total=0;for(const m of pageMarks())if(searchable(m)){counts[m.type]=(counts[m.type]||0)+1;total++;}const ae=fb.querySelector('[data-c="all"]');if(ae)ae.textContent=total;fb.querySelectorAll('.fcnt').forEach(e=>{if(e.dataset.c!=='all')e.textContent=counts[e.dataset.c]||0;});fb.querySelectorAll('.fchip').forEach(c=>{const t=c.dataset.t;if(t==='all'){c.classList.toggle('on',typeOff.size===0);c.classList.remove('off');}else{const on=typeOn(t);c.classList.toggle('on',on);c.classList.toggle('off',!on);}});}
-function redrawInk(){
+function redrawInk(){if(typeof drawMarkerBands==='function')drawMarkerBands();
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
   for(const s of strokes)drawStroke(s);drawGutter();if(typeof renderPics==='function')renderPics();if(typeof updateFilter==='function')updateFilter();if(typeof refreshSideLive==='function')refreshSideLive();if(mode==='grab'&&grabSel.size)drawGrabOverlay();
   const hasText=editor&&editor.getPlainText&&editor.getPlainText().trim();
@@ -277,7 +278,7 @@ cv.addEventListener('pointermove',e=>{if(mode==='grab'){grabMove(e);return;}if(!
 function endStroke(){if(!active)return;const s=active;active=null;drawing=false;s.pid=pid;addViewStroke(s);redrawInk();}
 cv.addEventListener('pointerup',e=>{if(mode==='grab'){grabUp(e);return;}if(drawing)endStroke();});
 cv.addEventListener('pointercancel',e=>{if(mode==='grab'){grabUp(e);return;}if(drawing)endStroke();});
-cv.addEventListener('wheel',e=>{if(isDraw(mode)||mode==='hand'){e.preventDefault();wrap.scrollTop+=e.deltaY;wrap.scrollLeft+=e.deltaX;}},{passive:false});
+cv.addEventListener('wheel',e=>{if(isDraw(mode)||mode==='hand'||mode==='marker'){e.preventDefault();wrap.scrollTop+=e.deltaY;wrap.scrollLeft+=e.deltaX;}},{passive:false});
 // hand tool: drag the page around (for a page wider or taller than the window, with a mouse)
 let _pan=null;
 cv.addEventListener('pointerdown',e=>{if(mode!=='hand'||(e.button!==undefined&&e.button!==0))return;e.preventDefault();cv.setPointerCapture(e.pointerId);_pan={x:e.clientX,y:e.clientY,l:wrap.scrollLeft,t:wrap.scrollTop};cv.classList.add('panning');});
@@ -288,7 +289,7 @@ wrap.addEventListener('scroll',()=>{redrawInk();hideTagbar();saveMeta();},{passi
 /* marks CRUD */
 async function addMark(obj,open){const m=Object.assign({pid,type:'note',name:'',tags:[],created:Date.now(),done:false,doneAt:null,links:[],anchor:{kind:'time',yn:0}},obj);try{const id=await db.marks.add(stripId(m));m.id=id;}catch(e){console.error(e);return null;}marks.push(m);syncPing('marks');redrawInk();flashPin(m.id);if(open)openMarkPopup(m);return m;}
 let _saveTimers={};
-function saveMark(m){clearTimeout(_saveTimers[m.id]);_saveTimers[m.id]=setTimeout(()=>{db.marks.update(m.id,{type:m.type,name:m.name,tags:m.tags,done:m.done,doneAt:m.doneAt,links:m.links,anchor:m.anchor,snippet:m.snippet||'',created:m.created,fields:m.fields||{},hover:m.hover||'',hoverSrc:m.hoverSrc||null,vt:m.vt||null}).then(()=>syncPing('marks')).catch(e=>console.error(e));},300);}
+function saveMark(m){clearTimeout(_saveTimers[m.id]);_saveTimers[m.id]=setTimeout(()=>{db.marks.update(m.id,{type:m.type,name:m.name,tags:m.tags,done:m.done,doneAt:m.doneAt,links:m.links,anchor:m.anchor,snippet:m.snippet||'',created:m.created,fields:m.fields||{},hover:m.hover||'',hoverSrc:m.hoverSrc||null,vt:m.vt||null,pen:m.pen?1:undefined}).then(()=>syncPing('marks')).catch(e=>console.error(e));},300);}
 async function hardDeleteMark(m){await db.marks.delete(m.id);syncPing('marks');if(m.anchor&&m.anchor.kind==='text'&&editor)editor.clearMarkRuns(m.id);for(const q of marks)if(q.links&&q.links.includes(m.id)){q.links=q.links.filter(x=>x!==m.id);saveMark(q);}marks=marks.filter(x=>x!==m);redrawInk();}
 let _mkCleanT=null,_mkCleanId=null;
 function softDeleteMark(m){const isText=m.anchor&&m.anchor.kind==='text';const qedits=[];for(const q of marks)if(q!==m&&q.links&&q.links.includes(m.id)){qedits.push(q);q.links=q.links.filter(x=>x!==m.id);saveMark(q);}const snap=JSON.parse(JSON.stringify(m));db.marks.delete(m.id).then(()=>syncPing('marks')).catch(()=>{});marks=marks.filter(x=>x!==m);if(isText&&editor)editor.refresh();redrawInk();if(isText){clearTimeout(_mkCleanT);_mkCleanId=m.id;_mkCleanT=setTimeout(()=>{if(editor&&_mkCleanId!=null)editor.clearMarkRuns(_mkCleanId);_mkCleanId=null;},6400);}toast('Deleted','ok',{label:'Undo',fn:()=>{if(isText){clearTimeout(_mkCleanT);_mkCleanId=null;}db.marks.put(snap).catch(()=>{});marks.push(snap);for(const q of qedits)if(!q.links.includes(snap.id)){q.links.push(snap.id);saveMark(q);}if(isText&&editor)editor.refresh();redrawInk();}});}
@@ -747,7 +748,7 @@ function pageStep(d){if(drawing)return;const step=Math.max(40,wrap.clientHeight-
   wrap.scrollBy({top:d*step});}
 document.getElementById('pg-up').addEventListener('click',()=>pageStep(-1));document.getElementById('pg-dn').addEventListener('click',()=>pageStep(1));
 function setMode(m){if(mode!==m&&editor&&editor.hasPickedImage&&editor.hasPickedImage())editor.unpickImage();mode=m;document.body.classList.toggle('draw-tools',m!=='text');   // page up/down buttons in the margin
-  document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg');hideTagbar();if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>{if(!IS_PATCH||document.hasFocus())noteEd.focus();});}else if(m==='hand'){document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='auto';noteEd.blur();}else{document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}cv.classList.toggle('pan',m==='hand');cv.classList.toggle('m-pen',m==='pen');cv.classList.toggle('m-hl',m==='hl');if(m!=='grab')grabSel.clear();}
+  document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));const tb=document.getElementById('note-tb'),inkbar=document.getElementById('inkbar'),hm=document.getElementById('handmsg'),mkb=document.getElementById('mkbar');hideTagbar();if(mkb)mkb.style.display=m==='marker'?'flex':'none';document.body.classList.toggle('mode-marker',m==='marker');if(m==='marker'){tb.style.display='none';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();if(typeof mkBar==='function')mkBar();}else if(m==='text'){tb.style.display='flex';inkbar.style.display='none';hm.style.display='none';cv.style.pointerEvents='none';requestAnimationFrame(()=>{if(!IS_PATCH||document.hasFocus())noteEd.focus();});}else if(m==='hand'){document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='none';hm.style.display='inline';cv.style.pointerEvents='auto';noteEd.blur();}else{document.querySelectorAll('.img-pop').forEach(x=>x.classList.remove('visible'));tb.style.display='none';inkbar.style.display='flex';hm.style.display='none';cv.style.pointerEvents='auto';noteEd.blur();}cv.classList.toggle('pan',m==='hand');cv.classList.toggle('m-pen',m==='pen');cv.classList.toggle('m-hl',m==='hl');cv.classList.toggle('m-marker',m==='marker');if(m!=='marker')cv.style.cursor='';if(m!=='grab')grabSel.clear();}
 document.querySelectorAll('.mbtn[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 
 /* ink controls */
@@ -798,7 +799,7 @@ if(mode==='grab'&&(e.key==='Delete'||e.key==='Backspace')&&grabSel.size&&!/^(INP
   if(e.ctrlKey||e.metaKey||e.altKey)return;if(tag==='INPUT'||tag==='TEXTAREA')return;
   // Page Up / Page Down move the page by a screen in any tool (the page itself never has focus); ignored mid-stroke
   if(e.key==='PageDown'||e.key==='PageUp'){if(tag==='SELECT'||e.target.isContentEditable||(typeof tlOpen==='function'&&tlOpen()))return;e.preventDefault();pageStep(e.key==='PageDown'?1:-1);return;}
-  const mm={t:'text',p:'pen',h:'hand',g:'grab'}[e.key.toLowerCase()];if(mm&&!(IS_PATCH&&!PATCH.focus))setMode(mm);   // (a patch on its page only takes typing)
+  const mm={t:'text',p:'pen',h:'hand',g:'grab',m:'marker'}[e.key.toLowerCase()];if(mm&&!(IS_PATCH&&!PATCH.focus))setMode(mm);   // (a patch on its page only takes typing)
 });
 addEventListener('resize',()=>{const yn=scrollTop()/drawW;layout();wrap.scrollTop=yn*drawW;redrawInk();});
 

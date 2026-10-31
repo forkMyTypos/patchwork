@@ -7,7 +7,7 @@
 const CACHE='patchwork-v1';
 const FILES=['./','index.html','manifest.webmanifest','css/patchwork.css',
   'js/vendor/purify.min.js','js/vendor/dexie.min.js','js/vendor/pdfjs/pdf.min.mjs','js/vendor/pdfjs/pdf.worker.min.mjs',
-  'js/editor.js','js/app.js','js/images.js','js/pics.js','js/youtube.js','js/patches.js','js/pagelist.js','js/highlights.js','js/explorer.js',
+  'js/editor.js','js/app.js','js/images.js','js/pics.js','js/youtube.js','js/patches.js','js/pagelist.js','js/highlights.js','js/marker.js','js/explorer.js',
   'js/timeline.js','js/handwriting-core.js','js/handwriting.js','js/backup.js','js/about.js','js/classroom.js','js/ai-board.js','js/menu.js',
   'fonts/PatchworkSans-Regular.woff2','fonts/PatchworkSans-Bold.woff2','icons/icon.svg','icons/icon-192.png','icons/icon-512.png'];
 // keep a copy of each file (one missing file never stops the rest)

@@ -739,3 +739,14 @@ body.pv-moving,body.pv-moving *{cursor:grabbing!important;}
 .pv-selbar button{height:22px;padding:0 8px;border-radius:6px;border:1px solid #3a3366;background:#15132a;color:#c8c4f0;font-size:11px;cursor:pointer;}.pv-selbar button:hover{border-color:#818cf8;color:#fff;}
 .pv-selbar .ps-del{color:#f0a0a0;}.pv-selbar .ps-sp{flex:1;}.ps-n{font-weight:600;margin-right:2px;}.pv-selbar select{height:24px;}
 .pv-bk{margin-top:10px;padding-top:9px;border-top:1px solid #20202e;}.pv-bk summary{cursor:pointer;list-style:none;}.pv-bk summary::-webkit-details-marker{display:none;}.pv-bk summary::before{content:'\25b8\2002';}.pv-bk[open] summary::before{content:'\25be\2002';}
+/* ===== marker (marker.js): highlights you swipe on, drawn like a real marker under the text ===== */
+#mkink{position:absolute;left:0;top:0;z-index:0;pointer-events:none;}
+#mkbar{align-items:center;gap:6px;flex-wrap:nowrap;}.mk-types{display:flex;gap:4px;}
+.mk-chip{display:flex;align-items:center;gap:5px;height:26px;padding:0 8px;border-radius:7px;border:1px solid #2a2a3a;background:#15151f;color:#c0c0d8;font-size:11.5px;cursor:pointer;white-space:nowrap;}
+.mk-chip i{width:13px;height:11px;border-radius:2px;opacity:.9;transform:skewX(-14deg);}.mk-chip kbd{font-size:9.5px;color:#6a6a86;font-family:monospace;}
+.mk-chip:hover{border-color:#5a4a2b;}.mk-chip.on{border-color:var(--mkc,#f59e0b);background:#1f1a12;color:#fff;box-shadow:inset 0 0 0 1px var(--mkc,#f59e0b);}
+.mk-hint{font-size:11px;color:#6a6a86;white-space:nowrap;margin-left:4px;}
+/* a marker highlight: on the live page the band is drawn under the letters (#mkink); everywhere else (Timeline, class page, print) this */
+.mk-pen{background:color-mix(in srgb,var(--mk) 40%,transparent);border-radius:.3em .15em .35em .2em;-webkit-box-decoration-break:clone;box-decoration-break:clone;}
+#note-ed .mk-pen{background:transparent;}html.printing #note-ed .mk-pen{background:color-mix(in srgb,var(--mk) 40%,transparent);}
+body.mode-marker #gut{pointer-events:none;}body.mode-marker #gut-pg{pointer-events:auto;}   /* (a swipe down the margin reaches the page) */

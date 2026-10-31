@@ -17,7 +17,7 @@ function saveType(t){HT.set(t.id,t);db.htypes.put(t).then(()=>syncPing('types'))
 function saveProfiles(){PROFILES.forEach((p,i)=>p.order=i);db.profiles.bulkPut(PROFILES).then(()=>syncPing('types')).catch(_quotaToast);}
 function typeUsage(id){let n=0;for(const m of marks)if(m.type===id)n++;return n;}
 let _typesT=null;
-function typesChanged(){buildTagbar();clearTimeout(_typesT);_typesT=setTimeout(()=>{if(editor)editor.refresh();const sd=document.getElementById('side');if(sd&&sd.classList.contains('open'))buildFilterBar();redrawInk();if(popup&&popup.style.display!=='none'&&popupMark)buildPopupBody(popupMark);if(typeof refreshExplorer==='function')refreshExplorer();},60);}
+function typesChanged(){buildTagbar();if(typeof mkBar==='function'&&mode==='marker')mkBar();clearTimeout(_typesT);_typesT=setTimeout(()=>{if(editor)editor.refresh();const sd=document.getElementById('side');if(sd&&sd.classList.contains('open'))buildFilterBar();redrawInk();if(popup&&popup.style.display!=='none'&&popupMark)buildPopupBody(popupMark);if(typeof refreshExplorer==='function')refreshExplorer();},60);}
 function setActiveProfile(id){activeProfileId=id;db.info.update('info',{activeProfile:id}).catch(()=>{});typesChanged();}
 
 /* ===== the Highlight Factory: a small workshop for the tools you mark your page with ===== */

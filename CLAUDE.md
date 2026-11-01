@@ -68,11 +68,12 @@
 - View modes (`js/views.js`, `#view-btn` in the top bar; `VIEW.mode` 'std' | 'dual' | 'slide', kept in localStorage `pw-view`; main
   window only, both off while in a class). Two pages ('dual'): the right page area is a frame `?mini=1&dual=1&pid=N` (`IS_DUAL`, in
   `.dual-pane`, counted by `editorWindows()` so one project is never open in both); a `.dual-split` divider sets `--dr` (ratio, `pw-dual`
-  {r,pid}). ONE toolbar: bar1 + bar2 span the window and act on the page last worked in (`VIEW.act` 'L' | 'R', amber line; clicks
-  on the bars never change it). The page header (Projects, history, n / N, Latest) moves into `#dual-head` under bar2 (the frame's bar1
-  shows only those). setMode / ink colour / size / marker type are passed to the other side (`viewModeSync` -> `viewTake`); Undo / Redo /
+  {r,pid}). Reads as two documents side by side: ONE margin (the left page's; the frame has `gutter` 0, `#gut` hidden, so the margin
+  tools act on the left page) and quiet page headers. ONE toolbar: bar1 + bar2 span the window and act on the page last worked in
+  (`VIEW.act` 'L' | 'R', its name in amber; clicks on the bars never change it). The page header (Projects, history, n / N, Latest)
+  moves into `#dual-head` under bar2 (the frame's bar1 shows only those, same quiet style). setMode / ink colour / size / marker type are passed to the other side (`viewModeSync` -> `viewTake`); Undo / Redo /
   Patch / Timeline go to the active page; the frame's own bar2 is hidden but laid exactly under the shared one (`--dbx/--dby/--dbw`), and
-  clicks / changes on the shared format bar, margin tools, Recognise and Clear ink are replayed on its twin (`dualTwin`), so its pop-ups
+  clicks / changes on the shared format bar, Recognise and Clear ink are replayed on its twin (`dualTwin`), so its pop-ups
   open there; the shared bar mirrors the frame's formatting (`viewMirror`; `editor.updateTb` when back on the left). Slides ('slide'): `#stage` is a centred card (`--sw`/`--sh`,
   `pw-slide` {w,h}, 8 `.sl-grip`s resize it symmetrically; it is a window onto the page, `ww` never changes). Vertical scrolling is
   replaced by slides: `slideStarts()` = slide tops (a card height after the last, or the top of the line the bottom edge would cut,

@@ -2,10 +2,11 @@
 /* ===== view modes (the view button in the top bar): Standard / Two pages / Slides =====
    Standard: one page, scroll down (as before).
    Two pages ('dual'): this window's page on the left, a second page on the right (a frame: ?mini=1&dual=1&pid=N), with a
-     divider you drag to resize (double-click: half and half). ONE toolbar for both: the top bars span the window and act on
-     the page you last worked in (amber line on its header); one tool at a time (pick the pen and you can draw on either),
+     divider you drag to resize (double-click: half and half). One margin (the left page's; the right page has none) and quiet
+     page headers, so it reads as two documents side by side. ONE toolbar for both: the top bars span the window and act on
+     the page you last worked in (its name in amber); one tool at a time (pick the pen and you can draw on either),
      same ink colour, size and marker type. The right page keeps its own toolbar hidden, laid exactly under the shared one:
-     clicks on the shared format bar / margin tools are passed to it (`dualTwin`), so its pop-ups open where you'd expect,
+     clicks on the shared format bar are passed to it (`dualTwin`), so its pop-ups open where you'd expect,
      and the shared bar shows the right page's formatting (`viewMirror`). Each page area has its own header (Projects, file
      history, page n / N ▾, Latest).
    Slides ('slide'): the page sits in the middle of the window as a card with room around it. Instead of scrolling down you
@@ -74,7 +75,7 @@ function viewActive(){return VIEW.act;}
 function viewAct(s){const was=VIEW.act;VIEW.act=s;document.body.classList.toggle('dual-l',VIEW.mode==='dual'&&s==='L');const w=dualFrame();try{if(w&&w.document)w.document.documentElement.classList.toggle('dual-act',s==='R');}catch(e){}
   dualFrameVars();if(s==='R')viewMirrorSoon();else if(was==='R'&&editor&&editor.updateTb)editor.updateTb();}
 // the same control in the right page's (hidden) toolbar
-function dualTwin(el){const root=el.closest('#note-tb,#gut-tools,#ink-recognize,#clearink');if(!root)return null;const path=[];for(let a=el;a!==root;a=a.parentElement)path.unshift([...a.parentElement.children].indexOf(a));
+function dualTwin(el){const root=el.closest('#note-tb,#ink-recognize,#clearink');if(!root)return null;const path=[];for(let a=el;a!==root;a=a.parentElement)path.unshift([...a.parentElement.children].indexOf(a));
   let t=null;try{t=dualFrame().document.getElementById(root.id);}catch(e){}for(const i of path){if(!t)return null;t=t.children[i];}return t||null;}
 // the shared format bar shows the right page's formatting (bold on, size, font, style, list, alignment, text colour)
 let _vmT=0;function viewMirrorSoon(){cancelAnimationFrame(_vmT);_vmT=requestAnimationFrame(()=>{_vmT=requestAnimationFrame(viewMirror);});}

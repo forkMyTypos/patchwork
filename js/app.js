@@ -97,7 +97,7 @@ function sy(yn){return yn*drawW-scrollTop();}
 /* layout */
 function layout(){
   W=stage.clientWidth;H=stage.clientHeight;
-  gutter=IS_PATCH&&!PATCH.focus?0:gutterW>0?Math.max(GUT_MIN,Math.min(340,gutterW)):(W<560?GUT_MIN:86);_paraStampCache=null;
+  gutter=(IS_PATCH&&!PATCH.focus)||(typeof IS_DUAL!=='undefined'&&IS_DUAL)?0:gutterW>0?Math.max(GUT_MIN,Math.min(340,gutterW)):(W<560?GUT_MIN:86);_paraStampCache=null;
   const fitW=Math.max(40,W-gutter-12);
   if(!IS_MINI&&!(typeof CLS!=='undefined'&&CLS.role)){try{localStorage.setItem('pw-ww',String(Math.round(fitW)));}catch(e){}}
   const k=IS_PATCH?PATCH.z:1;drawW=(pageWW||fitW)*k;   // (k = 1: real size; only a patch's page is zoomed)

@@ -219,7 +219,7 @@ function makeEditor(edId,tbId,statusId,valignId){
     const rl=document.createElement("span");rl.className="resize-label ip-ic";rl.title="Size";rl.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>';
     const rs=document.createElement("input");rs.type="range";rs.min=10;rs.max=100;rs.value=100;rs.step=5;rs.title="Size (share of the page width)";imgResizeSlider=rs;
     const rv=document.createElement("span");rv.className="resize-val";rv.textContent="100%";imgResizeVal=rv;
-    rs.onmousedown=e=>e.stopPropagation();rs.oninput=()=>{const w=Number(rs.value);rv.textContent=w+"%";setImgW(w);};
+    rs.onmousedown=e=>e.stopPropagation();rs.onpointerdown=()=>{if(selectedImage)pushUndo("imgw");};rs.oninput=()=>{const w=Number(rs.value);rv.textContent=w+"%";setImgW(w);};
     irg.appendChild(rl);irg.appendChild(rs);irg.appendChild(rv);
     const freeBtn=document.createElement("button");freeBtn.className="ip-btn";freeBtn.title="Drag it anywhere on the page, like ink (a free picture)";freeBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg><span>Drag</span>';
     freeBtn.onmousedown=e=>{e.preventDefault();e.stopPropagation();};freeBtn.onclick=()=>{const pk=pickedImg();if(!pk||typeof inlineToFree!=="function")return;const r=pk.w.getBoundingClientRect(),src=doc[pk.p].runs[pk.ri].src;deletePicked();inlineToFree(src,r);};irg.appendChild(freeBtn);
@@ -254,11 +254,16 @@ function makeEditor(edId,tbId,statusId,valignId){
   function bindEv(){
     // Never hand an edit back to the browser while a re-render is pending (busy): held-down keys auto-repeat faster than
     // a frame, and letting contenteditable mutate the DOM behind the model's back loses or scrambles characters.
-    ed.addEventListener("beforeinput",e=>{if(pickerOpen)return;const h=["insertText","insertParagraph","insertLineBreak","deleteContentBackward","deleteContentForward","insertFromPaste"];if(!h.includes(e.inputType))return;e.preventDefault();
+    ed.addEventListener("beforeinput",e=>{if(pickerOpen)return;const it=e.inputType;
+      // the browser's own Undo / Redo (its Edit menu) and Ctrl+B / I / U go through the model, like the toolbar
+      if(it==="historyUndo"||it==="historyRedo"){e.preventDefault();(it==="historyUndo"?(typeof hostUndo==="function"?hostUndo:undo):(typeof hostRedo==="function"?hostRedo:redo))();return;}
+      const fk={formatBold:"bold",formatItalic:"italic",formatUnderline:"underline"}[it];if(fk){e.preventDefault();readSel();togFmt(fk);if(sel){renderAll();requestAnimationFrame(()=>{restoreSel();busy=false;updateTb();});}else updateTb();return;}
+      const h=["insertText","insertParagraph","insertLineBreak","deleteContentBackward","deleteContentForward","insertFromPaste"];if(!h.includes(it))return;e.preventDefault();
       // a picked (outlined) image: Backspace/Delete remove it, anything typed goes after it
       const pk=pickedImg();if(pk){unpickImg();if(/^delete/.test(e.inputType))sel={sp:pk.p,so:pk.acc,ep:pk.p,eo:pk.acc+1};else{cur={p:pk.p,offset:pk.acc+1};sel=null;}}
       const n0=doc.length,p0=cur.p,hadSel=!!sel;const one=()=>{if(!hadSel&&doc.length===n0&&cur.p===p0)commitLine(p0);else commit();};switch(e.inputType){case"insertText":if(e.data){if(e.data===" "&&mdShortcut()){commit();break;}pushUndo("type");selectedImage=null;insText(e.data);one();}break;case"insertParagraph":case"insertLineBreak":{pushUndo("para");selectedImage=null;const P=doc[cur.p];if(!sel&&P.ls&&plen(P)===0){delete P.ls;delete P.lv;commit();break;}   // Enter on an empty list item ends the list
         const at0=!sel&&cur.offset===0&&plen(P)>0,st=pstyle(P);insPara();const N=doc[cur.p];if(st.ls){N.ls=st.ls;if(st.lv)N.lv=st.lv;}if(at0&&st.hd)N.hd=st.hd;else if(!at0)delete N.hd;commit();break;}case"deleteContentBackward":pushUndo("del");selectedImage=null;if(!sel&&cur.offset===0&&doc[cur.p].ls){delete doc[cur.p].ls;delete doc[cur.p].lv;commit();break;}delBack();one();break;case"deleteContentForward":pushUndo("del");selectedImage=null;delFwd();one();break;case"insertFromPaste":{const t=e.dataTransfer?.getData("text/plain")||"";if(t){pushUndo("paste");selectedImage=null;pasteTxtOrLink(t);commit();}break;}}});
+    ed.addEventListener("input",e=>{if(!e.isComposing)syncFromDom();});ed.addEventListener("compositionend",()=>setTimeout(syncFromDom,0));
     ed.addEventListener("paste",e=>{if(pickerOpen)return;const items=Array.from(e.clipboardData.items);for(const item of items){if(item.type.startsWith("image/")){e.preventDefault();e.stopPropagation();const sc={...cur},ss=sel?{...sel}:null;busy=true;const f=item.getAsFile(),r=new FileReader();r.onload=()=>{busy=false;if(typeof addFreePicture==="function")addFreePicture(r.result,null);else insImgFitted(r.result,{cur:sc,sel:ss});};r.onerror=()=>{busy=false;};r.readAsDataURL(f);return;}}e.preventDefault();const t=e.clipboardData.getData("text/plain")||"";if(t){pushUndo("paste");selectedImage=null;pasteTxtOrLink(t);commit();}});
     ed.addEventListener("click",e=>{const w=e.target.closest("[data-img-run]");if(w){const p=Number(w.dataset.imgP),ri=Number(w.dataset.imgRi);let acc=0;for(let i=0;i<ri;i++)acc+=rlen(doc[p].runs[i]);cur={p,offset:acc};sel=null;selectedImage={p,runIndex:ri};ed.querySelectorAll(".img-run").forEach(el=>el.classList.remove("img-selected"));w.classList.add("img-selected");updateTb();e.preventDefault();}else{if(selectedImage){selectedImage=null;ed.querySelectorAll(".img-run").forEach(el=>el.classList.remove("img-selected"));updateTb();}}});
     const onSC=()=>{if(!busy&&!pickerOpen)readSel();};
@@ -275,6 +280,18 @@ function makeEditor(edId,tbId,statusId,valignId){
     document.addEventListener("pointerup",e=>{if(!imgDrag)return;const d=imgDrag;imgDrag=null;const t=d.on?dropAt(e.clientX,e.clientY):null;document.body.classList.remove("img-dragging");if(dropBar)dropBar.style.display="none";if(t)moveImg(d.w,t);});
   }
   let imgDrag=null,dropBar=null;   // a picture being dragged to a new place in the text
+  // The browser changed the text by itself (a spelling fix, Ctrl+Backspace, a phone keyboard's word, IME): read the change back
+  // into the paragraphs, in the look of the text it replaced, so the next re-render (Enter, say) doesn't put the old text back.
+  function domText(le){let s="";const w=n=>{if(n.nodeType===3){s+=n.textContent.replace(/\u200B/g,"");return;}if(n.nodeType!==1)return;if(n.dataset&&n.dataset.imgRun){s+="\uFFFC";return;}for(const c of n.childNodes)w(c);};w(le);return s;}
+  function syncFromDom(){if(pickerOpen)return;   // (also right after a re-render: the browser's change is already in the page)
+   const ls=[...ed.children].filter(x=>x.classList.contains("line"));
+    if(ls.length!==doc.length||ls.some((l,i)=>+l.dataset.p!==i)){commit();return;}   // lines joined / split behind the model's back: show the page as the model has it
+    let ch=false;for(let i=0;i<ls.length;i++){const P=doc[i],nt=domText(ls[i]),ot=P.runs.map(r=>r.type==="image"?"\uFFFC":r.text).join("");if(nt===ot)continue;
+      if(!ch){pushUndo("type");ch=true;}let a=0;while(a<ot.length&&a<nt.length&&ot[a]===nt[a])a++;let b=0;while(b<ot.length-a&&b<nt.length-a&&ot[ot.length-1-b]===nt[nt.length-1-b])b++;
+      let acc=0,like=null;for(const r of P.runs){const l=rlen(r);if(r.type!=="image"){like=r;if(a<acc+l)break;}acc+=l;}
+      const keep=fmt;if(like){const{type,text,...f}=like;fmt=f;}cur={p:i,offset:a};sel=a<ot.length-b?{sp:i,so:a,ep:i,eo:ot.length-b}:null;if(sel)delSel();
+      const ins=nt.slice(a,nt.length-b).replace(/\uFFFC/g,"");if(ins)insText(ins);fmt=keep;}
+    if(!ch)return;readSel();commit();}
   function pickedImg(){const w=ed.querySelector(".img-run.img-selected");if(!w)return null;const p=+w.dataset.imgP,ri=+w.dataset.imgRi;if(!doc[p]||!doc[p].runs[ri]||doc[p].runs[ri].type!=="image")return null;let acc=0;for(let i=0;i<ri;i++)acc+=rlen(doc[p].runs[i]);return{p,ri,acc,w};}
   // the Select & move tool picks a picture from outside the editor: outline it, show its menu, and let this press drag it
   function pickImage(w,x,y){if(!w||!ed.contains(w))return;unpickImg();w.classList.add("img-selected");const p=+w.dataset.imgP,ri=+w.dataset.imgRi;selectedImage={p,runIndex:ri};updateTb();if(x!=null)imgDrag={w,x,y,on:false};}
@@ -293,8 +310,9 @@ function makeEditor(edId,tbId,statusId,valignId){
     let a=0,nri=0;for(let i=0;i<T.runs.length;i++){if(a===to&&T.runs[i].type==="image"){nri=i;break;}a+=rlen(T.runs[i]);}
     cur={p:tp,offset:to+1};sel=null;commit();requestAnimationFrame(()=>{const el=ed.querySelector(`[data-img-p="${tp}"][data-img-ri="${nri}"]`);if(el){el.classList.add("img-selected");selectedImage={p:tp,runIndex:nri};}updateTb();});}
   function posImgPop(){const g=imgResizeGroup;if(!g||!g.classList.contains("visible"))return;const el=ed.querySelector(".img-run.img-selected");if(!el){g.classList.remove("visible");return;}
-    const r=el.getBoundingClientRect(),vt=(ed.closest("#wrap")||ed.parentElement||ed).getBoundingClientRect().top,h=g.offsetHeight||28;let top=r.top-h-6;if(top<vt+4)top=Math.max(vt+4,Math.min(r.bottom-h-4,r.top+6));
-    g.style.visibility=(r.bottom<vt||r.top>innerHeight)?"hidden":"";g.style.left=Math.max(4,Math.min(r.left,innerWidth-g.offsetWidth-4))+"px";g.style.top=top+"px";}
+    const r=el.getBoundingClientRect(),vt=(ed.closest("#wrap")||ed.parentElement||ed).getBoundingClientRect().top,h=g.offsetHeight||28,gw=g.offsetWidth||200,inside=r.height>=h+16&&r.width>=gw+12;
+    let top=inside?Math.max(vt+4,Math.min(r.bottom-h-6,r.top+6)):r.top-h-6;if(!inside&&top<vt+4)top=r.bottom+6;
+    g.style.visibility=(r.bottom<vt||r.top>innerHeight)?"hidden":"";g.style.left=Math.max(4,Math.min(r.left+(inside?6:0),innerWidth-gw-4))+"px";g.style.top=top+"px";}
   addEventListener("scroll",()=>posImgPop(),true);
   document.addEventListener("click",e=>{const l=e.target.closest&&e.target.closest(".lnk");if(!l)return;const u=safeLink(l.dataset.href);if(!u)return;if(e.ctrlKey||e.metaKey||!l.closest('[contenteditable="true"]')){e.preventDefault();window.open(u,"_blank","noopener,noreferrer");}});addEventListener("resize",()=>posImgPop());
   function pasteTxtOrLink(t){const yi=typeof ytId==="function"&&/^\S+$/.test(t.trim())&&ytId(t.trim());if(yi&&typeof addYouTube==="function"){addYouTube(yi,null);return;}   // a YouTube link becomes a video object

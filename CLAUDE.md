@@ -32,6 +32,10 @@
   units (`u:1`) and paragraph-anchored like strokes (`kind:'pic'`, so `reanchor` writes db.pics). Pasted / dropped / inserted pictures
   are free by default; PDF pages stay in-line. Undo token 'pic' in hostUndo. They travel with backups (`pics`, image inlined),
   Timeline, class snapshots (`pics`, validated in clsClean, same image caps), class copies and hand-ins. No text wrap around them.
+- Editor model vs page: the editor keeps its own paragraphs (`doc`) and re-renders from them. Edits it handles itself are cancelled in
+  `beforeinput` (typing, Enter, Backspace/Delete, paste, Ctrl+B/I/U, the browser's own Undo/Redo); anything else the browser changes in
+  the page by itself (spell-check fixes, Ctrl+Backspace, IME / phone keyboards) is read back by `syncFromDom` (on `input` /
+  `compositionend`), so a later re-render never puts old text back. Undo steps can be joined into one (`undoJoin(n)`, array tokens).
 - Paragraph styles: `ls` ('ul'|'ol'), `lv` (indent 0-4), `hd` (1-3) on paragraphs (saved as data-ls/lv/hd; copy paragraphs with
   `pcopy`, which keeps ids). Runs may carry `link` (only http(s)/mailto, checked by `safeLink`). Page background `bg` and width `ww`
   live on the page record. Print = browser print with a full-height ink copy (beforeprint in app.js). Auto-backup keeps a folder

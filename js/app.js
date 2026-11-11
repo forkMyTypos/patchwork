@@ -265,8 +265,12 @@ function retireStroke(s,t){if(s.id!=null)db.strokes.update(s.id,{del:t||Date.now
 function commitStroke(s){inkRedo=[];_uTokens.push('ink');_rTokens=[];strokes.push(s);persistStroke(s);updatePad();}
 let _uTokens=[],_rTokens=[];
 function onEditStep(){_uTokens.push('text');_rTokens=[];if(typeof schedulePrune==='function')schedulePrune();}
-function hostUndo(){if(!_uTokens.length)return;const tk=_uTokens.pop();_rTokens.push(tk);if(tk==='ink')inkUndo();else if(tk==='pic')picUndo();else if(editor)editor.undo();}
-function hostRedo(){if(!_rTokens.length)return;const tk=_rTokens.pop();_uTokens.push(tk);if(tk==='ink')inkRedoFn();else if(tk==='pic')picRedo();else if(editor)editor.redo();}
+function hostUndo(){if(!_uTokens.length)return;const tk=_uTokens.pop();_rTokens.push(tk);_undoTk(tk);}
+function hostRedo(){if(!_rTokens.length)return;const tk=_rTokens.pop();_uTokens.push(tk);_redoTk(tk);}
+function _undoTk(tk){if(Array.isArray(tk)){for(let i=tk.length-1;i>=0;i--)_undoTk(tk[i]);}else if(tk==='ink')inkUndo();else if(tk==='pic')picUndo();else if(editor)editor.undo();}
+function _redoTk(tk){if(Array.isArray(tk)){for(const t of tk)_redoTk(t);}else if(tk==='ink')inkRedoFn();else if(tk==='pic')picRedo();else if(editor)editor.redo();}
+// the last n steps become one (a picture going in line / free is one Undo)
+function undoJoin(n){if(n>1&&_uTokens.length>=n)_uTokens.push(_uTokens.splice(-n,n));}
 function inkUndo(){if(!strokes.length)return;const s=strokes.pop();inkRedo.push(s);retireStroke(s);redrawInk();updatePad();}
 function inkRedoFn(){if(!inkRedo.length)return;const s=inkRedo.pop();s.born=Date.now();strokes.push(s);persistStroke(s);redrawInk();updatePad();}
 

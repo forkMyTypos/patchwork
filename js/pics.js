@@ -83,6 +83,7 @@ addEventListener('keydown',e=>{if(!picSel||/^(INPUT|TEXTAREA|SELECT)$/.test(e.ta
 function picToInline(){const p=picSel;if(!p||!editor)return;const el=_picEl.get(p),r=el.getBoundingClientRect();
   let pi=-1;noteEd.querySelectorAll(':scope > .line').forEach((l,i)=>{if(l.getBoundingClientRect().top<=r.top+4)pi=i;});   // goes on its own line under the paragraph it sits beside
   const pct=Math.max(10,Math.min(100,Math.round(p.w*inkW/Math.max(40,drawW-20)*100)));
-  const b=picSnap(p);picUnpick();p.del=Date.now();pics=pics.filter(q=>q!==p);savePic(p);picRecord(p,b);renderPics();editor.insertImageLine(pi,p.src,pct);}
+  const b=picSnap(p);picUnpick();p.del=Date.now();pics=pics.filter(q=>q!==p);savePic(p);picRecord(p,b);renderPics();editor.insertImageLine(pi,p.src,pct);undoJoin(2);
+  requestAnimationFrame(()=>{const w=noteEd.querySelector('[data-img-p="'+(pi+1)+'"][data-img-run]');if(w)editor.pickImage(w);});}   // (it stays picked, now in the text)
 // the editor's picture menu: an in-line picture becomes free, same place and size
-function inlineToFree(src,rect){addFreePicture(src,{clientX:rect.left,clientY:rect.top,w:rect.width});}
+async function inlineToFree(src,rect){const n=_uTokens.length;await addFreePicture(src,{clientX:rect.left,clientY:rect.top,w:rect.width});if(_uTokens.length===n+1)undoJoin(2);}   // (one Undo puts it back in the text)

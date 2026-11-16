@@ -199,7 +199,8 @@ function drawGutter(){
   ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
   // the page is narrower than the window: shade what lies beyond its right edge (not in a patch: you draw anywhere in it)
   const pe=sx(1)+12;if(pe<W-1&&!IS_PATCH){ctx.fillStyle='rgba(0,0,0,.32)';ctx.fillRect(pe,0,W-pe,H);ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(pe)+.5,0);ctx.lineTo(Math.round(pe)+.5,H);ctx.stroke();}
-  ctx.fillStyle='rgba(16,13,22,.86)';ctx.fillRect(0,0,gutter,H);
+  ctx.fillStyle='rgb(16,13,22)';   // (solid: a page scrolled sideways must not show through the margin)
+  ctx.fillRect(0,0,gutter,H);
   ctx.strokeStyle='#2a2233';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gutter-.5,0);ctx.lineTo(gutter-.5,H);ctx.stroke();
   const st=scrollTop(),tY=textMarkY(),labels=[];pinHits=[];
   // 1) session stamps (time labels)

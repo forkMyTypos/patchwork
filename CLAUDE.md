@@ -103,6 +103,8 @@
 
 ## Screen size / scaling / viewports / screens (owner's decisions, keep)
 
+- Since 2026-11-17 (owner): a page with NOTHING drawn on it (no ink, no free pictures / videos / patches) is a normal document: it
+  rewraps to fit where it is shown (`ww` follows the area in layout()). Everything below applies to pages with drawings.
 - CURRENT (option C, "never shrink, scroll sideways"): every page is shown at REAL SIZE everywhere (15px is 15px on any
   screen, teacher, student, class page, pop-ups, timeline). The page is `ww` wide; a narrower window scrolls/pans sideways,
   a wider one shades beyond the page. Nothing is scaled. Like a PDF/canvas bigger than the screen.

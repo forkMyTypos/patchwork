@@ -100,8 +100,9 @@ function layout(){
   gutter=(IS_PATCH&&!PATCH.focus)||(typeof IS_DUAL!=='undefined'&&IS_DUAL)?0:gutterW>0?Math.max(GUT_MIN,Math.min(340,gutterW)):(W<560?GUT_MIN:86);_paraStampCache=null;
   const fitW=Math.max(40,W-gutter-12);
   if(!IS_MINI&&!(typeof CLS!=='undefined'&&CLS.role)){try{localStorage.setItem('pw-ww',String(Math.round(fitW)));}catch(e){}}
-  // an empty page has nothing to keep in place yet: it takes the width of where it is shown (Two pages, Slides, a pop-up)
-  if(!IS_PATCH&&editor&&pid!=null&&pageWW&&fitW>=200&&Math.abs(pageWW-fitW)>1&&!editor.getPlainText().trim()&&!strokes.length&&!(typeof pics!=='undefined'&&pics.length)&&!noteEd.querySelector('.img-run')){pageWW=Math.round(fitW);db.pages.update(pid,{ww:pageWW}).catch(()=>{});}
+  // a page with nothing drawn on it (only text and in-line pictures) rewraps to fit where it is shown, like a normal document;
+  // a page with ink or free pictures keeps the width it was written at, so drawings stay on their words
+  if(!IS_PATCH&&editor&&pid!=null&&pageWW&&fitW>=200&&Math.abs(pageWW-fitW)>1&&!strokes.length&&!(typeof pics!=='undefined'&&pics.length)){pageWW=Math.round(fitW);db.pages.update(pid,{ww:pageWW}).catch(()=>{});}
   const k=IS_PATCH?PATCH.z:1;drawW=(pageWW||fitW)*k;   // (k = 1: real size; only a patch's page is zoomed)
   pad.style.width=(gutter+drawW+12)+'px';if(pageBgEl.parentNode!==pad)pad.prepend(pageBgEl);pageBgEl.className=pageBg?'bg-'+pageBg:'';pageBgEl.style.left=gutter+'px';pageBgEl.style.width=(drawW+12)+'px';wrap.style.overflowX=drawW>fitW+1?'auto':'hidden';
   dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
